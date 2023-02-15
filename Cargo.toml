@@ -1,0 +1,12 @@
+[package]
+name = "windows_search_artifact"
+version = "0.1.0"
+authors = ["Aon"]
+edition = "2018"
+
+[dependencies]
+ese_parser_lib = { path = "../ese_parser/lib" }
+sqlite = "0.30.4"
+
+simple-error = "*"
+chrono = "0.4"
