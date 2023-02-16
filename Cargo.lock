@@ -892,6 +892,8 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "ese_parser_lib",
+ "libc",
  "simple-error",
  "sqlite",
+ "sqlite3-sys",
 ]

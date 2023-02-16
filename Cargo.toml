@@ -10,3 +10,8 @@ sqlite = "0.30.4"
 
 simple-error = "*"
 chrono = "0.4"
+libc = "*"
+
+[dependencies.sqlite3-sys]
+version = "0.14"
+default-features = false
