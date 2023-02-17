@@ -1,4 +1,7 @@
+
 use chrono::prelude::*;
+
+use std::convert::TryInto;
 
 /// Converts a u64 filetime to a DateTime<Utc>
 pub fn get_date_time_from_filetime(filetime: u64) -> DateTime<Utc> {
@@ -56,4 +59,43 @@ pub fn from_utf16(val: &Vec<u8>) -> String {
         .map(|a| u16::from_ne_bytes([a[0], a[1]]))
         .collect();
     String::from_utf16_lossy(s.as_slice())
+}
+
+bitflags! {
+    struct file_attributes_flag: u32 {
+        const FILE_ATTRIBUTE_READONLY              = 0x00000001;
+        const FILE_ATTRIBUTE_HIDDEN                = 0x00000002;
+        const FILE_ATTRIBUTE_SYSTEM                = 0x00000004;
+        const FILE_ATTRIBUTE_DIRECTORY             = 0x00000010;
+        const FILE_ATTRIBUTE_ARCHIVE               = 0x00000020;
+        const FILE_ATTRIBUTE_DEVICE                = 0x00000040;
+        const FILE_ATTRIBUTE_NORMAL                = 0x00000080;
+        const FILE_ATTRIBUTE_TEMPORARY             = 0x00000100;
+        const FILE_ATTRIBUTE_SPARSE_FILE           = 0x00000200;
+        const FILE_ATTRIBUTE_REPARSE_POINT         = 0x00000400;
+        const FILE_ATTRIBUTE_COMPRESSED            = 0x00000800;
+        const FILE_ATTRIBUTE_OFFLINE               = 0x00001000;
+        const FILE_ATTRIBUTE_NOT_CONTENT_INDEXED   = 0x00002000;
+        const FILE_ATTRIBUTE_ENCRYPTED             = 0x00004000;
+        const FILE_ATTRIBUTE_INTEGRITY_STREAM      = 0x00008000;
+        const FILE_ATTRIBUTE_VIRTUAL               = 0x00010000;
+        const FILE_ATTRIBUTE_NO_SCRUB_DATA         = 0x00020000;
+        const FILE_ATTRIBUTE_EA                    = 0x00040000;
+        const FILE_ATTRIBUTE_PINNED                = 0x00080000;
+        const FILE_ATTRIBUTE_UNPINNED              = 0x00100000;
+        const FILE_ATTRIBUTE_RECALL_ON_OPEN        = 0x00040000;
+        const FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS = 0x00400000;
+    }
+}
+
+pub fn file_attributes_to_string(bytes: &Vec<u8>) -> String {
+    let at = if bytes.len() == 1 {
+        u8::from_le_bytes(bytes[..].try_into().unwrap()) as u32
+    } else  if bytes.len() == 2 {
+        u16::from_le_bytes(bytes[..].try_into().unwrap()) as u32
+    } else if bytes.len() == 4 {
+        u32::from_le_bytes(bytes[..].try_into().unwrap())
+    } else { return format!("{:?}", bytes) };
+    let f = unsafe { file_attributes_flag::from_bits_unchecked(at) };
+    format!("{:?}", f)
 }

@@ -4,6 +4,9 @@
     non_camel_case_types,
 )]
 
+#[macro_use]
+extern crate bitflags;
+
 use std::env;
 use std::fs;
 

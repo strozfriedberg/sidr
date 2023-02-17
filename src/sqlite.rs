@@ -20,7 +20,7 @@ fn sqlite_dump_file_record(workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>/
             "436" => println!("Size: {}", u64::from_bytes(&val)),
             "93" => println!("User: {}", String::from_utf8_lossy(&val).into_owned()),
             "303" => println!("Partial Content of File: {:02X?}", val), // TODO: decompress
-            "438" => println!("File Attributes: {:?}", val), // TODO: pretty print? E.g. FILE_ATTRIBUTE_READONLY, etc.
+            "438" => println!("File Attributes: {:?}", file_attributes_to_string(val)),
             // "ScopeID" => println!("{}: {}", col, i32::from_bytes(val)),
             // "DocumentID" => println!("{}: {}", col, i32::from_bytes(val)),
             // "SDID" => println!("{}: {}", col, i32::from_bytes(val)),

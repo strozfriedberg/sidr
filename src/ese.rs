@@ -210,7 +210,7 @@ fn ese_dump_file_record(workId: u32, h: &HashMap<String, Vec<u8>>) {
             "13F-System_Size" => println!("Size: {}", u64::from_bytes(&val)),
             "4396-System_FileOwner" => println!("User: {}", from_utf16(&val)),
             "4625-System_Search_AutoSummary" => println!("Partial Content of File: {:02X?}", val),
-            "14F-System_FileAttributes" => println!("File Attributes: {:#04X?}", u32::from_bytes(val)), // TODO: pretty print? E.g. FILE_ATTRIBUTE_READONLY, etc.
+            "14F-System_FileAttributes" => println!("File Attributes: {}", file_attributes_to_string(val)),
             // "ScopeID" => println!("{}: {}", col, i32::from_bytes(val)),
             // "DocumentID" => println!("{}: {}", col, i32::from_bytes(val)),
             // "SDID" => println!("{}: {}", col, i32::from_bytes(val)),
