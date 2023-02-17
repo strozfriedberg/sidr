@@ -71,6 +71,7 @@ field: LastRequestedRunTime
 field: StorageProviderId
 field: CalculatedPropertyFlags
  */
+/*
 fn dump_file_gather_ese(f: &Path)
     -> Result<HashMap<u32/*DocumentID UNSIGNEDLONG_INTEGER*/, HashMap<String, Vec<u8>>>/*rest fields*/, SimpleError>
 {
@@ -112,6 +113,7 @@ fn dump_file_gather_ese(f: &Path)
     }
     Ok(res)
 }
+*/
 
 pub fn ese_generate_report(f: &Path) -> Result<(), SimpleError> {
     let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
@@ -122,7 +124,7 @@ pub fn ese_generate_report(f: &Path) -> Result<(), SimpleError> {
         // empty table
         return Err(SimpleError::new(format!("Empty table {t}")));
     }
-    let gather_table_fields = dump_file_gather_ese(f)?;
+    //let gather_table_fields = dump_file_gather_ese(f)?;
 
     // prepare to query only selected columns
     let sel_cols = prepare_selected_cols(cols,
@@ -152,11 +154,11 @@ pub fn ese_generate_report(f: &Path) -> Result<(), SimpleError> {
                         Some(wId) => {
                             workId = wId;
                             // Join WorkID within SystemIndex_PropertyStore with DocumentID in SystemIndex_Gthr
-                            if let Some(gh) = gather_table_fields.get(&workId) {
-                                for (k, v) in gh {
-                                    h.insert(k.into(), v.clone());
-                                }
-                            }
+                            // if let Some(gh) = gather_table_fields.get(&workId) {
+                            //     for (k, v) in gh {
+                            //         h.insert(k.into(), v.clone());
+                            //     }
+                            // }
                         },
                         None => {}
                     },
@@ -198,22 +200,22 @@ fn ese_dump_file_record(workId: u32, h: &HashMap<String, Vec<u8>>) {
             "4396-System_FileOwner" => println!("User: {}", from_utf16(&val)),
             "4625-System_Search_AutoSummary" => println!("Partial Content of File: {:02X?}", val),
             "14F-System_FileAttributes" => println!("File Attributes: {:#04X?}", u32::from_bytes(val)), // TODO: pretty print? E.g. FILE_ATTRIBUTE_READONLY, etc.
-            "ScopeID" => println!("{}: {}", col, i32::from_bytes(val)),
-            "DocumentID" => println!("{}: {}", col, i32::from_bytes(val)),
-            "SDID" => println!("{}: {}", col, i32::from_bytes(val)),
-            "LastModified" => println!("{}: {}", col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "TransactionFlags" => println!("{}: {}", col, i32::from_bytes(val)),
-            "TransactionExtendedFlags" => println!("{}: {}", col, i32::from_bytes(val)),
-            "CrawlNumberCrawled" => println!("{}: {}", col, i32::from_bytes(val)),
-            "StartAddressIdentifier" => println!("{}: {}", col, u16::from_bytes(val)),
-            "Priority" => println!("{}: {}", col, u8::from_bytes(val)),
-            "FileName" => println!("{}: {}", col, from_utf16(val)),
-            "DeletedCount" => println!("{}: {}", col, i32::from_bytes(val)),
-            "RunTime" => println!("{}: {}", col, i32::from_bytes(val)),
-            "FailureUpdateAttempts" => println!("{}: {}", col, u8::from_bytes(val)),
-            "ClientID" => println!("{}: {}", col, u32::from_bytes(val)),
-            "LastRequestedRunTime" => println!("{}: {}", col, u32::from_bytes(val)),
-            "CalculatedPropertyFlags" => println!("{}: {}", col, u32::from_bytes(val)),
+            // "ScopeID" => println!("{}: {}", col, i32::from_bytes(val)),
+            // "DocumentID" => println!("{}: {}", col, i32::from_bytes(val)),
+            // "SDID" => println!("{}: {}", col, i32::from_bytes(val)),
+            // "LastModified" => println!("{}: {}", col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            // "TransactionFlags" => println!("{}: {}", col, i32::from_bytes(val)),
+            // "TransactionExtendedFlags" => println!("{}: {}", col, i32::from_bytes(val)),
+            // "CrawlNumberCrawled" => println!("{}: {}", col, i32::from_bytes(val)),
+            // "StartAddressIdentifier" => println!("{}: {}", col, u16::from_bytes(val)),
+            // "Priority" => println!("{}: {}", col, u8::from_bytes(val)),
+            // "FileName" => println!("{}: {}", col, from_utf16(val)),
+            // "DeletedCount" => println!("{}: {}", col, i32::from_bytes(val)),
+            // "RunTime" => println!("{}: {}", col, i32::from_bytes(val)),
+            // "FailureUpdateAttempts" => println!("{}: {}", col, u8::from_bytes(val)),
+            // "ClientID" => println!("{}: {}", col, u32::from_bytes(val)),
+            // "LastRequestedRunTime" => println!("{}: {}", col, u32::from_bytes(val)),
+            // "CalculatedPropertyFlags" => println!("{}: {}", col, u32::from_bytes(val)),
             _ => {
                 /*
                 field: UserData

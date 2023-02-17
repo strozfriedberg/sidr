@@ -4,15 +4,13 @@ use std::collections::HashMap;
 
 use crate::utils::*;
 
-extern crate sqlite3_sys as ffi;
-
 use ese_parser_lib::ese_parser::FromBytes;
 use sqlite::State;
 
 macro_rules! map_err(($result:expr) => ($result.map_err(|e| SimpleError::new(format!("{}", e)))));
 
 fn sqlite_dump_file_record(workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>/*Value*/>) {
-    println!("File Report for WorkId {}", workId);
+    println!("File Report for WorkId/DocumentId {}", workId);
     for (col, val) in h {
         match col.as_str() {
             "39" => println!("Full Path: {}", String::from_utf8_lossy(&val).into_owned()),
@@ -107,6 +105,9 @@ fn sqlite_activity_history_record(workId: u32, h: &HashMap<String/*ColumnId*/, V
     println!("");
 }
 
+/*
+extern crate sqlite3_sys as ffi;
+
 // get all fields from SystemIndex_Gthr table
 fn dump_file_gather_sqlite(f: &Path)
     -> Result<HashMap<u32/*DocumentID UNSIGNEDLONG_INTEGER*/, HashMap<String, Vec<u8>>>/*rest fields*/, SimpleError>
@@ -150,6 +151,7 @@ fn dump_file_gather_sqlite(f: &Path)
     }
     Ok(res)
 }
+*/
 
 // This report will provide information about all the files that have been indexed by Windows search,
 // including the file name, path, and creation/modification dates.
@@ -159,7 +161,7 @@ pub fn sqlite_generate_report(f: &Path) -> Result<(), SimpleError> {
     let query = "select * from SystemIndex_1_PropertyStore";
     let mut s = map_err!(c.prepare(query))?;
 
-    let gather_table_fields = dump_file_gather_sqlite(f)?;
+    //let gather_table_fields = dump_file_gather_sqlite(f)?;
 
     let mut h = HashMap::new();
     let mut workId_current = 0;
@@ -172,11 +174,11 @@ pub fn sqlite_generate_report(f: &Path) -> Result<(), SimpleError> {
                 sqlite_activity_history_record(workId_current, &h);
                 // only for File Report
                 // Join WorkID within SystemIndex_1_PropertyStore with DocumentID in SystemIndex_Gthr
-                if let Some(gh) = gather_table_fields.get(&workId_current) {
-                    for (k, v) in gh {
-                        h.insert(k.into(), v.clone());
-                    }
-                }
+                // if let Some(gh) = gather_table_fields.get(&workId_current) {
+                //     for (k, v) in gh {
+                //         h.insert(k.into(), v.clone());
+                //     }
+                // }
                 sqlite_dump_file_record(workId_current, &h);
                 h.clear();
             }
