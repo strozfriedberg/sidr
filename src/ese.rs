@@ -176,9 +176,9 @@ pub fn ese_generate_report(f: &Path) -> Result<(), SimpleError> {
                 }
             }
         }
-        ese_dump_file_record(workId, &h);
-        ese_IE_history_record(workId, &h);
-        ese_activity_history_record(workId, &h);
+        if !ese_IE_history_record(workId, &h) && !ese_activity_history_record(workId, &h) {
+            ese_dump_file_record(workId, &h);
+        }
         h.clear();
 
         if !jdb.move_row(table_id, ESE_MoveNext)? {
@@ -189,6 +189,17 @@ pub fn ese_generate_report(f: &Path) -> Result<(), SimpleError> {
 }
 
 fn ese_dump_file_record(workId: u32, h: &HashMap<String, Vec<u8>>) {
+    // let item_type = h.get_key_value("4447-System_ItemPathDisplay");
+    // if item_type.is_none() {
+    //     return ;
+    // }
+    // if let Some((_, val)) = item_type {
+    //     let v = from_utf16(val);
+    //     if !v[1..].starts_with(":\\") {
+    //         eprintln!("workId {} Full Path {}", workId, v);
+    //         //return ;
+    //     }
+    // }
     println!("File Report for WorkId {}", workId);
     for (col, val) in h {
         match col.as_str() {
@@ -232,33 +243,40 @@ fn ese_dump_file_record(workId: u32, h: &HashMap<String, Vec<u8>>) {
     println!("");
 }
 
-fn ese_IE_history_record(workId: u32, h: &HashMap<String, Vec<u8>>) {
-    println!("IE/Edge History Report for WorkId {}", workId);
-    for (col, val) in h {
-        match col.as_str() {
-            "4442-System_ItemName" => println!("URL: {}", from_utf16(val)),
-            "4447-System_ItemPathDisplay" => println!("URL(ItemPathDisplay): {}", from_utf16(val)),
-            "15F-System_DateModified" => println!("Modified time: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "33-System_ItemUrl" => println!("Full Path of the URL: {}", from_utf16(val)),
-            "4468-System_Link_TargetUrl" => println!("Full Path of the URL (TargetUrl): {}", from_utf16(val)),
-            "4438-System_ItemDate" => println!("System Time of the visit: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "4470-System_Link_TargetUrlPath" => println!("TargetUrl: {}", from_utf16(val)),
-            _ => {}
+fn ese_IE_history_record(workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
+    if let Some(url_data) = h.get("33-System_ItemUrl") {
+        let url = from_utf16(url_data);
+        if url.starts_with("iehistory://") {
+            println!("IE/Edge History Report for WorkId {}", workId);
+            for (col, val) in h {
+                match col.as_str() {
+                    "4442-System_ItemName" => println!("URL: {}", from_utf16(val)),
+                    "4447-System_ItemPathDisplay" => println!("URL(ItemPathDisplay): {}", from_utf16(val)),
+                    "15F-System_DateModified" => println!("Modified time: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+                    "33-System_ItemUrl" => println!("Full Path of the URL: {}", url),
+                    "4468-System_Link_TargetUrl" => println!("Full Path of the URL (TargetUrl): {}", from_utf16(val)),
+                    "4438-System_ItemDate" => println!("System Time of the visit: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+                    "4470-System_Link_TargetUrlPath" => println!("TargetUrl: {}", from_utf16(val)),
+                    _ => {}
+                }
+            }
+            println!("");
+            return true;
         }
     }
-    println!("");
+    false
 }
 
-fn ese_activity_history_record(workId: u32, h: &HashMap<String, Vec<u8>>) {
+fn ese_activity_history_record(workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
     // record only if "4450-System_ItemType" == "ActivityHistoryItem"
     let item_type = h.get_key_value("4450-System_ItemType");
     if item_type.is_none() {
-        return;
+        return false;
     }
     if let Some((_, val)) = item_type {
         let v = from_utf16(val);
         if v != "ActivityHistoryItem" {
-            return;
+            return false;
         }
     }
     println!("Activity History Report for WorkId {}", workId);
@@ -284,4 +302,5 @@ fn ese_activity_history_record(workId: u32, h: &HashMap<String, Vec<u8>>) {
         }
     }
     println!("");
+    true
 }
