@@ -53,7 +53,18 @@ fn sqlite_dump_file_record(workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>/
     println!("");
 }
 
-fn sqlite_IE_history_record(workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>/*Value*/>) {
+fn sqlite_IE_history_record(workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>/*Value*/>) -> bool {
+    // record only if 39 starts with iehistory://
+    let item_type = h.get_key_value("39");
+    if item_type.is_none() {
+        return false;
+    }
+    if let Some((_, val)) = item_type {
+        let v = String::from_utf8_lossy(&val).into_owned();
+        if !v.starts_with("winrt://") {
+            return false;
+        }
+    }
     println!("IE/Edge History Report for WorkId {}", workId);
     for (col, val) in h {
         match col.as_str() {
@@ -66,18 +77,19 @@ fn sqlite_IE_history_record(workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>
         }
     }
     println!("");
+    true
 }
 
-fn sqlite_activity_history_record(workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>/*Value*/>) {
+fn sqlite_activity_history_record(workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>/*Value*/>) -> bool {
     // record only if 567 == "ActivityHistoryItem"
     let item_type = h.get_key_value("567");
     if item_type.is_none() {
-        return;
+        return false;
     }
     if let Some((_, val)) = item_type {
-        let v = from_utf16(val);
+        let v = String::from_utf8_lossy(&val).into_owned();
         if v != "ActivityHistoryItem" {
-            return;
+            return false;
         }
     }
     println!("Activity History Report for WorkId {}", workId);
@@ -103,6 +115,7 @@ fn sqlite_activity_history_record(workId: u32, h: &HashMap<String/*ColumnId*/, V
         }
     }
     println!("");
+    true
 }
 
 /*
@@ -170,16 +183,16 @@ pub fn sqlite_generate_report(f: &Path) -> Result<(), SimpleError> {
         if workId_current != workId {
             // new WorkId, handle all collected fields
             if !h.is_empty() {
-                sqlite_IE_history_record(workId_current, &h);
-                sqlite_activity_history_record(workId_current, &h);
-                // only for File Report
-                // Join WorkID within SystemIndex_1_PropertyStore with DocumentID in SystemIndex_Gthr
-                // if let Some(gh) = gather_table_fields.get(&workId_current) {
-                //     for (k, v) in gh {
-                //         h.insert(k.into(), v.clone());
-                //     }
-                // }
-                sqlite_dump_file_record(workId_current, &h);
+                if !sqlite_activity_history_record(workId_current, &h) && !sqlite_IE_history_record(workId_current, &h) {
+                    // only for File Report
+                    // Join WorkID within SystemIndex_1_PropertyStore with DocumentID in SystemIndex_Gthr
+                    // if let Some(gh) = gather_table_fields.get(&workId_current) {
+                    //     for (k, v) in gh {
+                    //         h.insert(k.into(), v.clone());
+                    //     }
+                    // }
+                    sqlite_dump_file_record(workId_current, &h);
+                }
                 h.clear();
             }
             workId_current = workId;
