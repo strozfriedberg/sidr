@@ -1,5 +1,1 @@
 - decompress Partial Content of File (if available) in File report
-- distinguish records?
-- json/csv output
-- file attr pretty print? E.g. FILE_ATTRIBUTE_READONLY, etc.
-- T::from_bytes() to read less sizeof(T)

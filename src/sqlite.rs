@@ -2,121 +2,14 @@ use simple_error::SimpleError;
 use std::path::Path;
 use std::collections::HashMap;
 
+use crate::report::*;
 use crate::utils::*;
+use crate::fields::*;
 
 use ese_parser_lib::ese_parser::FromBytes;
 use sqlite::State;
 
 macro_rules! map_err(($result:expr) => ($result.map_err(|e| SimpleError::new(format!("{}", e)))));
-
-fn sqlite_dump_file_record(workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>/*Value*/>) {
-    println!("File Report for WorkId/DocumentId {}", workId);
-    for (col, val) in h {
-        match col.as_str() {
-            "39" => println!("Full Path: {}", String::from_utf8_lossy(&val).into_owned()),
-            "441" => println!("Date Modified: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "445" => println!("Date Created: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "449" => println!("Date Accessed: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "436" => println!("Size: {}", u64::from_bytes(&val)),
-            "93" => println!("User: {}", String::from_utf8_lossy(&val).into_owned()),
-            "303" => println!("Partial Content of File: {:02X?}", val), // TODO: decompress
-            "438" => println!("File Attributes: {:?}", file_attributes_to_string(val)),
-            // "ScopeID" => println!("{}: {}", col, i32::from_bytes(val)),
-            // "DocumentID" => println!("{}: {}", col, i32::from_bytes(val)),
-            // "SDID" => println!("{}: {}", col, i32::from_bytes(val)),
-            // "LastModified" => println!("{}: {}", col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            // "TransactionFlags" => println!("{}: {}", col, i32::from_bytes(val)),
-            // "TransactionExtendedFlags" => println!("{}: {}", col, i32::from_bytes(val)),
-            // "CrawlNumberCrawled" => println!("{}: {}", col, i32::from_bytes(val)),
-            // "StartAddressIdentifier" => println!("{}: {}", col, u16::from_bytes(val)),
-            // "Priority" => println!("{}: {}", col, u8::from_bytes(val)),
-            // "FileName" => println!("{}: {}", col, from_utf16(val)),
-            // "DeletedCount" => println!("{}: {}", col, i32::from_bytes(val)),
-            // "RunTime" => println!("{}: {}", col, i32::from_bytes(val)),
-            // "FailureUpdateAttempts" => println!("{}: {}", col, u8::from_bytes(val)),
-            // "ClientID" => println!("{}: {}", col, u32::from_bytes(val)),
-            // "LastRequestedRunTime" => println!("{}: {}", col, u32::from_bytes(val)),
-            // "CalculatedPropertyFlags" => println!("{}: {}", col, u32::from_bytes(val)),
-            _ => {
-                /*
-                field: UserData
-                field: AppOwnerId
-                field: RequiredSIDs
-                field: StorageProviderId
-                */
-                if col.chars().nth(0).unwrap().is_alphabetic() {
-                    println!("{}: {:?}", col, val);
-                }
-            }
-        }
-    }
-    println!("");
-}
-
-fn sqlite_IE_history_record(workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>/*Value*/>) -> bool {
-    // record only if 39 starts with iehistory://
-    let item_type = h.get_key_value("39");
-    if item_type.is_none() {
-        return false;
-    }
-    if let Some((_, val)) = item_type {
-        let v = String::from_utf8_lossy(&val).into_owned();
-        if !v.starts_with("winrt://") {
-            return false;
-        }
-    }
-    println!("IE/Edge History Report for WorkId {}", workId);
-    for (col, val) in h {
-        match col.as_str() {
-            "318" => println!("URL: {}", String::from_utf8_lossy(&val).into_owned()),
-            "39" => println!("Full Path of the URL: {}", String::from_utf8_lossy(&val).into_owned()),
-            "308" => println!("System Time of the visit: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "445" => println!("Date Created (For Win 11): {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "414" => println!("Type of activity (for Win 11): {:?}", String::from_utf8_lossy(&val).into_owned()),
-            _ => {}
-        }
-    }
-    println!("");
-    true
-}
-
-fn sqlite_activity_history_record(workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>/*Value*/>) -> bool {
-    // record only if 567 == "ActivityHistoryItem"
-    let item_type = h.get_key_value("567");
-    if item_type.is_none() {
-        return false;
-    }
-    if let Some((_, val)) = item_type {
-        let v = String::from_utf8_lossy(&val).into_owned();
-        if v != "ActivityHistoryItem" {
-            return false;
-        }
-    }
-    println!("Activity History Report for WorkId {}", workId);
-    for (col, val) in h {
-        match col.as_str() {
-            "567" => println!("ActivityHistory Identifier: {}", String::from_utf8_lossy(&val).into_owned()),
-            "432" => println!("ActivityHistory FileName: {}", String::from_utf8_lossy(&val).into_owned()),
-            "39" => println!("ActivityHistory FullPath: {}", String::from_utf8_lossy(&val).into_owned()),
-            "346" => println!("Activity Start Timestamp: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "341" => println!("Activity End Timestamp: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "353" => println!("Local Start Time: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "355" => println!("Local End Time: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "297" => println!("Application Name: {}", String::from_utf8_lossy(&val).into_owned()),
-            "331" => println!("Application GUID: {}", String::from_utf8_lossy(&val).into_owned()),
-            "315" => println!("Associated File: {}", String::from_utf8_lossy(&val).into_owned()),
-            "311" => {
-                let v = String::from_utf8_lossy(&val).into_owned();
-                println!("FullPath of the Assocaited File: {}", v);
-                println!("Volumd ID: {}", find_guid(&v, "VolumeId="));
-                println!("Object ID: {}", find_guid(&v, "ObjectId="));
-            },
-            _ => {}
-        }
-    }
-    println!("");
-    true
-}
 
 /*
 extern crate sqlite3_sys as ffi;
@@ -168,13 +61,51 @@ fn dump_file_gather_sqlite(f: &Path)
 
 // This report will provide information about all the files that have been indexed by Windows search,
 // including the file name, path, and creation/modification dates.
-pub fn sqlite_generate_report(f: &Path) -> Result<(), SimpleError> {
+pub fn sqlite_generate_report(f: &Path, format: &ReportFormat) -> Result<(), SimpleError> {
     let c = map_err!(sqlite::Connection::open_with_flags(f,
         sqlite::OpenFlags::new().set_read_only()))?;
     let query = "select * from SystemIndex_1_PropertyStore";
     let mut s = map_err!(c.prepare(query))?;
 
     //let gather_table_fields = dump_file_gather_sqlite(f)?;
+
+    let (file_rep_path, file_rep) = make_report_format(f, "file-report", format)?;
+    // declare all headers (using in csv report)
+    file_rep.set_field(WORKID);
+    file_rep.set_field(FULL_PATH);
+    file_rep.set_field(DATE_MODIFIED);
+    file_rep.set_field(DATE_CREATED);
+    file_rep.set_field(DATE_ACCESSED);
+    file_rep.set_field(SIZE);
+    file_rep.set_field(USER);
+    file_rep.set_field(CONTENT);
+    file_rep.set_field(FILE_ATTRIBUTES);
+
+    let (ie_rep_path, ie_rep) = make_report_format(f, "ie-report", format)?;
+    ie_rep.set_field(WORKID);
+    ie_rep.set_field(URL);
+    ie_rep.set_field(FULL_PATH_URL);
+    ie_rep.set_field(SYSTEM_TIME_OF_THE_VISIT);
+    ie_rep.set_field(DATE_CREATED);
+    ie_rep.set_field(TYPE_OF_ACTIVITY);
+
+    let (act_rep_path,  act_rep) = make_report_format(f, "act-report", format)?;
+    act_rep.set_field(WORKID);
+    act_rep.set_field(ACTIVITYHISTORY_IDENTIFIER);
+    act_rep.set_field(ACTIVITYHISTORY_FILENAME);
+    act_rep.set_field(ACTIVITYHISTORY_FULLPATH);
+    act_rep.set_field(ACTIVITY_START_TIMESTAMP);
+    act_rep.set_field(ACTIVITY_END_TIMESTAMP);
+    act_rep.set_field(LOCAL_START_TIME);
+    act_rep.set_field(LOCAL_END_TIME);
+    act_rep.set_field(APPLICATION_NAME);
+    act_rep.set_field(APPLICATION_GUID);
+    act_rep.set_field(ASSOCIATED_FILE);
+    act_rep.set_field(VOLUME_ID);
+    act_rep.set_field(OBJECT_ID);
+    act_rep.set_field(FULLPATH_ASSOCIATED_FILE);
+
+    eprintln!("{}\n{}\n{}\n", file_rep_path.to_string_lossy(), ie_rep_path.to_string_lossy(), act_rep_path.to_string_lossy());
 
     let mut h = HashMap::new();
     let mut workId_current = 0;
@@ -183,7 +114,7 @@ pub fn sqlite_generate_report(f: &Path) -> Result<(), SimpleError> {
         if workId_current != workId {
             // new WorkId, handle all collected fields
             if !h.is_empty() {
-                if !sqlite_activity_history_record(workId_current, &h) && !sqlite_IE_history_record(workId_current, &h) {
+                if !sqlite_activity_history_record(&act_rep, workId_current, &h) && !sqlite_IE_history_record(&ie_rep, workId_current, &h) {
                     // only for File Report
                     // Join WorkID within SystemIndex_1_PropertyStore with DocumentID in SystemIndex_Gthr
                     // if let Some(gh) = gather_table_fields.get(&workId_current) {
@@ -191,7 +122,7 @@ pub fn sqlite_generate_report(f: &Path) -> Result<(), SimpleError> {
                     //         h.insert(k.into(), v.clone());
                     //     }
                     // }
-                    sqlite_dump_file_record(workId_current, &h);
+                    sqlite_dump_file_record(&file_rep, workId_current, &h);
                 }
                 h.clear();
             }
@@ -202,4 +133,116 @@ pub fn sqlite_generate_report(f: &Path) -> Result<(), SimpleError> {
         h.insert(columnId.to_string(), value);
     }
     Ok(())
+}
+
+// File Report
+fn sqlite_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>/*Value*/>) {
+    r.new_record();
+    r.int_val(WORKID, workId as u64);
+    for (col, val) in h {
+        match col.as_str() {
+            "39" => r.str_val(FULL_PATH, String::from_utf8_lossy(&val).into_owned()),
+            "441" => r.str_val(DATE_MODIFIED, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "445" => r.str_val(DATE_CREATED, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "449" => r.str_val(DATE_ACCESSED, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "436" => r.int_val(SIZE, u64::from_bytes(&val)),
+            "93" => r.str_val(USER, String::from_utf8_lossy(&val).into_owned()),
+            "303" => r.str_val(CONTENT, format!("{:02X?}", val)), // TODO: decompress
+            "438" => r.str_val(FILE_ATTRIBUTES, file_attributes_to_string(val)),
+            // "ScopeID" => println!("{}", col, i32::from_bytes(val)),
+            // "DocumentID" => println!("{}", col, i32::from_bytes(val)),
+            // "SDID" => println!("{}", col, i32::from_bytes(val)),
+            // "LastModified" => println!("{}", col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            // "TransactionFlags" => println!("{}", col, i32::from_bytes(val)),
+            // "TransactionExtendedFlags" => println!("{}", col, i32::from_bytes(val)),
+            // "CrawlNumberCrawled" => println!("{}", col, i32::from_bytes(val)),
+            // "StartAddressIdentifier" => println!("{}", col, u16::from_bytes(val)),
+            // "Priority" => println!("{}", col, u8::from_bytes(val)),
+            // "FileName" => println!("{}", col, from_utf16(val)),
+            // "DeletedCount" => println!("{}", col, i32::from_bytes(val)),
+            // "RunTime" => println!("{}", col, i32::from_bytes(val)),
+            // "FailureUpdateAttempts" => println!("{}", col, u8::from_bytes(val)),
+            // "ClientID" => println!("{}", col, u32::from_bytes(val)),
+            // "LastRequestedRunTime" => println!("{}", col, u32::from_bytes(val)),
+            // "CalculatedPropertyFlags" => println!("{}", col, u32::from_bytes(val)),
+            _ => {
+                // /*
+                // field: UserData
+                // field: AppOwnerId
+                // field: RequiredSIDs
+                // field: StorageProviderId
+                // */
+                // if col.chars().nth(0).unwrap().is_alphabetic() {
+                //     r.str_val(col, format!("{:?}", val));
+                // }
+            }
+        }
+    }
+}
+
+//IE/Edge History Report
+fn sqlite_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>/*Value*/>) -> bool {
+    // record only if 39 starts with iehistory://
+    let item_type = h.get_key_value("39");
+    if item_type.is_none() {
+        return false;
+    }
+    if let Some((_, val)) = item_type {
+        let v = String::from_utf8_lossy(&val).into_owned();
+        if !v.starts_with("winrt://") {
+            return false;
+        }
+    }
+    r.new_record();
+    r.int_val(WORKID, workId as u64);
+    for (col, val) in h {
+        match col.as_str() {
+            "318" => r.str_val(URL, String::from_utf8_lossy(&val).into_owned()),
+            "39" => r.str_val(FULL_PATH_URL, String::from_utf8_lossy(&val).into_owned()),
+            "308" => r.str_val(SYSTEM_TIME_OF_THE_VISIT, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "445" => r.str_val(DATE_CREATED, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "414" => r.str_val(TYPE_OF_ACTIVITY, String::from_utf8_lossy(&val).into_owned()),
+            _ => {}
+        }
+    }
+    true
+}
+
+// Activity History Report
+fn sqlite_activity_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>/*Value*/>) -> bool {
+    // record only if 567 == "ActivityHistoryItem"
+    let item_type = h.get_key_value("567");
+    if item_type.is_none() {
+        return false;
+    }
+    if let Some((_, val)) = item_type {
+        let v = String::from_utf8_lossy(&val).into_owned();
+        if v != "ActivityHistoryItem" {
+            return false;
+        }
+    }
+    r.new_record();
+    r.int_val(WORKID, workId as u64);
+    for (col, val) in h {
+        match col.as_str() {
+            "567" => r.str_val(ACTIVITYHISTORY_IDENTIFIER, String::from_utf8_lossy(&val).into_owned()),
+            "432" => r.str_val(ACTIVITYHISTORY_FILENAME, String::from_utf8_lossy(&val).into_owned()),
+            "39" => r.str_val(ACTIVITYHISTORY_FULLPATH, String::from_utf8_lossy(&val).into_owned()),
+            "346" => r.str_val(ACTIVITY_START_TIMESTAMP, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "341" => r.str_val(ACTIVITY_END_TIMESTAMP, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "353" => r.str_val(LOCAL_START_TIME, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "355" => r.str_val(LOCAL_END_TIME, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "297" => r.str_val(APPLICATION_NAME, String::from_utf8_lossy(&val).into_owned()),
+            "331" => r.str_val(APPLICATION_GUID, String::from_utf8_lossy(&val).into_owned()),
+            "315" => r.str_val(ASSOCIATED_FILE, String::from_utf8_lossy(&val).into_owned()),
+            "311" => {
+                let v = String::from_utf8_lossy(&val).into_owned();
+                r.str_val(VOLUME_ID, find_guid(&v, "VolumeId="));
+                r.str_val(OBJECT_ID, find_guid(&v, "ObjectId="));
+                r.str_val(FULLPATH_ASSOCIATED_FILE, v);
+            },
+            _ => {}
+        }
+    }
+    true
 }

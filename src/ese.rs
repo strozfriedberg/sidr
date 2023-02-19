@@ -3,7 +3,9 @@ use simple_error::SimpleError;
 use std::path::Path;
 use std::collections::HashMap;
 
+use crate::report::*;
 use crate::utils::*;
+use crate::fields::*;
 
 use ese_parser_lib::ese_trait::*;
 use ese_parser_lib::ese_parser::EseParser;
@@ -115,7 +117,7 @@ fn dump_file_gather_ese(f: &Path)
 }
 */
 
-pub fn ese_generate_report(f: &Path) -> Result<(), SimpleError> {
+pub fn ese_generate_report(f: &Path, format: &ReportFormat) -> Result<(), SimpleError> {
     let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
     let t = "SystemIndex_PropertyStore";
     let table_id = jdb.open_table(t)?;
@@ -125,6 +127,46 @@ pub fn ese_generate_report(f: &Path) -> Result<(), SimpleError> {
         return Err(SimpleError::new(format!("Empty table {t}")));
     }
     //let gather_table_fields = dump_file_gather_ese(f)?;
+
+    let (file_rep_path, file_rep) = make_report_format(f, "file-report", format)?;
+    // declare all headers (using in csv report)
+    file_rep.set_field(WORKID);
+    file_rep.set_field(FULL_PATH);
+    file_rep.set_field(DATE_MODIFIED);
+    file_rep.set_field(DATE_CREATED);
+    file_rep.set_field(DATE_ACCESSED);
+    file_rep.set_field(SIZE);
+    file_rep.set_field(USER);
+    file_rep.set_field(CONTENT);
+    file_rep.set_field(FILE_ATTRIBUTES);
+
+    let (ie_rep_path, ie_rep) = make_report_format(f, "ie-report", format)?;
+    ie_rep.set_field(WORKID);
+    ie_rep.set_field(URL);
+    ie_rep.set_field(URL_ITEMPATHDISPLAY);
+    ie_rep.set_field(MODIFIED_TIME);
+    ie_rep.set_field(FULL_PATH_URL);
+    ie_rep.set_field(FULL_PATH_TARGETURL);
+    ie_rep.set_field(SYSTEM_TIME_OF_THE_VISIT);
+    ie_rep.set_field(TARGETURL);
+
+    let (act_rep_path,  act_rep) = make_report_format(f, "act-report", format)?;
+    act_rep.set_field(WORKID);
+    act_rep.set_field(ACTIVITYHISTORY_IDENTIFIER);
+    act_rep.set_field(ACTIVITYHISTORY_FILENAME);
+    act_rep.set_field(ACTIVITYHISTORY_FULLPATH);
+    act_rep.set_field(ACTIVITY_START_TIMESTAMP);
+    act_rep.set_field(ACTIVITY_END_TIMESTAMP);
+    act_rep.set_field(LOCAL_START_TIME);
+    act_rep.set_field(LOCAL_END_TIME);
+    act_rep.set_field(APPLICATION_NAME);
+    act_rep.set_field(APPLICATION_GUID);
+    act_rep.set_field(ASSOCIATED_FILE);
+    act_rep.set_field(VOLUME_ID);
+    act_rep.set_field(OBJECT_ID);
+    act_rep.set_field(FULLPATH_ASSOCIATED_FILE);
+
+    eprintln!("{}\n{}\n{}\n", file_rep_path.to_string_lossy(), ie_rep_path.to_string_lossy(), act_rep_path.to_string_lossy());
 
     // prepare to query only selected columns
     let sel_cols = prepare_selected_cols(cols,
@@ -176,8 +218,8 @@ pub fn ese_generate_report(f: &Path) -> Result<(), SimpleError> {
                 }
             }
         }
-        if !ese_IE_history_record(workId, &h) && !ese_activity_history_record(workId, &h) {
-            ese_dump_file_record(workId, &h);
+        if !ese_IE_history_record(&ie_rep, workId, &h) && !ese_activity_history_record(&act_rep, workId, &h) {
+            ese_dump_file_record(&file_rep, workId, &h);
         }
         h.clear();
 
@@ -188,7 +230,8 @@ pub fn ese_generate_report(f: &Path) -> Result<(), SimpleError> {
     Ok(())
 }
 
-fn ese_dump_file_record(workId: u32, h: &HashMap<String, Vec<u8>>) {
+// File Report
+fn ese_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Vec<u8>>) {
     // let item_type = h.get_key_value("4447-System_ItemPathDisplay");
     // if item_type.is_none() {
     //     return ;
@@ -200,17 +243,19 @@ fn ese_dump_file_record(workId: u32, h: &HashMap<String, Vec<u8>>) {
     //         //return ;
     //     }
     // }
-    println!("File Report for WorkId {}", workId);
+
+    r.new_record();
+    r.int_val(WORKID, workId as u64);
     for (col, val) in h {
         match col.as_str() {
-            "4447-System_ItemPathDisplay" => println!("Full Path: {}", from_utf16(val)),
-            "15F-System_DateModified" => println!("Date Modified: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "16F-System_DateCreated" => println!("Date Created: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "17F-System_DateAccessed" => println!("Date Accessed: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "13F-System_Size" => println!("Size: {}", u64::from_bytes(&val)),
-            "4396-System_FileOwner" => println!("User: {}", from_utf16(&val)),
-            "4625-System_Search_AutoSummary" => println!("Partial Content of File: {:02X?}", val),
-            "14F-System_FileAttributes" => println!("File Attributes: {}", file_attributes_to_string(val)),
+            "4447-System_ItemPathDisplay" => r.str_val(FULL_PATH, from_utf16(val)),
+            "15F-System_DateModified" => r.str_val(DATE_MODIFIED, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "16F-System_DateCreated" => r.str_val(DATE_CREATED, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "17F-System_DateAccessed" => r.str_val(DATE_ACCESSED, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "13F-System_Size" => r.int_val(SIZE, u64::from_bytes(&val)),
+            "4396-System_FileOwner" => r.str_val(USER, from_utf16(&val)),
+            "4625-System_Search_AutoSummary" => r.str_val(CONTENT, format!("{:02X?}", val)), // TODO: decompress
+            "14F-System_FileAttributes" => r.str_val(FILE_ATTRIBUTES, file_attributes_to_string(val)),
             // "ScopeID" => println!("{}: {}", col, i32::from_bytes(val)),
             // "DocumentID" => println!("{}: {}", col, i32::from_bytes(val)),
             // "SDID" => println!("{}: {}", col, i32::from_bytes(val)),
@@ -228,46 +273,47 @@ fn ese_dump_file_record(workId: u32, h: &HashMap<String, Vec<u8>>) {
             // "LastRequestedRunTime" => println!("{}: {}", col, u32::from_bytes(val)),
             // "CalculatedPropertyFlags" => println!("{}: {}", col, u32::from_bytes(val)),
             _ => {
-                /*
-                field: UserData
-                field: AppOwnerId
-                field: RequiredSIDs
-                field: StorageProviderId
-                */
-                if col.chars().nth(0).unwrap().is_alphabetic() {
-                    println!("{}: {:?}", col, val);
-                }
+                // /*
+                // field: UserData
+                // field: AppOwnerId
+                // field: RequiredSIDs
+                // field: StorageProviderId
+                // */
+                // if col.chars().nth(0).unwrap().is_alphabetic() {
+                //     r.str_val(col, format!("{:?}", val));
+                // }
             }
         }
     }
-    println!("");
 }
 
-fn ese_IE_history_record(workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
+// IE/Edge History Report
+fn ese_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
     if let Some(url_data) = h.get("33-System_ItemUrl") {
         let url = from_utf16(url_data);
         if url.starts_with("iehistory://") {
-            println!("IE/Edge History Report for WorkId {}", workId);
+            r.new_record();
+            r.int_val(WORKID, workId as u64);
             for (col, val) in h {
                 match col.as_str() {
-                    "4442-System_ItemName" => println!("URL: {}", from_utf16(val)),
-                    "4447-System_ItemPathDisplay" => println!("URL(ItemPathDisplay): {}", from_utf16(val)),
-                    "15F-System_DateModified" => println!("Modified time: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-                    "33-System_ItemUrl" => println!("Full Path of the URL: {}", url),
-                    "4468-System_Link_TargetUrl" => println!("Full Path of the URL (TargetUrl): {}", from_utf16(val)),
-                    "4438-System_ItemDate" => println!("System Time of the visit: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-                    "4470-System_Link_TargetUrlPath" => println!("TargetUrl: {}", from_utf16(val)),
+                    "4442-System_ItemName" => r.str_val(URL, from_utf16(val)),
+                    "4447-System_ItemPathDisplay" => r.str_val(URL_ITEMPATHDISPLAY, from_utf16(val)),
+                    "15F-System_DateModified" => r.str_val(MODIFIED_TIME, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+                    "33-System_ItemUrl" => r.str_val(FULL_PATH_URL, url.clone()),
+                    "4468-System_Link_TargetUrl" => r.str_val(FULL_PATH_TARGETURL, from_utf16(val)),
+                    "4438-System_ItemDate" => r.str_val(SYSTEM_TIME_OF_THE_VISIT, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+                    "4470-System_Link_TargetUrlPath" => r.str_val(TARGETURL, from_utf16(val)),
                     _ => {}
                 }
             }
-            println!("");
             return true;
         }
     }
     false
 }
 
-fn ese_activity_history_record(workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
+// Activity History Report
+fn ese_activity_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
     // record only if "4450-System_ItemType" == "ActivityHistoryItem"
     let item_type = h.get_key_value("4450-System_ItemType");
     if item_type.is_none() {
@@ -279,28 +325,28 @@ fn ese_activity_history_record(workId: u32, h: &HashMap<String, Vec<u8>>) -> boo
             return false;
         }
     }
-    println!("Activity History Report for WorkId {}", workId);
+    r.new_record();
+    r.int_val(WORKID, workId as u64);
     for (col, val) in h {
         match col.as_str() {
-            "4450-System_ItemType" => println!("ActivityHistory Identifier: {}", from_utf16(val)),
-            "4443-System_ItemNameDisplay" => println!("ActivityHistory FileName: {}", from_utf16(val)),
-            "33-System_ItemUrl" => println!("ActivityHistory FullPath: {}", from_utf16(val)), // TODO: get UserSID from here
-            "4139-System_ActivityHistory_StartTime" => println!("Activity Start Timestamp: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "4130-System_ActivityHistory_EndTime" => println!("Activity End Timestamp: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "4137-System_ActivityHistory_LocalStartTime" => println!("Local Start Time: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "4136-System_ActivityHistory_LocalEndTime" => println!("Local End Time: {}", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "4105-System_Activity_AppDisplayName" => println!("Application Name: {}", from_utf16(val)),
-            "4123-System_ActivityHistory_AppId" => println!("Application GUID: {}", from_utf16(val)),
-            "4115-System_Activity_DisplayText" => println!("Associated File: {}", from_utf16(val)),
+            "4450-System_ItemType" => r.str_val(ACTIVITYHISTORY_IDENTIFIER, from_utf16(val)),
+            "4443-System_ItemNameDisplay" => r.str_val(ACTIVITYHISTORY_FILENAME, from_utf16(val)),
+            "33-System_ItemUrl" => r.str_val(ACTIVITYHISTORY_FULLPATH, from_utf16(val)), // TODO: get UserSID from here
+            "4139-System_ActivityHistory_StartTime" => r.str_val(ACTIVITY_START_TIMESTAMP, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "4130-System_ActivityHistory_EndTime" => r.str_val(ACTIVITY_END_TIMESTAMP, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "4137-System_ActivityHistory_LocalStartTime" => r.str_val(LOCAL_START_TIME, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "4136-System_ActivityHistory_LocalEndTime" => r.str_val(LOCAL_END_TIME, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "4105-System_Activity_AppDisplayName" => r.str_val(APPLICATION_NAME, from_utf16(val)),
+            "4123-System_ActivityHistory_AppId" => r.str_val(APPLICATION_GUID, from_utf16(val)),
+            "4115-System_Activity_DisplayText" => r.str_val(ASSOCIATED_FILE, from_utf16(val)),
             "4112-System_Activity_ContentUri" => {
                 let v = from_utf16(val);
-                println!("FullPath of the Assocaited File: {}", v);
-                println!("Volumd ID: {}", find_guid(&v, "VolumeId="));
-                println!("Object ID: {}", find_guid(&v, "ObjectId="));
+                r.str_val(VOLUME_ID, find_guid(&v, "VolumeId="));
+                r.str_val(OBJECT_ID, find_guid(&v, "ObjectId="));
+                r.str_val(FULLPATH_ASSOCIATED_FILE, v);
             },
             _ => {}
         }
     }
-    println!("");
     true
 }
