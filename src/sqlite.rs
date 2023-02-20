@@ -147,7 +147,7 @@ fn sqlite_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String/
             "449" => r.str_val(DATE_ACCESSED, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "436" => r.int_val(SIZE, u64::from_bytes(&val)),
             "93" => r.str_val(USER, String::from_utf8_lossy(&val).into_owned()),
-            "303" => r.str_val(CONTENT, format!("{:02X?}", val)), // TODO: decompress
+            "303" => r.str_val(CONTENT, String::from_utf8_lossy(&val).into_owned()),
             "438" => r.str_val(FILE_ATTRIBUTES, file_attributes_to_string(val)),
             // "ScopeID" => println!("{}", col, i32::from_bytes(val)),
             // "DocumentID" => println!("{}", col, i32::from_bytes(val)),
