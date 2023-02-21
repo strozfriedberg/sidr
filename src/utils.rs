@@ -80,7 +80,6 @@ bitflags! {
         const FILE_ATTRIBUTE_INTEGRITY_STREAM      = 0x00008000;
         const FILE_ATTRIBUTE_VIRTUAL               = 0x00010000;
         const FILE_ATTRIBUTE_NO_SCRUB_DATA         = 0x00020000;
-        const FILE_ATTRIBUTE_EA                    = 0x00040000;
         const FILE_ATTRIBUTE_PINNED                = 0x00080000;
         const FILE_ATTRIBUTE_UNPINNED              = 0x00100000;
         const FILE_ATTRIBUTE_RECALL_ON_OPEN        = 0x00040000;

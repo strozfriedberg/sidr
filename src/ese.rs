@@ -139,26 +139,24 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
     file_rep.set_field(USER);
     file_rep.set_field(CONTENT);
     file_rep.set_field(FILE_ATTRIBUTES);
+    file_rep.set_field("4631F-System_Search_GatherTime");
+    file_rep.set_field("4450-System_ItemType");
 
     let (ie_rep_path, ie_rep) = report_prod.new_report(f, "ie-report")?;
     ie_rep.set_field(WORKID);
     ie_rep.set_field(URL);
-    ie_rep.set_field(URL_ITEMPATHDISPLAY);
-    ie_rep.set_field(MODIFIED_TIME);
+    ie_rep.set_field(DATE_MODIFIED);
     ie_rep.set_field(FULL_PATH_URL);
     ie_rep.set_field(FULL_PATH_TARGETURL);
     ie_rep.set_field(SYSTEM_TIME_OF_THE_VISIT);
-    ie_rep.set_field(TARGETURL);
+    ie_rep.set_field("4631F-System_Search_GatherTime");
 
     let (act_rep_path,  act_rep) = report_prod.new_report(f, "act-report")?;
     act_rep.set_field(WORKID);
-    act_rep.set_field(ACTIVITYHISTORY_IDENTIFIER);
     act_rep.set_field(ACTIVITYHISTORY_FILENAME);
     act_rep.set_field(ACTIVITYHISTORY_FULLPATH);
     act_rep.set_field(ACTIVITY_START_TIMESTAMP);
     act_rep.set_field(ACTIVITY_END_TIMESTAMP);
-    act_rep.set_field(LOCAL_START_TIME);
-    act_rep.set_field(LOCAL_END_TIME);
     act_rep.set_field(APPLICATION_NAME);
     act_rep.set_field(APPLICATION_GUID);
     act_rep.set_field(ASSOCIATED_FILE);
@@ -175,13 +173,12 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
             "WorkID", "4447-System_ItemPathDisplay", "15F-System_DateModified",
             "16F-System_DateCreated", "17F-System_DateAccessed", "13F-System_Size", "4396-System_FileOwner",
             "4625-System_Search_AutoSummary", "14F-System_FileAttributes",
+            "4631F-System_Search_GatherTime", "4450-System_ItemType",
             // IE/Edge History Report
             "4442-System_ItemName", "33-System_ItemUrl", "4468-System_Link_TargetUrl", "4438-System_ItemDate",
-            "4470-System_Link_TargetUrlPath",
             // Activity History Report
             "4450-System_ItemType", "4443-System_ItemNameDisplay", "4139-System_ActivityHistory_StartTime",
-            "4130-System_ActivityHistory_EndTime", "4137-System_ActivityHistory_LocalStartTime",
-            "4136-System_ActivityHistory_LocalEndTime", "4105-System_Activity_AppDisplayName",
+            "4130-System_ActivityHistory_EndTime", "4105-System_Activity_AppDisplayName",
             "4123-System_ActivityHistory_AppId", "4115-System_Activity_DisplayText",
             "4112-System_Activity_ContentUri",
         ]
@@ -248,14 +245,16 @@ fn ese_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Ve
     r.int_val(WORKID, workId as u64);
     for (col, val) in h {
         match col.as_str() {
-            "4447-System_ItemPathDisplay" => r.str_val(FULL_PATH, from_utf16(val)),
-            "15F-System_DateModified" => r.str_val(DATE_MODIFIED, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "16F-System_DateCreated" => r.str_val(DATE_CREATED, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "17F-System_DateAccessed" => r.str_val(DATE_ACCESSED, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "13F-System_Size" => r.int_val(SIZE, u64::from_bytes(&val)),
-            "4396-System_FileOwner" => r.str_val(USER, from_utf16(&val)),
-            "4625-System_Search_AutoSummary" => r.str_val(CONTENT, format!("{:02X?}", val)), // TODO: decompress
-            "14F-System_FileAttributes" => r.str_val(FILE_ATTRIBUTES, file_attributes_to_string(val)),
+            "4447-System_ItemPathDisplay" => r.str_val(col, from_utf16(val)),
+            "15F-System_DateModified" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "16F-System_DateCreated" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "17F-System_DateAccessed" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "13F-System_Size" => r.int_val(col, u64::from_bytes(&val)),
+            "4396-System_FileOwner" => r.str_val(col, from_utf16(&val)),
+            "4625-System_Search_AutoSummary" => r.str_val(col, from_utf16(&val)),
+            "14F-System_FileAttributes" => r.str_val(col, file_attributes_to_string(val)),
+            "4631F-System_Search_GatherTime" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "4450-System_ItemType" => r.str_val(col, from_utf16(val)),
             // "ScopeID" => println!("{}: {}", col, i32::from_bytes(val)),
             // "DocumentID" => println!("{}: {}", col, i32::from_bytes(val)),
             // "SDID" => println!("{}: {}", col, i32::from_bytes(val)),
@@ -296,14 +295,13 @@ fn ese_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, V
             r.int_val(WORKID, workId as u64);
             for (col, val) in h {
                 match col.as_str() {
-                    "4442-System_ItemName" => r.str_val(URL, from_utf16(val)),
-                    "4447-System_ItemPathDisplay" => r.str_val(URL_ITEMPATHDISPLAY, from_utf16(val)),
-                    "15F-System_DateModified" => r.str_val(MODIFIED_TIME, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-                    "33-System_ItemUrl" => r.str_val(FULL_PATH_URL, url.clone()),
-                    "4468-System_Link_TargetUrl" => r.str_val(FULL_PATH_TARGETURL, from_utf16(val)),
-                    "4438-System_ItemDate" => r.str_val(SYSTEM_TIME_OF_THE_VISIT, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-                    "4470-System_Link_TargetUrlPath" => r.str_val(TARGETURL, from_utf16(val)),
-                    _ => {}
+                    "4442-System_ItemName" => r.str_val(col, from_utf16(val)),
+                    "15F-System_DateModified" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+                    "33-System_ItemUrl" => r.str_val(col, url.clone()),
+                    "4468-System_Link_TargetUrl" => r.str_val(col, from_utf16(val)),
+                    "4438-System_ItemDate" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+                    "4631F-System_Search_GatherTime" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            _ => {}
                 }
             }
             return true;
@@ -329,21 +327,18 @@ fn ese_activity_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<Str
     r.int_val(WORKID, workId as u64);
     for (col, val) in h {
         match col.as_str() {
-            "4450-System_ItemType" => r.str_val(ACTIVITYHISTORY_IDENTIFIER, from_utf16(val)),
-            "4443-System_ItemNameDisplay" => r.str_val(ACTIVITYHISTORY_FILENAME, from_utf16(val)),
-            "33-System_ItemUrl" => r.str_val(ACTIVITYHISTORY_FULLPATH, from_utf16(val)), // TODO: get UserSID from here
-            "4139-System_ActivityHistory_StartTime" => r.str_val(ACTIVITY_START_TIMESTAMP, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "4130-System_ActivityHistory_EndTime" => r.str_val(ACTIVITY_END_TIMESTAMP, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "4137-System_ActivityHistory_LocalStartTime" => r.str_val(LOCAL_START_TIME, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "4136-System_ActivityHistory_LocalEndTime" => r.str_val(LOCAL_END_TIME, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "4105-System_Activity_AppDisplayName" => r.str_val(APPLICATION_NAME, from_utf16(val)),
-            "4123-System_ActivityHistory_AppId" => r.str_val(APPLICATION_GUID, from_utf16(val)),
-            "4115-System_Activity_DisplayText" => r.str_val(ASSOCIATED_FILE, from_utf16(val)),
+            "4443-System_ItemNameDisplay" => r.str_val(col, from_utf16(val)),
+            "33-System_ItemUrl" => r.str_val(col, from_utf16(val)), // TODO: get UserSID from here
+            "4139-System_ActivityHistory_StartTime" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "4130-System_ActivityHistory_EndTime" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "4105-System_Activity_AppDisplayName" => r.str_val(col, from_utf16(val)),
+            "4123-System_ActivityHistory_AppId" => r.str_val(col, from_utf16(val)),
+            "4115-System_Activity_DisplayText" => r.str_val(col, from_utf16(val)),
             "4112-System_Activity_ContentUri" => {
                 let v = from_utf16(val);
                 r.str_val(VOLUME_ID, find_guid(&v, "VolumeId="));
                 r.str_val(OBJECT_ID, find_guid(&v, "ObjectId="));
-                r.str_val(FULLPATH_ASSOCIATED_FILE, v);
+                r.str_val(col, v);
             },
             _ => {}
         }
