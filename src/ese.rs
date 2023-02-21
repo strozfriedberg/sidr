@@ -117,7 +117,7 @@ fn dump_file_gather_ese(f: &Path)
 }
 */
 
-pub fn ese_generate_report(f: &Path, format: &ReportFormat) -> Result<(), SimpleError> {
+pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(), SimpleError> {
     let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
     let t = "SystemIndex_PropertyStore";
     let table_id = jdb.open_table(t)?;
@@ -128,7 +128,7 @@ pub fn ese_generate_report(f: &Path, format: &ReportFormat) -> Result<(), Simple
     }
     //let gather_table_fields = dump_file_gather_ese(f)?;
 
-    let (file_rep_path, file_rep) = make_report_format(f, "file-report", format)?;
+    let (file_rep_path, file_rep) = report_prod.new_report(f, "file-report")?;
     // declare all headers (using in csv report)
     file_rep.set_field(WORKID);
     file_rep.set_field(FULL_PATH);
@@ -140,7 +140,7 @@ pub fn ese_generate_report(f: &Path, format: &ReportFormat) -> Result<(), Simple
     file_rep.set_field(CONTENT);
     file_rep.set_field(FILE_ATTRIBUTES);
 
-    let (ie_rep_path, ie_rep) = make_report_format(f, "ie-report", format)?;
+    let (ie_rep_path, ie_rep) = report_prod.new_report(f, "ie-report")?;
     ie_rep.set_field(WORKID);
     ie_rep.set_field(URL);
     ie_rep.set_field(URL_ITEMPATHDISPLAY);
@@ -150,7 +150,7 @@ pub fn ese_generate_report(f: &Path, format: &ReportFormat) -> Result<(), Simple
     ie_rep.set_field(SYSTEM_TIME_OF_THE_VISIT);
     ie_rep.set_field(TARGETURL);
 
-    let (act_rep_path,  act_rep) = make_report_format(f, "act-report", format)?;
+    let (act_rep_path,  act_rep) = report_prod.new_report(f, "act-report")?;
     act_rep.set_field(WORKID);
     act_rep.set_field(ACTIVITYHISTORY_IDENTIFIER);
     act_rep.set_field(ACTIVITYHISTORY_FILENAME);

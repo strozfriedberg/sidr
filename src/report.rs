@@ -11,28 +11,46 @@ pub enum ReportFormat {
     Csv
 }
 
+pub struct ReportProducer {
+    dir: PathBuf,
+    format: ReportFormat
+}
+
+impl ReportProducer {
+    pub fn new(dir: &Path, format: ReportFormat) -> Self {
+        if !dir.exists() {
+            std::fs::create_dir(dir)
+                .expect(&format!("Can't create directory \"{}\"", dir.to_string_lossy()));
+        }
+        ReportProducer {
+            dir: dir.to_path_buf(),
+            format
+        }
+    }
+
+    pub fn new_report(&self, dbpath: &Path, report_suffix: &str) -> Result<(PathBuf, Box<dyn Report>), SimpleError> {
+        let ext = match self.format {
+            ReportFormat::Json => "json",
+            ReportFormat::Csv => "csv"
+        };
+        let path = self.dir.join(format!("{}.{}.{}",
+            dbpath.file_name().unwrap().to_string_lossy(),
+            report_suffix,
+            ext));
+        let rep : Box<dyn Report> = match self.format {
+            ReportFormat::Json => ReportJson::new(&path).map(|r| Box::new(r))?,
+            ReportFormat::Csv => ReportCsv::new(&path).map(|r| Box::new(r))?
+        };
+        Ok((path, rep))
+    }
+}
+
 pub trait Report {
     fn footer(&self) {}
     fn new_record(&self);
     fn str_val(&self, f: &str, s: String);
     fn int_val(&self, f: &str, n: u64);
     fn set_field(&self, _: &str) {} // used in csv to generate header
-}
-
-pub fn make_report_format(f: &Path, s: &str, format: &ReportFormat) -> Result<(PathBuf, Box<dyn Report>), SimpleError> {
-    let ext = match format {
-        ReportFormat::Json => "json",
-        ReportFormat::Csv => "csv"
-    };
-    let path = f.parent().unwrap().join(format!("{}.{}.{}",
-        f.file_name().unwrap().to_string_lossy(),
-        s,
-        ext));
-    let rep : Box<dyn Report> = match format {
-        ReportFormat::Json => ReportJson::new(&path).map(|r| Box::new(r))?,
-        ReportFormat::Csv => ReportCsv::new(&path).map(|r| Box::new(r))?
-    };
-    Ok((path, rep))
 }
 
 // report json

@@ -61,7 +61,7 @@ fn dump_file_gather_sqlite(f: &Path)
 
 // This report will provide information about all the files that have been indexed by Windows search,
 // including the file name, path, and creation/modification dates.
-pub fn sqlite_generate_report(f: &Path, format: &ReportFormat) -> Result<(), SimpleError> {
+pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(), SimpleError> {
     let c = map_err!(sqlite::Connection::open_with_flags(f,
         sqlite::OpenFlags::new().set_read_only()))?;
     let query = "select * from SystemIndex_1_PropertyStore";
@@ -69,7 +69,7 @@ pub fn sqlite_generate_report(f: &Path, format: &ReportFormat) -> Result<(), Sim
 
     //let gather_table_fields = dump_file_gather_sqlite(f)?;
 
-    let (file_rep_path, file_rep) = make_report_format(f, "file-report", format)?;
+    let (file_rep_path, file_rep) = report_prod.new_report(f, "file-report")?;
     // declare all headers (using in csv report)
     file_rep.set_field(WORKID);
     file_rep.set_field(FULL_PATH);
@@ -81,7 +81,7 @@ pub fn sqlite_generate_report(f: &Path, format: &ReportFormat) -> Result<(), Sim
     file_rep.set_field(CONTENT);
     file_rep.set_field(FILE_ATTRIBUTES);
 
-    let (ie_rep_path, ie_rep) = make_report_format(f, "ie-report", format)?;
+    let (ie_rep_path, ie_rep) = report_prod.new_report(f, "ie-report")?;
     ie_rep.set_field(WORKID);
     ie_rep.set_field(URL);
     ie_rep.set_field(FULL_PATH_URL);
@@ -89,7 +89,7 @@ pub fn sqlite_generate_report(f: &Path, format: &ReportFormat) -> Result<(), Sim
     ie_rep.set_field(DATE_CREATED);
     ie_rep.set_field(TYPE_OF_ACTIVITY);
 
-    let (act_rep_path,  act_rep) = make_report_format(f, "act-report", format)?;
+    let (act_rep_path,  act_rep) = report_prod.new_report(f, "act-report")?;
     act_rep.set_field(WORKID);
     act_rep.set_field(ACTIVITYHISTORY_IDENTIFIER);
     act_rep.set_field(ACTIVITYHISTORY_FILENAME);
