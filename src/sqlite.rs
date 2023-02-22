@@ -4,7 +4,6 @@ use std::collections::HashMap;
 
 use crate::report::*;
 use crate::utils::*;
-use crate::fields::*;
 
 use ese_parser_lib::ese_parser::FromBytes;
 use sqlite::State;
@@ -71,39 +70,39 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
 
     let (file_rep_path, file_rep) = report_prod.new_report(f, "file-report")?;
     // declare all headers (using in csv report)
-    file_rep.set_field(WORKID);
-    file_rep.set_field(FULL_PATH);
-    file_rep.set_field(DATE_MODIFIED);
-    file_rep.set_field(DATE_CREATED);
-    file_rep.set_field(DATE_ACCESSED);
-    file_rep.set_field(SIZE);
-    file_rep.set_field(USER);
-    file_rep.set_field(CONTENT);
-    file_rep.set_field(FILE_ATTRIBUTES);
-    file_rep.set_field("4631F-System_Search_GatherTime");
-    file_rep.set_field("4450-System_ItemType");
+    file_rep.set_field("WorkId");
+    file_rep.set_field("System_ItemPathDisplay");
+    file_rep.set_field("System_DateModified");
+    file_rep.set_field("System_DateCreated");
+    file_rep.set_field("System_DateAccessed");
+    file_rep.set_field("System_Size");
+    file_rep.set_field("System_FileOwner");
+    file_rep.set_field("System_Search_AutoSummary");
+    file_rep.set_field("System_FileAttributes");
+    file_rep.set_field("System_Search_GatherTime");
+    file_rep.set_field("System_ItemType");
 
     let (ie_rep_path, ie_rep) = report_prod.new_report(f, "ie-report")?;
-    ie_rep.set_field(WORKID);
-    ie_rep.set_field(URL);
-    ie_rep.set_field(FULL_PATH_URL);
-    ie_rep.set_field(SYSTEM_TIME_OF_THE_VISIT);
-    ie_rep.set_field(DATE_CREATED);
-    ie_rep.set_field(TYPE_OF_ACTIVITY);
-    ie_rep.set_field("4631F-System_Search_GatherTime");
+    ie_rep.set_field("WorkId");
+    ie_rep.set_field("System_ItemName");
+    ie_rep.set_field("System_ItemUrl");
+    ie_rep.set_field("System_ItemDate");
+    ie_rep.set_field("System_DateCreated");
+    ie_rep.set_field("System_ItemFolderNameDisplay");
+    ie_rep.set_field("System_Search_GatherTime");
 
     let (act_rep_path,  act_rep) = report_prod.new_report(f, "act-report")?;
-    act_rep.set_field(WORKID);
-    act_rep.set_field(ACTIVITYHISTORY_FILENAME);
-    act_rep.set_field(ACTIVITYHISTORY_FULLPATH);
-    act_rep.set_field(ACTIVITY_START_TIMESTAMP);
-    act_rep.set_field(ACTIVITY_END_TIMESTAMP);
-    act_rep.set_field(APPLICATION_NAME);
-    act_rep.set_field(APPLICATION_GUID);
-    act_rep.set_field(ASSOCIATED_FILE);
-    act_rep.set_field(VOLUME_ID);
-    act_rep.set_field(OBJECT_ID);
-    act_rep.set_field(FULLPATH_ASSOCIATED_FILE);
+    act_rep.set_field("WorkId");
+    act_rep.set_field("System_ItemNameDisplay");
+    act_rep.set_field("System_ItemUrl");
+    act_rep.set_field("System_ActivityHistory_StartTime");
+    act_rep.set_field("System_ActivityHistory_EndTime");
+    act_rep.set_field("System_Activity_AppDisplayName");
+    act_rep.set_field("System_ActivityHistory_AppId");
+    act_rep.set_field("System_Activity_DisplayText");
+    act_rep.set_field("VolumeId");
+    act_rep.set_field("ObjectId");
+    act_rep.set_field("System_Activity_ContentUri");
 
     eprintln!("{}\n{}\n{}\n", file_rep_path.to_string_lossy(), ie_rep_path.to_string_lossy(), act_rep_path.to_string_lossy());
 
@@ -138,19 +137,19 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
 // File Report
 fn sqlite_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>/*Value*/>) {
     r.new_record();
-    r.int_val(WORKID, workId as u64);
+    r.int_val("WorkId", workId as u64);
     for (col, val) in h {
         match col.as_str() {
-            "39" => r.str_val(FULL_PATH, String::from_utf8_lossy(&val).into_owned()),
-            "441" => r.str_val(DATE_MODIFIED, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "445" => r.str_val(DATE_CREATED, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "449" => r.str_val(DATE_ACCESSED, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "436" => r.int_val(SIZE, u64::from_bytes(&val)),
-            "93" => r.str_val(USER, String::from_utf8_lossy(&val).into_owned()),
-            "303" => r.str_val(CONTENT, String::from_utf8_lossy(&val).into_owned()),
-            "438" => r.str_val(FILE_ATTRIBUTES, file_attributes_to_string(val)),
-            "26" => r.str_val("4631F-System_Search_GatherTime", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "567" => r.str_val("4450-System_ItemType", String::from_utf8_lossy(&val).into_owned()),
+            "39" => r.str_val("System_ItemPathDisplay", String::from_utf8_lossy(&val).into_owned()),
+            "441" => r.str_val("System_DateModified", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "445" => r.str_val("System_DateCreated", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "449" => r.str_val("System_DateAccessed", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "436" => r.int_val("System_Size", u64::from_bytes(&val)),
+            "93" => r.str_val("System_FileOwner", String::from_utf8_lossy(&val).into_owned()),
+            "303" => r.str_val("System_Search_AutoSummary", String::from_utf8_lossy(&val).into_owned()),
+            "438" => r.str_val("System_FileAttributes", file_attributes_to_string(val)),
+            "26" => r.str_val("System_Search_GatherTime", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "567" => r.str_val("System_ItemType", String::from_utf8_lossy(&val).into_owned()),
             // "ScopeID" => println!("{}", col, i32::from_bytes(val)),
             // "DocumentID" => println!("{}", col, i32::from_bytes(val)),
             // "SDID" => println!("{}", col, i32::from_bytes(val)),
@@ -196,15 +195,15 @@ fn sqlite_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String
         }
     }
     r.new_record();
-    r.int_val(WORKID, workId as u64);
+    r.int_val("WorkId", workId as u64);
     for (col, val) in h {
         match col.as_str() {
-            "318" => r.str_val(URL, String::from_utf8_lossy(&val).into_owned()),
-            "39" => r.str_val(FULL_PATH_URL, String::from_utf8_lossy(&val).into_owned()),
-            "308" => r.str_val(SYSTEM_TIME_OF_THE_VISIT, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "445" => r.str_val(DATE_CREATED, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "414" => r.str_val(TYPE_OF_ACTIVITY, String::from_utf8_lossy(&val).into_owned()),
-            "26" => r.str_val("4631F-System_Search_GatherTime", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "318" => r.str_val("System_ItemName", String::from_utf8_lossy(&val).into_owned()),
+            "39" => r.str_val("System_ItemUrl", String::from_utf8_lossy(&val).into_owned()),
+            "308" => r.str_val("System_ItemDate", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "445" => r.str_val("System_DateCreated", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "414" => r.str_val("System_ItemFolderNameDisplay", String::from_utf8_lossy(&val).into_owned()),
+            "26" => r.str_val("System_Search_GatherTime", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             _ => {}
         }
     }
@@ -225,21 +224,21 @@ fn sqlite_activity_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<
         }
     }
     r.new_record();
-    r.int_val(WORKID, workId as u64);
+    r.int_val("WorkId", workId as u64);
     for (col, val) in h {
         match col.as_str() {
-            "432" => r.str_val(ACTIVITYHISTORY_FILENAME, String::from_utf8_lossy(&val).into_owned()),
-            "39" => r.str_val(ACTIVITYHISTORY_FULLPATH, String::from_utf8_lossy(&val).into_owned()),
-            "346" => r.str_val(ACTIVITY_START_TIMESTAMP, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "341" => r.str_val(ACTIVITY_END_TIMESTAMP, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "297" => r.str_val(APPLICATION_NAME, String::from_utf8_lossy(&val).into_owned()),
-            "331" => r.str_val(APPLICATION_GUID, String::from_utf8_lossy(&val).into_owned()),
-            "315" => r.str_val(ASSOCIATED_FILE, String::from_utf8_lossy(&val).into_owned()),
+            "432" => r.str_val("System_ItemNameDisplay", String::from_utf8_lossy(&val).into_owned()),
+            "39" => r.str_val("System_ItemUrl", String::from_utf8_lossy(&val).into_owned()),
+            "346" => r.str_val("System_ActivityHistory_StartTime", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "341" => r.str_val("System_ActivityHistory_EndTime", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "297" => r.str_val("System_Activity_AppDisplayName", String::from_utf8_lossy(&val).into_owned()),
+            "331" => r.str_val("System_ActivityHistory_AppId", String::from_utf8_lossy(&val).into_owned()),
+            "315" => r.str_val("System_Activity_DisplayText", String::from_utf8_lossy(&val).into_owned()),
             "311" => {
                 let v = String::from_utf8_lossy(&val).into_owned();
-                r.str_val(VOLUME_ID, find_guid(&v, "VolumeId="));
-                r.str_val(OBJECT_ID, find_guid(&v, "ObjectId="));
-                r.str_val(FULLPATH_ASSOCIATED_FILE, v);
+                r.str_val("VolumeId", find_guid(&v, "VolumeId="));
+                r.str_val("ObjectId", find_guid(&v, "ObjectId="));
+                r.str_val("System_Activity_ContentUri", v);
             },
             _ => {}
         }

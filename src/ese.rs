@@ -5,7 +5,6 @@ use std::collections::HashMap;
 
 use crate::report::*;
 use crate::utils::*;
-use crate::fields::*;
 
 use ese_parser_lib::ese_trait::*;
 use ese_parser_lib::ese_parser::EseParser;
@@ -16,7 +15,7 @@ fn prepare_selected_cols(cols: Vec<ColumnInfo>, sel_cols: &Vec<&str>) -> Vec<Col
     let mut only_cols : Vec<ColumnInfo> = Vec::new();
     for c in cols {
         for sc in sel_cols {
-            if *sc == c.name {
+            if *sc == column_string_part(&c.name) {
                 only_cols.push(c);
                 break;
             }
@@ -26,7 +25,7 @@ fn prepare_selected_cols(cols: Vec<ColumnInfo>, sel_cols: &Vec<&str>) -> Vec<Col
         for i in sel_cols {
             let mut found = false;
             for j in &only_cols {
-                if *i == j.name {
+                if *i == column_string_part(&j.name) {
                     found = true;
                     break;
                 }
@@ -130,39 +129,39 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
 
     let (file_rep_path, file_rep) = report_prod.new_report(f, "file-report")?;
     // declare all headers (using in csv report)
-    file_rep.set_field(WORKID);
-    file_rep.set_field(FULL_PATH);
-    file_rep.set_field(DATE_MODIFIED);
-    file_rep.set_field(DATE_CREATED);
-    file_rep.set_field(DATE_ACCESSED);
-    file_rep.set_field(SIZE);
-    file_rep.set_field(USER);
-    file_rep.set_field(CONTENT);
-    file_rep.set_field(FILE_ATTRIBUTES);
-    file_rep.set_field("4631F-System_Search_GatherTime");
-    file_rep.set_field("4450-System_ItemType");
+    file_rep.set_field("WorkId");
+    file_rep.set_field("System_ItemPathDisplay");
+    file_rep.set_field("System_DateModified");
+    file_rep.set_field("System_DateCreated");
+    file_rep.set_field("System_DateAccessed");
+    file_rep.set_field("System_Size");
+    file_rep.set_field("System_FileOwner");
+    file_rep.set_field("System_Search_AutoSummary");
+    file_rep.set_field("System_FileAttributes");
+    file_rep.set_field("System_Search_GatherTime");
+    file_rep.set_field("System_ItemType");
 
     let (ie_rep_path, ie_rep) = report_prod.new_report(f, "ie-report")?;
-    ie_rep.set_field(WORKID);
-    ie_rep.set_field(URL);
-    ie_rep.set_field(DATE_MODIFIED);
-    ie_rep.set_field(FULL_PATH_URL);
-    ie_rep.set_field(FULL_PATH_TARGETURL);
-    ie_rep.set_field(SYSTEM_TIME_OF_THE_VISIT);
-    ie_rep.set_field("4631F-System_Search_GatherTime");
+    ie_rep.set_field("WorkId");
+    ie_rep.set_field("System_ItemName");
+    ie_rep.set_field("System_DateModified");
+    ie_rep.set_field("System_ItemUrl");
+    ie_rep.set_field("System_Link_TargetUrl");
+    ie_rep.set_field("System_ItemDate");
+    ie_rep.set_field("System_Search_GatherTime");
 
     let (act_rep_path,  act_rep) = report_prod.new_report(f, "act-report")?;
-    act_rep.set_field(WORKID);
-    act_rep.set_field(ACTIVITYHISTORY_FILENAME);
-    act_rep.set_field(ACTIVITYHISTORY_FULLPATH);
-    act_rep.set_field(ACTIVITY_START_TIMESTAMP);
-    act_rep.set_field(ACTIVITY_END_TIMESTAMP);
-    act_rep.set_field(APPLICATION_NAME);
-    act_rep.set_field(APPLICATION_GUID);
-    act_rep.set_field(ASSOCIATED_FILE);
-    act_rep.set_field(VOLUME_ID);
-    act_rep.set_field(OBJECT_ID);
-    act_rep.set_field(FULLPATH_ASSOCIATED_FILE);
+    act_rep.set_field("WorkId");
+    act_rep.set_field("System_ItemNameDisplay");
+    act_rep.set_field("System_ItemUrl");
+    act_rep.set_field("System_ActivityHistory_StartTime");
+    act_rep.set_field("System_ActivityHistory_EndTime");
+    act_rep.set_field("System_Activity_AppDisplayName");
+    act_rep.set_field("System_ActivityHistory_AppId");
+    act_rep.set_field("System_Activity_DisplayText");
+    act_rep.set_field("VolumeId");
+    act_rep.set_field("ObjectId");
+    act_rep.set_field("System_Activity_ContentUri");
 
     eprintln!("{}\n{}\n{}\n", file_rep_path.to_string_lossy(), ie_rep_path.to_string_lossy(), act_rep_path.to_string_lossy());
 
@@ -170,17 +169,17 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
     let sel_cols = prepare_selected_cols(cols,
         &vec![
             // File Report
-            "WorkID", "4447-System_ItemPathDisplay", "15F-System_DateModified",
-            "16F-System_DateCreated", "17F-System_DateAccessed", "13F-System_Size", "4396-System_FileOwner",
-            "4625-System_Search_AutoSummary", "14F-System_FileAttributes",
-            "4631F-System_Search_GatherTime", "4450-System_ItemType",
+            "WorkID", "System_ItemPathDisplay", "System_DateModified",
+            "System_DateCreated", "System_DateAccessed", "System_Size", "System_FileOwner",
+            "System_Search_AutoSummary", "System_FileAttributes",
+            "System_Search_GatherTime", "System_ItemType",
             // IE/Edge History Report
-            "4442-System_ItemName", "33-System_ItemUrl", "4468-System_Link_TargetUrl", "4438-System_ItemDate",
+            "System_ItemName", "System_ItemUrl", "System_Link_TargetUrl", "System_ItemDate",
             // Activity History Report
-            "4450-System_ItemType", "4443-System_ItemNameDisplay", "4139-System_ActivityHistory_StartTime",
-            "4130-System_ActivityHistory_EndTime", "4105-System_Activity_AppDisplayName",
-            "4123-System_ActivityHistory_AppId", "4115-System_Activity_DisplayText",
-            "4112-System_Activity_ContentUri",
+            "System_ItemType", "System_ItemNameDisplay", "System_ActivityHistory_StartTime",
+            "System_ActivityHistory_EndTime", "System_Activity_AppDisplayName",
+            "System_ActivityHistory_AppId", "System_Activity_DisplayText",
+            "System_Activity_ContentUri",
         ]
     );
     let mut h = HashMap::new();
@@ -242,19 +241,20 @@ fn ese_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Ve
     // }
 
     r.new_record();
-    r.int_val(WORKID, workId as u64);
+    r.int_val("WorkId", workId as u64);
     for (col, val) in h {
-        match col.as_str() {
-            "4447-System_ItemPathDisplay" => r.str_val(col, from_utf16(val)),
-            "15F-System_DateModified" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "16F-System_DateCreated" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "17F-System_DateAccessed" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "13F-System_Size" => r.int_val(col, u64::from_bytes(&val)),
-            "4396-System_FileOwner" => r.str_val(col, from_utf16(&val)),
-            "4625-System_Search_AutoSummary" => r.str_val(col, from_utf16(&val)),
-            "14F-System_FileAttributes" => r.str_val(col, file_attributes_to_string(val)),
-            "4631F-System_Search_GatherTime" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "4450-System_ItemType" => r.str_val(col, from_utf16(val)),
+        let csp = column_string_part(col);
+        match csp {
+            "System_ItemPathDisplay" => r.str_val(csp, from_utf16(val)),
+            "System_DateModified" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "System_DateCreated" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "System_DateAccessed" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "System_Size" => r.int_val(csp, u64::from_bytes(&val)),
+            "System_FileOwner" => r.str_val(csp, from_utf16(&val)),
+            "System_Search_AutoSummary" => r.str_val(csp, from_utf16(&val)),
+            "System_FileAttributes" => r.str_val(csp, file_attributes_to_string(val)),
+            "System_Search_GatherTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "System_ItemType" => r.str_val(csp, from_utf16(val)),
             // "ScopeID" => println!("{}: {}", col, i32::from_bytes(val)),
             // "DocumentID" => println!("{}: {}", col, i32::from_bytes(val)),
             // "SDID" => println!("{}: {}", col, i32::from_bytes(val)),
@@ -292,15 +292,16 @@ fn ese_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, V
         let url = from_utf16(url_data);
         if url.starts_with("iehistory://") {
             r.new_record();
-            r.int_val(WORKID, workId as u64);
+            r.int_val("WorkId", workId as u64);
             for (col, val) in h {
-                match col.as_str() {
-                    "4442-System_ItemName" => r.str_val(col, from_utf16(val)),
-                    "15F-System_DateModified" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-                    "33-System_ItemUrl" => r.str_val(col, url.clone()),
-                    "4468-System_Link_TargetUrl" => r.str_val(col, from_utf16(val)),
-                    "4438-System_ItemDate" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-                    "4631F-System_Search_GatherTime" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+                let csp = column_string_part(col);
+                match csp {
+                    "System_ItemName" => r.str_val(csp, from_utf16(val)),
+                    "System_DateModified" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+                    "System_ItemUrl" => r.str_val(csp, url.clone()),
+                    "System_Link_TargetUrl" => r.str_val(csp, from_utf16(val)),
+                    "System_ItemDate" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+                    "System_Search_GatherTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             _ => {}
                 }
             }
@@ -324,21 +325,22 @@ fn ese_activity_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<Str
         }
     }
     r.new_record();
-    r.int_val(WORKID, workId as u64);
+    r.int_val("WorkId", workId as u64);
     for (col, val) in h {
-        match col.as_str() {
-            "4443-System_ItemNameDisplay" => r.str_val(col, from_utf16(val)),
-            "33-System_ItemUrl" => r.str_val(col, from_utf16(val)), // TODO: get UserSID from here
-            "4139-System_ActivityHistory_StartTime" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "4130-System_ActivityHistory_EndTime" => r.str_val(col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "4105-System_Activity_AppDisplayName" => r.str_val(col, from_utf16(val)),
-            "4123-System_ActivityHistory_AppId" => r.str_val(col, from_utf16(val)),
-            "4115-System_Activity_DisplayText" => r.str_val(col, from_utf16(val)),
-            "4112-System_Activity_ContentUri" => {
+        let csp = column_string_part(col);
+        match csp {
+            "System_ItemNameDisplay" => r.str_val(csp, from_utf16(val)),
+            "System_ItemUrl" => r.str_val(csp, from_utf16(val)), // TODO: get UserSID from here
+            "System_ActivityHistory_StartTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "System_ActivityHistory_EndTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "System_Activity_AppDisplayName" => r.str_val(csp, from_utf16(val)),
+            "System_ActivityHistory_AppId" => r.str_val(csp, from_utf16(val)),
+            "System_Activity_DisplayText" => r.str_val(csp, from_utf16(val)),
+            "System_Activity_ContentUri" => {
                 let v = from_utf16(val);
-                r.str_val(VOLUME_ID, find_guid(&v, "VolumeId="));
-                r.str_val(OBJECT_ID, find_guid(&v, "ObjectId="));
-                r.str_val(col, v);
+                r.str_val("VolumeId", find_guid(&v, "VolumeId="));
+                r.str_val("ObjectId", find_guid(&v, "ObjectId="));
+                r.str_val(csp, v);
             },
             _ => {}
         }

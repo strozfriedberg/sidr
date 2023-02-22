@@ -17,7 +17,6 @@ pub mod utils;
 pub mod ese;
 pub mod sqlite;
 pub mod report;
-pub mod fields;
 
 use crate::ese::*;
 use crate::sqlite::*;

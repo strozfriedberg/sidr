@@ -99,3 +99,11 @@ pub fn file_attributes_to_string(bytes: &Vec<u8>) -> String {
     format!("{:?}", f)
 }
 
+// in: 15F-System_DateModified
+// out: System_DateModified
+pub fn column_string_part(s: &str) -> &str {
+    match s.find("-") {
+        Some(i) => &s[i+1..],
+        None => s
+    }
+}
