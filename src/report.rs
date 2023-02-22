@@ -144,6 +144,10 @@ impl ReportCsv {
         })
     }
 
+    fn escape(s: String) -> String {
+        s.replace("\"", "\"\"")
+    }
+
     pub fn write_header(&self) {
         let values = self.values.borrow();
         for i in 0..values.len() {
@@ -201,7 +205,7 @@ impl Report for ReportCsv {
     }
 
     fn str_val(&self, f: &str, s: String) {
-        self.update_field_with_value(f, format!("\"{}\"", s));
+        self.update_field_with_value(f, format!("\"{}\"", ReportCsv::escape(s)));
     }
     
     fn int_val(&self, f: &str, n: u64) {
