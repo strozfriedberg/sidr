@@ -137,7 +137,6 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
     file_rep.set_field("System_Size");
     file_rep.set_field("System_FileOwner");
     file_rep.set_field("System_Search_AutoSummary");
-    file_rep.set_field("System_FileAttributes");
     file_rep.set_field("System_Search_GatherTime");
     file_rep.set_field("System_ItemType");
 
@@ -171,7 +170,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
             // File Report
             "WorkID", "System_ItemPathDisplay", "System_DateModified",
             "System_DateCreated", "System_DateAccessed", "System_Size", "System_FileOwner",
-            "System_Search_AutoSummary", "System_FileAttributes",
+            "System_Search_AutoSummary",
             "System_Search_GatherTime", "System_ItemType",
             // IE/Edge History Report
             "System_ItemName", "System_ItemUrl", "System_Link_TargetUrl", "System_ItemDate",
@@ -252,7 +251,6 @@ fn ese_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Ve
             "System_Size" => r.int_val(csp, u64::from_bytes(&val)),
             "System_FileOwner" => r.str_val(csp, from_utf16(&val)),
             "System_Search_AutoSummary" => r.str_val(csp, from_utf16(&val)),
-            "System_FileAttributes" => r.str_val(csp, file_attributes_to_string(val)),
             "System_Search_GatherTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "System_ItemType" => r.str_val(csp, from_utf16(val)),
             // "ScopeID" => println!("{}: {}", col, i32::from_bytes(val)),

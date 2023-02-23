@@ -78,7 +78,6 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
     file_rep.set_field("System_Size");
     file_rep.set_field("System_FileOwner");
     file_rep.set_field("System_Search_AutoSummary");
-    file_rep.set_field("System_FileAttributes");
     file_rep.set_field("System_Search_GatherTime");
     file_rep.set_field("System_ItemType");
 
@@ -147,7 +146,6 @@ fn sqlite_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String/
             "436" => r.int_val("System_Size", u64::from_bytes(&val)),
             "93" => r.str_val("System_FileOwner", String::from_utf8_lossy(&val).into_owned()),
             "303" => r.str_val("System_Search_AutoSummary", String::from_utf8_lossy(&val).into_owned()),
-            "438" => r.str_val("System_FileAttributes", file_attributes_to_string(val)),
             "26" => r.str_val("System_Search_GatherTime", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "567" => r.str_val("System_ItemType", String::from_utf8_lossy(&val).into_owned()),
             // "ScopeID" => println!("{}", col, i32::from_bytes(val)),
