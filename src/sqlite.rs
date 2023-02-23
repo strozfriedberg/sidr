@@ -58,6 +58,21 @@ fn dump_file_gather_sqlite(f: &Path)
 }
 */
 
+fn ese_get_first_value_as_string(
+    c: &sqlite::Connection,
+    table: &str,
+    column_id: &str
+) -> Result<String, SimpleError> {
+    // "557" => r.str_val("System_ComputerName"
+    let q = format!("select Value from {table} where ColumnId={column_id} and Value is not NULL and Value <> '' limit 1");
+    let mut s = map_err!(c.prepare(q))?;
+    if let Ok(State::Row) = s.next() {
+        let val = map_err!(s.read::<Vec<u8>, _>("Value"))?;
+        return Ok(String::from_utf8_lossy(&val).into_owned());
+    }
+    Ok("".into())
+}
+
 // This report will provide information about all the files that have been indexed by Windows search,
 // including the file name, path, and creation/modification dates.
 pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(), SimpleError> {
@@ -68,9 +83,13 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
 
     //let gather_table_fields = dump_file_gather_sqlite(f)?;
 
-    let (file_rep_path, file_rep) = report_prod.new_report(f, "file-report")?;
+    let recovered_hostname = ese_get_first_value_as_string(
+        &c, "SystemIndex_1_PropertyStore", "557" /*System_ComputerName*/)?;
+
+    let (file_rep_path, file_rep) = report_prod.new_report(f, &recovered_hostname, "File_Report")?;
     // declare all headers (using in csv report)
     file_rep.set_field("WorkId");
+    file_rep.set_field("System_ComputerName");
     file_rep.set_field("System_ItemPathDisplay");
     file_rep.set_field("System_DateModified");
     file_rep.set_field("System_DateCreated");
@@ -78,21 +97,24 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
     file_rep.set_field("System_Size");
     file_rep.set_field("System_FileOwner");
     file_rep.set_field("System_Search_AutoSummary");
-    file_rep.set_field("System_FileAttributes");
     file_rep.set_field("System_Search_GatherTime");
     file_rep.set_field("System_ItemType");
 
-    let (ie_rep_path, ie_rep) = report_prod.new_report(f, "ie-report")?;
+    let (ie_rep_path, ie_rep) = report_prod.new_report(f, &recovered_hostname, "Internet_History_Report")?;
     ie_rep.set_field("WorkId");
+    ie_rep.set_field("System_ComputerName");
     ie_rep.set_field("System_ItemName");
     ie_rep.set_field("System_ItemUrl");
     ie_rep.set_field("System_ItemDate");
     ie_rep.set_field("System_DateCreated");
     ie_rep.set_field("System_ItemFolderNameDisplay");
     ie_rep.set_field("System_Search_GatherTime");
+    ie_rep.set_field("System_Title");
+    ie_rep.set_field("System_Link_DateVisited");
 
-    let (act_rep_path,  act_rep) = report_prod.new_report(f, "act-report")?;
+    let (act_rep_path,  act_rep) = report_prod.new_report(f, &recovered_hostname, "Activity_History_Report")?;
     act_rep.set_field("WorkId");
+    act_rep.set_field("System_ComputerName");
     act_rep.set_field("System_ItemNameDisplay");
     act_rep.set_field("System_ItemUrl");
     act_rep.set_field("System_ActivityHistory_StartTime");
@@ -123,6 +145,15 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
                     // }
                     sqlite_dump_file_record(&file_rep, workId_current, &h);
                 }
+                if ie_rep.is_some_val_in_record() {
+                    ie_rep.str_val("System_ComputerName", recovered_hostname.clone());
+                }
+                if act_rep.is_some_val_in_record() {
+                    act_rep.str_val("System_ComputerName", recovered_hostname.clone());
+                }
+                if file_rep.is_some_val_in_record() {
+                    file_rep.str_val("System_ComputerName", recovered_hostname.clone());
+                }
                 h.clear();
             }
             workId_current = workId;
@@ -140,6 +171,7 @@ fn sqlite_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String/
     r.int_val("WorkId", workId as u64);
     for (col, val) in h {
         match col.as_str() {
+            "557" => r.str_val("System_ComputerName", String::from_utf8_lossy(&val).into_owned()),
             "39" => r.str_val("System_ItemPathDisplay", String::from_utf8_lossy(&val).into_owned()),
             "441" => r.str_val("System_DateModified", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "445" => r.str_val("System_DateCreated", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
@@ -147,7 +179,6 @@ fn sqlite_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String/
             "436" => r.int_val("System_Size", u64::from_bytes(&val)),
             "93" => r.str_val("System_FileOwner", String::from_utf8_lossy(&val).into_owned()),
             "303" => r.str_val("System_Search_AutoSummary", String::from_utf8_lossy(&val).into_owned()),
-            "438" => r.str_val("System_FileAttributes", file_attributes_to_string(val)),
             "26" => r.str_val("System_Search_GatherTime", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "567" => r.str_val("System_ItemType", String::from_utf8_lossy(&val).into_owned()),
             // "ScopeID" => println!("{}", col, i32::from_bytes(val)),
@@ -190,7 +221,9 @@ fn sqlite_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String
     }
     if let Some((_, val)) = item_type {
         let v = String::from_utf8_lossy(&val).into_owned();
-        if !v.starts_with("winrt://") {
+        if !v.starts_with("winrt://") ||
+            (v.starts_with("winrt:\\") && v.contains("\\LS\\Desktop\\Microsoft Edge\\stable\\Default\\"))
+        {
             return false;
         }
     }
@@ -198,12 +231,15 @@ fn sqlite_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String
     r.int_val("WorkId", workId as u64);
     for (col, val) in h {
         match col.as_str() {
+            "557" => r.str_val("System_ComputerName", String::from_utf8_lossy(&val).into_owned()),
             "318" => r.str_val("System_ItemName", String::from_utf8_lossy(&val).into_owned()),
             "39" => r.str_val("System_ItemUrl", String::from_utf8_lossy(&val).into_owned()),
             "308" => r.str_val("System_ItemDate", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "445" => r.str_val("System_DateCreated", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "414" => r.str_val("System_ItemFolderNameDisplay", String::from_utf8_lossy(&val).into_owned()),
             "26" => r.str_val("System_Search_GatherTime", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "424" => r.str_val("System_Title", String::from_utf8_lossy(&val).into_owned()),
+            "378" => r.str_val("System_Link_DateVisited", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             _ => {}
         }
     }
@@ -227,6 +263,7 @@ fn sqlite_activity_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<
     r.int_val("WorkId", workId as u64);
     for (col, val) in h {
         match col.as_str() {
+            "557" => r.str_val("System_ComputerName", String::from_utf8_lossy(&val).into_owned()),
             "432" => r.str_val("System_ItemNameDisplay", String::from_utf8_lossy(&val).into_owned()),
             "39" => r.str_val("System_ItemUrl", String::from_utf8_lossy(&val).into_owned()),
             "346" => r.str_val("System_ActivityHistory_StartTime", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),

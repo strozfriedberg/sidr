@@ -116,6 +116,33 @@ fn dump_file_gather_ese(f: &Path)
 }
 */
 
+fn ese_get_first_value_as_string(
+    jdb: &dyn EseDb,
+    table_id: u64,
+    column: &ColumnInfo
+) -> Result<String, SimpleError> {
+    if !jdb.move_row(table_id, ESE_MoveFirst)? {
+        // empty table
+        return Err(SimpleError::new(format!("Empty table {}", table_id)));
+    }
+    loop {
+        match jdb.get_column(table_id, column.id) {
+            Ok(r) => match r {
+                None => {} // Empty field, look further
+                Some(v) => {
+                    return Ok(from_utf16(&v));
+                }
+            },
+            Err(e) => println!("Error while getting column {} from {}: {}", column.name, table_id, e)
+        }
+        if !jdb.move_row(table_id, ESE_MoveNext)? {
+            break;
+        }
+    }
+    let _ = jdb.move_row(table_id, ESE_MoveFirst)?;
+    Ok("".into())
+}
+
 pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(), SimpleError> {
     let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
     let t = "SystemIndex_PropertyStore";
@@ -123,13 +150,40 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
     let cols = jdb.get_columns(t)?;
     if !jdb.move_row(table_id, ESE_MoveFirst)? {
         // empty table
-        return Err(SimpleError::new(format!("Empty table {t}")));
+        return Err(SimpleError::new(format!("Empty table {}", t)));
     }
     //let gather_table_fields = dump_file_gather_ese(f)?;
 
-    let (file_rep_path, file_rep) = report_prod.new_report(f, "file-report")?;
+    // prepare to query only selected columns
+    let sel_cols = prepare_selected_cols(cols,
+        &vec![
+            "System_ComputerName", "WorkID",
+            // File Report
+            "System_ItemPathDisplay", "System_DateModified",
+            "System_DateCreated", "System_DateAccessed", "System_Size", "System_FileOwner",
+            "System_Search_AutoSummary",
+            "System_Search_GatherTime", "System_ItemType",
+            // IE/Edge History Report
+            "System_ItemName", "System_ItemUrl", "System_Link_TargetUrl", "System_ItemDate",
+            "System_Title", "System_Link_DateVisited",
+            // Activity History Report
+            "System_ItemType", "System_ItemNameDisplay", "System_ActivityHistory_StartTime",
+            "System_ActivityHistory_EndTime", "System_Activity_AppDisplayName",
+            "System_ActivityHistory_AppId", "System_Activity_DisplayText",
+            "System_Activity_ContentUri",
+        ]
+    );
+
+    // get System_ComputerName value
+    let recovered_hostname = ese_get_first_value_as_string(
+        &*jdb,
+        table_id,
+        &sel_cols.iter().find(|i| column_string_part(&i.name) == "System_ComputerName").unwrap())?;
+
+    let (file_rep_path, file_rep) = report_prod.new_report(f, &recovered_hostname, "File_Report")?;
     // declare all headers (using in csv report)
     file_rep.set_field("WorkId");
+    file_rep.set_field("System_ComputerName");
     file_rep.set_field("System_ItemPathDisplay");
     file_rep.set_field("System_DateModified");
     file_rep.set_field("System_DateCreated");
@@ -137,21 +191,24 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
     file_rep.set_field("System_Size");
     file_rep.set_field("System_FileOwner");
     file_rep.set_field("System_Search_AutoSummary");
-    file_rep.set_field("System_FileAttributes");
     file_rep.set_field("System_Search_GatherTime");
     file_rep.set_field("System_ItemType");
 
-    let (ie_rep_path, ie_rep) = report_prod.new_report(f, "ie-report")?;
+    let (ie_rep_path, ie_rep) = report_prod.new_report(f, &recovered_hostname, "Internet_History_Report")?;
     ie_rep.set_field("WorkId");
+    ie_rep.set_field("System_ComputerName");
     ie_rep.set_field("System_ItemName");
     ie_rep.set_field("System_DateModified");
     ie_rep.set_field("System_ItemUrl");
     ie_rep.set_field("System_Link_TargetUrl");
     ie_rep.set_field("System_ItemDate");
     ie_rep.set_field("System_Search_GatherTime");
+    ie_rep.set_field("System_Title");
+    ie_rep.set_field("System_Link_DateVisited");
 
-    let (act_rep_path,  act_rep) = report_prod.new_report(f, "act-report")?;
+    let (act_rep_path,  act_rep) = report_prod.new_report(f, &recovered_hostname, "Activity_History_Report")?;
     act_rep.set_field("WorkId");
+    act_rep.set_field("System_ComputerName");
     act_rep.set_field("System_ItemNameDisplay");
     act_rep.set_field("System_ItemUrl");
     act_rep.set_field("System_ActivityHistory_StartTime");
@@ -165,23 +222,6 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
 
     eprintln!("{}\n{}\n{}\n", file_rep_path.to_string_lossy(), ie_rep_path.to_string_lossy(), act_rep_path.to_string_lossy());
 
-    // prepare to query only selected columns
-    let sel_cols = prepare_selected_cols(cols,
-        &vec![
-            // File Report
-            "WorkID", "System_ItemPathDisplay", "System_DateModified",
-            "System_DateCreated", "System_DateAccessed", "System_Size", "System_FileOwner",
-            "System_Search_AutoSummary", "System_FileAttributes",
-            "System_Search_GatherTime", "System_ItemType",
-            // IE/Edge History Report
-            "System_ItemName", "System_ItemUrl", "System_Link_TargetUrl", "System_ItemDate",
-            // Activity History Report
-            "System_ItemType", "System_ItemNameDisplay", "System_ActivityHistory_StartTime",
-            "System_ActivityHistory_EndTime", "System_Activity_AppDisplayName",
-            "System_ActivityHistory_AppId", "System_Activity_DisplayText",
-            "System_Activity_ContentUri",
-        ]
-    );
     let mut h = HashMap::new();
     loop {
         let mut workId : u32 = 0;
@@ -217,6 +257,15 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
         if !ese_IE_history_record(&ie_rep, workId, &h) && !ese_activity_history_record(&act_rep, workId, &h) {
             ese_dump_file_record(&file_rep, workId, &h);
         }
+        if ie_rep.is_some_val_in_record() {
+            ie_rep.str_val("System_ComputerName", recovered_hostname.clone());
+        }
+        if act_rep.is_some_val_in_record() {
+            act_rep.str_val("System_ComputerName", recovered_hostname.clone());
+        }
+        if file_rep.is_some_val_in_record() {
+            file_rep.str_val("System_ComputerName", recovered_hostname.clone());
+        }
         h.clear();
 
         if !jdb.move_row(table_id, ESE_MoveNext)? {
@@ -245,6 +294,7 @@ fn ese_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Ve
     for (col, val) in h {
         let csp = column_string_part(col);
         match csp {
+            "System_ComputerName" => r.str_val(csp, from_utf16(val)),
             "System_ItemPathDisplay" => r.str_val(csp, from_utf16(val)),
             "System_DateModified" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "System_DateCreated" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
@@ -252,7 +302,6 @@ fn ese_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Ve
             "System_Size" => r.int_val(csp, u64::from_bytes(&val)),
             "System_FileOwner" => r.str_val(csp, from_utf16(&val)),
             "System_Search_AutoSummary" => r.str_val(csp, from_utf16(&val)),
-            "System_FileAttributes" => r.str_val(csp, file_attributes_to_string(val)),
             "System_Search_GatherTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "System_ItemType" => r.str_val(csp, from_utf16(val)),
             // "ScopeID" => println!("{}: {}", col, i32::from_bytes(val)),
@@ -290,18 +339,22 @@ fn ese_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Ve
 fn ese_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
     if let Some(url_data) = h.get("33-System_ItemUrl") {
         let url = from_utf16(url_data);
-        if url.starts_with("iehistory://") {
+        if url.starts_with("iehistory://") ||
+            (url.starts_with("winrt:\\") && url.contains("\\LS\\Desktop\\Microsoft Edge\\stable\\Default\\"))
+        {
             r.new_record();
             r.int_val("WorkId", workId as u64);
             for (col, val) in h {
                 let csp = column_string_part(col);
                 match csp {
-                    "System_ItemName" => r.str_val(csp, from_utf16(val)),
+                    "System_ComputerName" => r.str_val(csp, from_utf16(val)),
                     "System_DateModified" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
                     "System_ItemUrl" => r.str_val(csp, url.clone()),
                     "System_Link_TargetUrl" => r.str_val(csp, from_utf16(val)),
                     "System_ItemDate" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
                     "System_Search_GatherTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+                    "System_Title" => r.str_val(csp, url.clone()),
+                    "System_Link_DateVisited" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             _ => {}
                 }
             }
@@ -329,6 +382,7 @@ fn ese_activity_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<Str
     for (col, val) in h {
         let csp = column_string_part(col);
         match csp {
+            "System_ComputerName" => r.str_val(csp, from_utf16(val)),
             "System_ItemNameDisplay" => r.str_val(csp, from_utf16(val)),
             "System_ItemUrl" => r.str_val(csp, from_utf16(val)), // TODO: get UserSID from here
             "System_ActivityHistory_StartTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
