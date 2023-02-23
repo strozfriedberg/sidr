@@ -58,6 +58,21 @@ fn dump_file_gather_sqlite(f: &Path)
 }
 */
 
+fn ese_get_first_value_as_string(
+    c: &sqlite::Connection,
+    table: &str,
+    column_id: &str
+) -> Result<String, SimpleError> {
+    // "557" => r.str_val("System_ComputerName"
+    let q = format!("select Value from {table} where ColumnId={column_id} and Value is not NULL and Value <> '' limit 1");
+    let mut s = map_err!(c.prepare(q))?;
+    if let Ok(State::Row) = s.next() {
+        let val = map_err!(s.read::<Vec<u8>, _>("Value"))?;
+        return Ok(String::from_utf8_lossy(&val).into_owned());
+    }
+    Ok("".into())
+}
+
 // This report will provide information about all the files that have been indexed by Windows search,
 // including the file name, path, and creation/modification dates.
 pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(), SimpleError> {
@@ -68,7 +83,10 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
 
     //let gather_table_fields = dump_file_gather_sqlite(f)?;
 
-    let (file_rep_path, file_rep) = report_prod.new_report(f, "file-report")?;
+    let recovered_hostname = ese_get_first_value_as_string(
+        &c, "SystemIndex_1_PropertyStore", "557" /*System_ComputerName*/)?;
+
+    let (file_rep_path, file_rep) = report_prod.new_report(f, &recovered_hostname, "File_Report")?;
     // declare all headers (using in csv report)
     file_rep.set_field("WorkId");
     file_rep.set_field("System_ComputerName");
@@ -82,7 +100,7 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
     file_rep.set_field("System_Search_GatherTime");
     file_rep.set_field("System_ItemType");
 
-    let (ie_rep_path, ie_rep) = report_prod.new_report(f, "ie-report")?;
+    let (ie_rep_path, ie_rep) = report_prod.new_report(f, &recovered_hostname, "Internet_History_Report")?;
     ie_rep.set_field("WorkId");
     ie_rep.set_field("System_ComputerName");
     ie_rep.set_field("System_ItemName");
@@ -94,7 +112,7 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
     ie_rep.set_field("System_Title");
     ie_rep.set_field("System_Link_DateVisited");
 
-    let (act_rep_path,  act_rep) = report_prod.new_report(f, "act-report")?;
+    let (act_rep_path,  act_rep) = report_prod.new_report(f, &recovered_hostname, "Activity_History_Report")?;
     act_rep.set_field("WorkId");
     act_rep.set_field("System_ComputerName");
     act_rep.set_field("System_ItemNameDisplay");
@@ -126,6 +144,15 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
                     //     }
                     // }
                     sqlite_dump_file_record(&file_rep, workId_current, &h);
+                }
+                if ie_rep.is_some_val_in_record() {
+                    ie_rep.str_val("System_ComputerName", recovered_hostname.clone());
+                }
+                if act_rep.is_some_val_in_record() {
+                    act_rep.str_val("System_ComputerName", recovered_hostname.clone());
+                }
+                if file_rep.is_some_val_in_record() {
+                    file_rep.str_val("System_ComputerName", recovered_hostname.clone());
                 }
                 h.clear();
             }

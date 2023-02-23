@@ -5,6 +5,7 @@ use std::io::Write;
 use std::ops::IndexMut;
 use std::path::{Path, PathBuf};
 use simple_error::SimpleError;
+use chrono::prelude::*;
 
 pub enum ReportFormat {
     Json,
@@ -28,14 +29,16 @@ impl ReportProducer {
         }
     }
 
-    pub fn new_report(&self, dbpath: &Path, report_suffix: &str) -> Result<(PathBuf, Box<dyn Report>), SimpleError> {
+    pub fn new_report(&self, _dbpath: &Path, recovered_hostname: &str, report_suffix: &str) -> Result<(PathBuf, Box<dyn Report>), SimpleError> {
         let ext = match self.format {
             ReportFormat::Json => "json",
             ReportFormat::Csv => "csv"
         };
-        let path = self.dir.join(format!("{}.{}.{}",
-            dbpath.file_name().unwrap().to_string_lossy(),
+        let date_time_now: DateTime<Utc> = Utc::now();
+        let path = self.dir.join(format!("{}_{}_{}.{}",
+            recovered_hostname,
             report_suffix,
+            date_time_now.format("%Y%m%d_%H%M%S"),
             ext));
         let rep : Box<dyn Report> = match self.format {
             ReportFormat::Json => ReportJson::new(&path).map(|r| Box::new(r))?,
@@ -51,6 +54,7 @@ pub trait Report {
     fn str_val(&self, f: &str, s: String);
     fn int_val(&self, f: &str, n: u64);
     fn set_field(&self, _: &str) {} // used in csv to generate header
+    fn is_some_val_in_record(&self) -> bool;
 }
 
 // report json
@@ -118,6 +122,10 @@ impl Report for ReportJson {
     
     fn int_val(&self, f: &str, n: u64) {
         self.values.borrow_mut().push(format!("\"{}\":{}", f, n));
+    }
+
+    fn is_some_val_in_record(&self) -> bool {
+        !self.values.borrow().is_empty()
     }
 }
 
@@ -193,8 +201,7 @@ impl Report for ReportCsv {
 
     fn new_record(&self) {
         // at least 1 value was recorded?
-        let some_values = self.values.borrow().iter().find(|i| !i.1.is_empty()).is_some();
-        if some_values {
+        if self.is_some_val_in_record() {
             if self.first_record.get() {
                 self.write_header();
                 self.first_record.set(false);
@@ -215,6 +222,10 @@ impl Report for ReportCsv {
     fn set_field(&self, f: &str) {
         // set field with empty value to record field name
         self.update_field_with_value(f, "".to_string());
+    }
+
+    fn is_some_val_in_record(&self) -> bool {
+        self.values.borrow().iter().find(|i| !i.1.is_empty()).is_some()
     }
 }
 
