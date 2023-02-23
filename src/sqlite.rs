@@ -71,6 +71,7 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
     let (file_rep_path, file_rep) = report_prod.new_report(f, "file-report")?;
     // declare all headers (using in csv report)
     file_rep.set_field("WorkId");
+    file_rep.set_field("System_ComputerName");
     file_rep.set_field("System_ItemPathDisplay");
     file_rep.set_field("System_DateModified");
     file_rep.set_field("System_DateCreated");
@@ -83,15 +84,19 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
 
     let (ie_rep_path, ie_rep) = report_prod.new_report(f, "ie-report")?;
     ie_rep.set_field("WorkId");
+    ie_rep.set_field("System_ComputerName");
     ie_rep.set_field("System_ItemName");
     ie_rep.set_field("System_ItemUrl");
     ie_rep.set_field("System_ItemDate");
     ie_rep.set_field("System_DateCreated");
     ie_rep.set_field("System_ItemFolderNameDisplay");
     ie_rep.set_field("System_Search_GatherTime");
+    ie_rep.set_field("System_Title");
+    ie_rep.set_field("System_Link_DateVisited");
 
     let (act_rep_path,  act_rep) = report_prod.new_report(f, "act-report")?;
     act_rep.set_field("WorkId");
+    act_rep.set_field("System_ComputerName");
     act_rep.set_field("System_ItemNameDisplay");
     act_rep.set_field("System_ItemUrl");
     act_rep.set_field("System_ActivityHistory_StartTime");
@@ -139,6 +144,7 @@ fn sqlite_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String/
     r.int_val("WorkId", workId as u64);
     for (col, val) in h {
         match col.as_str() {
+            "557" => r.str_val("System_ComputerName", String::from_utf8_lossy(&val).into_owned()),
             "39" => r.str_val("System_ItemPathDisplay", String::from_utf8_lossy(&val).into_owned()),
             "441" => r.str_val("System_DateModified", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "445" => r.str_val("System_DateCreated", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
@@ -188,7 +194,9 @@ fn sqlite_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String
     }
     if let Some((_, val)) = item_type {
         let v = String::from_utf8_lossy(&val).into_owned();
-        if !v.starts_with("winrt://") {
+        if !v.starts_with("winrt://") ||
+            (v.starts_with("winrt:\\") && v.contains("\\LS\\Desktop\\Microsoft Edge\\stable\\Default\\"))
+        {
             return false;
         }
     }
@@ -196,12 +204,15 @@ fn sqlite_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String
     r.int_val("WorkId", workId as u64);
     for (col, val) in h {
         match col.as_str() {
+            "557" => r.str_val("System_ComputerName", String::from_utf8_lossy(&val).into_owned()),
             "318" => r.str_val("System_ItemName", String::from_utf8_lossy(&val).into_owned()),
             "39" => r.str_val("System_ItemUrl", String::from_utf8_lossy(&val).into_owned()),
             "308" => r.str_val("System_ItemDate", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "445" => r.str_val("System_DateCreated", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "414" => r.str_val("System_ItemFolderNameDisplay", String::from_utf8_lossy(&val).into_owned()),
             "26" => r.str_val("System_Search_GatherTime", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "424" => r.str_val("System_Title", String::from_utf8_lossy(&val).into_owned()),
+            "378" => r.str_val("System_Link_DateVisited", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             _ => {}
         }
     }
@@ -225,6 +236,7 @@ fn sqlite_activity_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<
     r.int_val("WorkId", workId as u64);
     for (col, val) in h {
         match col.as_str() {
+            "557" => r.str_val("System_ComputerName", String::from_utf8_lossy(&val).into_owned()),
             "432" => r.str_val("System_ItemNameDisplay", String::from_utf8_lossy(&val).into_owned()),
             "39" => r.str_val("System_ItemUrl", String::from_utf8_lossy(&val).into_owned()),
             "346" => r.str_val("System_ActivityHistory_StartTime", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),

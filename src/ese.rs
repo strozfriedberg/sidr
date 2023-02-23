@@ -130,6 +130,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
     let (file_rep_path, file_rep) = report_prod.new_report(f, "file-report")?;
     // declare all headers (using in csv report)
     file_rep.set_field("WorkId");
+    file_rep.set_field("System_ComputerName");
     file_rep.set_field("System_ItemPathDisplay");
     file_rep.set_field("System_DateModified");
     file_rep.set_field("System_DateCreated");
@@ -142,15 +143,19 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
 
     let (ie_rep_path, ie_rep) = report_prod.new_report(f, "ie-report")?;
     ie_rep.set_field("WorkId");
+    ie_rep.set_field("System_ComputerName");
     ie_rep.set_field("System_ItemName");
     ie_rep.set_field("System_DateModified");
     ie_rep.set_field("System_ItemUrl");
     ie_rep.set_field("System_Link_TargetUrl");
     ie_rep.set_field("System_ItemDate");
     ie_rep.set_field("System_Search_GatherTime");
+    ie_rep.set_field("System_Title");
+    ie_rep.set_field("System_Link_DateVisited");
 
     let (act_rep_path,  act_rep) = report_prod.new_report(f, "act-report")?;
     act_rep.set_field("WorkId");
+    act_rep.set_field("System_ComputerName");
     act_rep.set_field("System_ItemNameDisplay");
     act_rep.set_field("System_ItemUrl");
     act_rep.set_field("System_ActivityHistory_StartTime");
@@ -167,13 +172,15 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
     // prepare to query only selected columns
     let sel_cols = prepare_selected_cols(cols,
         &vec![
+            "WorkID", "System_ComputerName",
             // File Report
-            "WorkID", "System_ItemPathDisplay", "System_DateModified",
+            "System_ItemPathDisplay", "System_DateModified",
             "System_DateCreated", "System_DateAccessed", "System_Size", "System_FileOwner",
             "System_Search_AutoSummary",
             "System_Search_GatherTime", "System_ItemType",
             // IE/Edge History Report
             "System_ItemName", "System_ItemUrl", "System_Link_TargetUrl", "System_ItemDate",
+            "System_Title", "System_Link_DateVisited",
             // Activity History Report
             "System_ItemType", "System_ItemNameDisplay", "System_ActivityHistory_StartTime",
             "System_ActivityHistory_EndTime", "System_Activity_AppDisplayName",
@@ -244,6 +251,7 @@ fn ese_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Ve
     for (col, val) in h {
         let csp = column_string_part(col);
         match csp {
+            "System_ComputerName" => r.str_val(csp, from_utf16(val)),
             "System_ItemPathDisplay" => r.str_val(csp, from_utf16(val)),
             "System_DateModified" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "System_DateCreated" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
@@ -288,18 +296,22 @@ fn ese_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Ve
 fn ese_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
     if let Some(url_data) = h.get("33-System_ItemUrl") {
         let url = from_utf16(url_data);
-        if url.starts_with("iehistory://") {
+        if url.starts_with("iehistory://") ||
+            (url.starts_with("winrt:\\") && url.contains("\\LS\\Desktop\\Microsoft Edge\\stable\\Default\\"))
+        {
             r.new_record();
             r.int_val("WorkId", workId as u64);
             for (col, val) in h {
                 let csp = column_string_part(col);
                 match csp {
-                    "System_ItemName" => r.str_val(csp, from_utf16(val)),
+                    "System_ComputerName" => r.str_val(csp, from_utf16(val)),
                     "System_DateModified" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
                     "System_ItemUrl" => r.str_val(csp, url.clone()),
                     "System_Link_TargetUrl" => r.str_val(csp, from_utf16(val)),
                     "System_ItemDate" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
                     "System_Search_GatherTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+                    "System_Title" => r.str_val(csp, url.clone()),
+                    "System_Link_DateVisited" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             _ => {}
                 }
             }
@@ -327,6 +339,7 @@ fn ese_activity_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<Str
     for (col, val) in h {
         let csp = column_string_part(col);
         match csp {
+            "System_ComputerName" => r.str_val(csp, from_utf16(val)),
             "System_ItemNameDisplay" => r.str_val(csp, from_utf16(val)),
             "System_ItemUrl" => r.str_val(csp, from_utf16(val)), // TODO: get UserSID from here
             "System_ActivityHistory_StartTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
