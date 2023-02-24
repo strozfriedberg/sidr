@@ -135,7 +135,15 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
         if workId_current != workId {
             // new WorkId, handle all collected fields
             if !h.is_empty() {
-                if !sqlite_activity_history_record(&act_rep, workId_current, &h) && !sqlite_IE_history_record(&ie_rep, workId_current, &h) {
+                let ie_history = sqlite_IE_history_record(&ie_rep, workId_current, &h);
+                if ie_history && ie_rep.is_some_val_in_record() {
+                    ie_rep.str_val("System_ComputerName", recovered_hostname.clone());
+                }
+                let act_history = sqlite_activity_history_record(&act_rep, workId_current, &h);
+                if act_history && act_rep.is_some_val_in_record() {
+                    act_rep.str_val("System_ComputerName", recovered_hostname.clone());
+                }
+                if !ie_history && !act_history {
                     // only for File Report
                     // Join WorkID within SystemIndex_1_PropertyStore with DocumentID in SystemIndex_Gthr
                     // if let Some(gh) = gather_table_fields.get(&workId_current) {
@@ -144,15 +152,9 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
                     //     }
                     // }
                     sqlite_dump_file_record(&file_rep, workId_current, &h);
-                }
-                if ie_rep.is_some_val_in_record() {
-                    ie_rep.str_val("System_ComputerName", recovered_hostname.clone());
-                }
-                if act_rep.is_some_val_in_record() {
-                    act_rep.str_val("System_ComputerName", recovered_hostname.clone());
-                }
-                if file_rep.is_some_val_in_record() {
-                    file_rep.str_val("System_ComputerName", recovered_hostname.clone());
+                    if file_rep.is_some_val_in_record() {
+                        file_rep.str_val("System_ComputerName", recovered_hostname.clone());
+                    }
                 }
                 h.clear();
             }
@@ -171,7 +173,6 @@ fn sqlite_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String/
     r.int_val("WorkId", workId as u64);
     for (col, val) in h {
         match col.as_str() {
-            "557" => r.str_val("System_ComputerName", String::from_utf8_lossy(&val).into_owned()),
             "39" => r.str_val("System_ItemPathDisplay", String::from_utf8_lossy(&val).into_owned()),
             "441" => r.str_val("System_DateModified", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "445" => r.str_val("System_DateCreated", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
@@ -238,7 +239,6 @@ fn sqlite_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String
     r.int_val("WorkId", workId as u64);
     for (col, val) in h {
         match col.as_str() {
-            "557" => r.str_val("System_ComputerName", String::from_utf8_lossy(&val).into_owned()),
             "318" => r.str_val("System_ItemName", String::from_utf8_lossy(&val).into_owned()),
             "39" => r.str_val("System_ItemUrl", String::from_utf8_lossy(&val).into_owned()),
             "308" => r.str_val("System_ItemDate", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
@@ -270,7 +270,6 @@ fn sqlite_activity_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<
     r.int_val("WorkId", workId as u64);
     for (col, val) in h {
         match col.as_str() {
-            "557" => r.str_val("System_ComputerName", String::from_utf8_lossy(&val).into_owned()),
             "432" => r.str_val("System_ItemNameDisplay", String::from_utf8_lossy(&val).into_owned()),
             "39" => r.str_val("System_ItemUrl", String::from_utf8_lossy(&val).into_owned()),
             "346" => r.str_val("System_ActivityHistory_StartTime", format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),

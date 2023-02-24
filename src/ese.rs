@@ -254,17 +254,19 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
                 }
             }
         }
-        if !ese_IE_history_record(&ie_rep, workId, &h) && !ese_activity_history_record(&act_rep, workId, &h) {
-            ese_dump_file_record(&file_rep, workId, &h);
-        }
-        if ie_rep.is_some_val_in_record() {
+        let ie_history = ese_IE_history_record(&ie_rep, workId, &h);
+        if ie_history && ie_rep.is_some_val_in_record() {
             ie_rep.str_val("System_ComputerName", recovered_hostname.clone());
         }
-        if act_rep.is_some_val_in_record() {
+        let act_history = ese_activity_history_record(&act_rep, workId, &h);
+        if act_history && act_rep.is_some_val_in_record() {
             act_rep.str_val("System_ComputerName", recovered_hostname.clone());
         }
-        if file_rep.is_some_val_in_record() {
-            file_rep.str_val("System_ComputerName", recovered_hostname.clone());
+        if !ie_history && !act_history {
+            ese_dump_file_record(&file_rep, workId, &h);
+            if file_rep.is_some_val_in_record() {
+                file_rep.str_val("System_ComputerName", recovered_hostname.clone());
+            }
         }
         h.clear();
 
@@ -294,7 +296,6 @@ fn ese_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Ve
     for (col, val) in h {
         let csp = column_string_part(col);
         match csp {
-            "System_ComputerName" => r.str_val(csp, from_utf16(val)),
             "System_ItemPathDisplay" => r.str_val(csp, from_utf16(val)),
             "System_DateModified" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "System_DateCreated" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
@@ -355,7 +356,6 @@ fn ese_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, V
     for (col, val) in h {
         let csp = column_string_part(col);
         match csp {
-            "System_ComputerName" => r.str_val(csp, from_utf16(val)),
             "System_DateModified" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
             "System_ItemUrl" => r.str_val(csp, from_utf16(val)),
             "System_Link_TargetUrl" => r.str_val(csp, from_utf16(val)),
@@ -387,7 +387,6 @@ fn ese_activity_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<Str
     for (col, val) in h {
         let csp = column_string_part(col);
         match csp {
-            "System_ComputerName" => r.str_val(csp, from_utf16(val)),
             "System_ItemNameDisplay" => r.str_val(csp, from_utf16(val)),
             "System_ItemUrl" => r.str_val(csp, from_utf16(val)), // TODO: get UserSID from here
             "System_ActivityHistory_StartTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
