@@ -1,3 +1,5 @@
+#![allow(non_upper_case_globals)]
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 
@@ -39,6 +41,106 @@ trait FieldReader {
     fn get_int(&mut self, id: &FldId) -> Option<i64>;
     fn get_str(&mut self, id: &FldId) -> Option<String>;
     fn get_datetime(&mut self, id: &FldId) -> Option<DateTime<Utc>>;
+}
+
+//--------------------------------------------------------------------
+use ese_parser_lib::ese_trait::*;
+use ese_parser_lib::ese_parser::EseParser;
+use std::io::BufReader;
+use std::fs::File;
+
+struct EseReader {
+    jdb: Box<EseParser<BufReader<File>>>,
+    table: u64,
+    col_infos: HashMap<String, (u32, u32)>,
+}
+
+const CACHE_SIZE_ENTRIES: usize = 10;
+
+fn field_size(col_type: u32) -> u32 {
+    match col_type {
+        ESE_coltypUnsignedByte => 1,
+        ESE_coltypShort => 2,
+        ESE_coltypLong => 4,
+        ESE_coltypCurrency => 8,
+        ESE_coltypIEEESingle => 4,
+        ESE_coltypIEEEDouble => 8,
+        ESE_coltypDateTime => 8,
+        ESE_coltypBinary => 0,
+        ESE_coltypText => 0,
+        ESE_coltypLongBinary => 0,
+        ESE_coltypLongText => 0,
+        ESE_coltypUnsignedLong => 4,
+        ESE_coltypLongLong => 8,
+        ESE_coltypGUID => 16,
+        ESE_coltypUnsignedShort => 2,
+        _ => panic!("{} - unknown field type", col_type),
+    }
+}
+
+impl EseReader {
+    fn new(filename: &str, tablename: &str, columns: &Vec<ColumnPair>) -> Self {
+        let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, filename).unwrap());
+        let table = jdb.open_table(tablename).unwrap();
+        let cols = jdb.get_columns(tablename).unwrap();
+        let mut col_infos = HashMap::<String, (u32, u32)>::new();
+        for col_pair in columns {
+            let name = col_pair.edb.name.clone();
+
+            if !name.is_empty() {
+                match cols.iter().find(|col| col.name == name) {
+                    Some(col_info) => { col_infos.insert(col_pair.title.clone(), (col_info.id, field_size(col_info.typ)));} ,
+                    None => panic!("Could not find '{}' column in '{}' table in '{}'",
+                                   name, tablename, filename),
+                }
+            }
+        }
+
+        EseReader{
+            jdb,
+            table,
+            col_infos,
+        }
+    }
+}
+
+impl FieldReader for EseReader {
+    fn next(&mut self) -> bool {
+        self.jdb.move_row(self.table, ESE_MoveNext).unwrap()
+    }
+
+    fn get_datetime(&mut self, id: &FldId) -> Option<DateTime<Utc>> {
+        if !self.col_infos.contains_key(id) {
+            return None;
+        }
+        match self.jdb.get_column_date(self.table, self.col_infos[id].0) {
+            Ok(date) => date,
+            Err(e) => panic!("Error '{}'", e.as_str()),
+        }
+    }
+
+    fn get_int(&mut self, id: &FldId) -> Option<i64> {
+        None
+        // if id.is_empty() {
+        //     return None;
+        // }
+        // self.jdb.get_column::<u32>(&*jdb, table_id, &cols[docID_indx])
+        // match self.with_statement_mut(|st| st.read::<i64, _>(id.as_str())) {
+        //     Ok(x) => Some(x),
+        //     Err(e) => panic!("{e}"),
+        // }
+    }
+
+    fn get_str(&mut self, id: &FldId) -> Option<String> {
+        None
+        // if id.is_empty() {
+        //     return None;
+        // }
+        // match self.with_statement_mut(|st| st.read::<String, _>(id.as_str())) {
+        //     Ok(x) => Some(x),
+        //     Err(e) => panic!("{e}"),
+        // }
+    }
 }
 
 //--------------------------------------------------------------------
@@ -99,6 +201,7 @@ impl FieldReader for SqlReader {
 
 //--------------------------------------------------------------------
 use std::fs;
+//use std::path::Path;
 
 fn do_report(cfg: &FileReportCfg, reader: &mut dyn FieldReader) {
 
@@ -132,7 +235,6 @@ fn do_report(cfg: &FileReportCfg, reader: &mut dyn FieldReader) {
             }
         }
     }
-
 }
 
 use clap::Parser;
@@ -149,41 +251,56 @@ struct Cli {
     sql: Option<String>,
 }
 
+fn do_sql_report(db_path: &String, cfg: &FileReportCfg) {
+    let connection = Rc::new(sqlite::Connection::open(db_path).unwrap());
+    let mut fields = Vec::<&'static str>::new();
+
+    for col_pair in &cfg.columns {
+        let code = &col_pair.sql.name;
+
+        if !code.is_empty() {
+            let name = &col_pair.title;
+            let sql = format!("CREATE TEMP VIEW {name} AS SELECT WorkId, Value as {name} from {table} where ColumnId = {code};",
+                              table = cfg.table_sql);
+            connection.execute(sql.as_str()).expect(format!("bad sql: '{sql}'").as_str());
+            fields.push(name.as_str());
+        }
+    }
+
+    let mut select = "SELECT ".to_string();
+    select.push_str(fields.join(",").as_str());
+    select = format!("{} from {} as a", select, fields[0]);
+    for field in &mut fields[1..] {
+        select.push_str(format!(" LEFT JOIN {field} on a.WorkId = {field}.WorkId").as_str());
+    }
+
+    let mut sql_reader = SqlReaderBuilder {
+        connection: connection,
+        statement_builder: |connection| connection.prepare(select).unwrap(),
+    }
+        .build();
+
+    do_report(&cfg, &mut sql_reader);
+}
+
+fn do_edb_report(db_path: &String, cfg: &FileReportCfg) {
+    let mut edb_reader = EseReader::new(&db_path, &cfg.table_edb, &cfg.columns);
+    do_report(&cfg, &mut edb_reader);
+}
+
 fn main() {
     let cli = Cli::parse();
-    let s = fs::read_to_string(cli.cfg).unwrap();
+    let s = fs::read_to_string(&cli.cfg).unwrap();
     let cfg: FileReportCfg = serde_yaml::from_str(s.as_str()).unwrap();
 
-    if let Some(db_path) = cli.sql {
-        let connection = Rc::new(sqlite::Connection::open(db_path).unwrap());
-        let mut fields = Vec::<&'static str>::new();
+    if let Some(db_path) = &cli.edb {
+        do_edb_report(db_path, &cfg);
+    } else {
+        println!("missed `--edb` argument");
+    }
 
-        for col_pair in &cfg.columns {
-            let code = &col_pair.sql.name;
-
-            if !code.is_empty() {
-                let name = &col_pair.title;
-                let sql = format!("CREATE TEMP VIEW {name} AS SELECT WorkId, Value as {name} from {table} where ColumnId = {code};", 
-                                            table = cfg.table_sql);
-                connection.execute(sql.as_str()).expect(format!("bad sql: '{sql}'").as_str());
-                fields.push(name.as_str());
-            }
-        }
-
-        let mut select = "SELECT ".to_string();
-        select.push_str(fields.join(",").as_str());
-        select = format!("{} from {} as a", select, fields[0]);
-        for field in &mut fields[1..] {
-            select.push_str(format!(" LEFT JOIN {field} on a.WorkId = {field}.WorkId").as_str());
-        }
-
-        let mut sql_reader = SqlReaderBuilder {
-            connection: connection,
-            statement_builder: |connection| connection.prepare(select).unwrap(),
-        }
-            .build();
-    
-        do_report(&cfg, &mut sql_reader);
+    if let Some(db_path) = &cli.sql {
+        do_sql_report(db_path, &cfg);
     } else {
         println!("missed `--sql` argument");
     }
