@@ -24,11 +24,18 @@ struct ColumnPair {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+enum OutputFormat {
+    Csv,
+    Json,
+}
+#[derive(Debug, Serialize, Deserialize)]
 struct FileReportCfg {
     title: String,
     table_edb: String,
     table_sql: String,
-    columns: Vec<ColumnPair>,
+    output_format: OutputFormat,
+    output_dir: String,
+    columns: Vec<ColumnPair>
 }
 
 //--------------------------------------------------------------------
@@ -74,7 +81,7 @@ fn field_size(col_type: u32, size: u32) -> u32 {
         ESE_coltypLongLong => 8,
         ESE_coltypGUID => 16,
         ESE_coltypUnsignedShort => 2,
-        _ => panic!("{} - unknown field type", col_type),
+        _ => panic!("{col_type} - unknown field type"),
     }
 }
 
@@ -105,10 +112,7 @@ impl EseReader {
                             (col_info.id, field_size(col_info.typ, col_info.cbmax)),
                         );
                     }
-                    None => panic!(
-                        "Could not find '{}' column in '{}' table in '{}'",
-                        name, tablename, filename
-                    ),
+                    None => panic!("Could not find '{name}' column in '{tablename}' table in '{filename}'"),
                 }
             }
         }
@@ -140,7 +144,7 @@ impl FieldReader for EseReader {
             if let Ok(val) = v.clone().try_into() {
                 let vartime = f64::from_le_bytes(val);
                 let mut st = SYSTEMTIME::default();
-                if VariantTimeToSystemTime(vartime as f64, &mut st) {
+                if VariantTimeToSystemTime(vartime, &mut st) {
                     let datetime = Utc
                         .with_ymd_and_hms(st.wYear as i32, st.wMonth as u32, st.wDay as u32,
                                           st.wHour as u32, st.wMinute as u32, st.wSecond as u32).single().unwrap(); // this is obviously not the right function! I didn't know what the right one was off the top of my head. We need to include the time component. also needs to be something that returns a DateTime.
@@ -166,7 +170,7 @@ impl FieldReader for EseReader {
             2 => get_column::<i16>(&*self.jdb, self.table, fld_id),
             4 => get_column::<i32>(&*self.jdb, self.table, fld_id),
             8 => get_column::<i64>(&*self.jdb, self.table, fld_id),
-            _ => panic!("{} - wrong size of int field", fld_size),
+            _ => panic!("{fld_size} - wrong size of int field"),
         }
     }
 
@@ -177,9 +181,9 @@ impl FieldReader for EseReader {
         match self.jdb.get_column(self.table, self.col_infos[id].0) {
             Ok(r) => match r {
                 Some(v) =>
-                match str::from_utf8(&v.as_slice()) {
+                match str::from_utf8(v.as_slice()) {
                     Ok(s) => Some(s.to_string()),
-                    Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+                    Err(e) => panic!("Invalid UTF-8 sequence: {e}"),
                 },
                 None => None,
             },
@@ -248,13 +252,33 @@ impl FieldReader for SqlReader {
 
 //--------------------------------------------------------------------
 use std::fs;
-//use std::path::Path;
+#[path="../report.rs"]
+mod report;
+use crate::report::*;
 
 fn do_report(cfg: &FileReportCfg, reader: &mut dyn FieldReader) {
-    println!("FileReport: {}", cfg.title);
+    let mut out_path = PathBuf::from(cfg.output_dir.as_str());
+    if !out_path.exists() {
+        fs::create_dir_all(out_path.clone()).unwrap();
+    }
+    out_path.push(cfg.title.clone());
+    let reporter: Box<dyn Report> = match cfg.output_format {
+        OutputFormat::Csv => {
+            out_path.set_extension("csv");
+            Box::new(ReportCsv::new(&out_path).unwrap())
+        },
+        OutputFormat::Json => {
+            out_path.set_extension("json");
+            Box::new(ReportJson::new(&out_path).unwrap())
+        }
+    };
+    //println!("FileReport: {}", cfg.title);
+
     while reader.next() {
+        reporter.new_record();
+
         for col in &cfg.columns {
-            print!("  {} -> ", col.title);
+            //print!("  {} -> ", col.title);
             let col_id = &col.title;
 
             match col.kind {
@@ -264,44 +288,49 @@ fn do_report(cfg: &FileReportCfg, reader: &mut dyn FieldReader) {
                     } else {
                         "".to_string()
                     };
-                    println!("{}", s);
+                    reporter.str_val(col.title.as_str(), s);
+                    //println!("{}", s);
                 }
                 ColumnType::Integer => {
-                    let s = if let Some(v) = reader.get_int(col_id) {
-                        v
-                    } else {
-                        0
+                    if let Some(v) = reader.get_int(col_id) {
+                        reporter.int_val(col.title.as_str(), v as u64);
                     };
-                    println!("{}", s);
+                    //println!("{}", s);
                 }
                 ColumnType::DateTime => {
                     if let Some(dt) = reader.get_datetime(col_id) {
-                        println!("{}", dt);
-                    } else {
-                        println!();
+                        reporter.str_val(col.title.as_str(), format!("{dt}"));
+                        //println!("{}", dt);
                     }
                 }
             }
         }
     }
+
+    reporter.footer();
 }
 
 use clap::Parser;
+use std::path::PathBuf;
 
 #[derive(Parser)]
 struct Cli {
     /// Path to <config.yaml>
     #[arg(short, long)]
-    cfg: String,
-    /// Path to EDB database
+    cfg_path: String,
+    /// Path to the directory where reports will be created (will be created if not present).
+    /// Default is the current directory.
     #[arg(short, long)]
-    edb: Option<String>,
-    /// Path to SQL database
+    outdir: Option<String>,
+    /// json (default) or csv.
     #[arg(short, long)]
-    sql: Option<String>,
+    format: Option<String>,
+    /// Path to SQL/EDB database
+    #[arg(short, long)]
+    db_path: PathBuf,
 }
 
-fn do_sql_report(db_path: &String, cfg: &FileReportCfg) {
+fn do_sql_report(db_path: &str, cfg: &FileReportCfg) {
     let connection = Rc::new(sqlite::Connection::open(db_path).unwrap());
     let mut fields = Vec::<&'static str>::new();
 
@@ -314,7 +343,7 @@ fn do_sql_report(db_path: &String, cfg: &FileReportCfg) {
                               table = cfg.table_sql);
             connection
                 .execute(sql.as_str())
-                .expect(format!("bad sql: '{sql}'").as_str());
+                .unwrap_or_else(|_| panic!("bad sql: '{sql}'"));
             fields.push(name.as_str());
         }
     }
@@ -332,28 +361,35 @@ fn do_sql_report(db_path: &String, cfg: &FileReportCfg) {
     }
     .build();
 
-    do_report(&cfg, &mut sql_reader);
+    do_report(cfg, &mut sql_reader);
 }
 
-fn do_edb_report(db_path: &String, cfg: &FileReportCfg) {
-    let mut edb_reader = EseReader::new(&db_path, &cfg.table_edb, &cfg.columns);
-    do_report(&cfg, &mut edb_reader);
+fn do_edb_report(db_path: &str, cfg: &FileReportCfg) {
+    let mut edb_reader = EseReader::new(db_path, &cfg.table_edb, &cfg.columns);
+    do_report(cfg, &mut edb_reader);
 }
 
 fn main() {
     let cli = Cli::parse();
-    let s = fs::read_to_string(&cli.cfg).unwrap();
-    let cfg: FileReportCfg = serde_yaml::from_str(s.as_str()).unwrap();
+    let s = fs::read_to_string(&cli.cfg_path).unwrap();
+    let mut cfg: FileReportCfg = serde_yaml::from_str(s.as_str()).unwrap();
+    let db_path = cli.db_path.display().to_string();
 
-    if let Some(db_path) = &cli.edb {
-        do_edb_report(db_path, &cfg);
-    } else {
-        println!("missed `--edb` argument");
+    if let Some(output_dir) = &cli.outdir {
+        cfg.output_dir = output_dir.clone();
     }
 
-    if let Some(db_path) = &cli.sql {
-        do_sql_report(db_path, &cfg);
-    } else {
-        println!("missed `--sql` argument");
+    if let Some(output_format) = &cli.outdir {
+        cfg.output_format = match output_format.to_lowercase().as_str() {
+            "json" => OutputFormat::Json,
+            "csv" => OutputFormat::Csv,
+            _ => panic!("Unknow output format '{output_format}'"),
+        }
+    }
+
+    if db_path.ends_with("Windows.edb") {
+        do_edb_report(db_path.as_str(), &cfg);
+    } else if db_path.ends_with("Windows.db") {
+        do_sql_report(db_path.as_str(), &cfg);
     }
 }
