@@ -2,6 +2,8 @@
 title: Test config
 table_edb: SystemIndex_PropertyStore
 table_sql: SystemIndex_1_PropertyStore
+output_format: Csv
+output_dir: "./report"
 columns:
   - title: PathDisplay
     kind: String
