@@ -11,6 +11,7 @@ serde = { version = "*", features = ["derive"] }
 clap = { version = "*", features = ["derive"] }
 serde_yaml = "*"
 ouroboros = "*"
+num = "*"
 
 simple-error = "*"
 chrono = "0.4"
