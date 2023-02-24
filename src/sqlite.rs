@@ -214,16 +214,23 @@ fn sqlite_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String/
 
 //IE/Edge History Report
 fn sqlite_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String/*ColumnId*/, Vec<u8>/*Value*/>) -> bool {
-    // record only if 39 starts with iehistory://
-    let item_type = h.get_key_value("39");
-    if item_type.is_none() {
+    let url = h.get_key_value("39");
+    if url.is_none() {
         return false;
     }
-    if let Some((_, val)) = item_type {
+    if let Some((_, val)) = url {
         let v = String::from_utf8_lossy(&val).into_owned();
-        if !v.starts_with("winrt://") ||
-            (v.starts_with("winrt:\\") && v.contains("\\LS\\Desktop\\Microsoft Edge\\stable\\Default\\"))
-        {
+        if !(v.starts_with("winrt://") && v.contains("/LS/Desktop/Microsoft Edge/stable/Default/")) {
+            return false;
+        }
+    }
+    let name = h.get_key_value("318");
+    if name.is_none() {
+        return false;
+    }
+    if let Some((_, val)) = name {
+        let v = String::from_utf8_lossy(&val).into_owned();
+        if !v.starts_with("http://") && !v.starts_with("https://") {
             return false;
         }
     }

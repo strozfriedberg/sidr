@@ -337,31 +337,36 @@ fn ese_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Ve
 
 // IE/Edge History Report
 fn ese_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
-    if let Some(url_data) = h.get("33-System_ItemUrl") {
-        let url = from_utf16(url_data);
-        if url.starts_with("iehistory://") ||
-            (url.starts_with("winrt:\\") && url.contains("\\LS\\Desktop\\Microsoft Edge\\stable\\Default\\"))
+    let url = h.get_key_value("33-System_ItemUrl");
+    if url.is_none() {
+        return false;
+    }
+    if let Some((_, val)) = url {
+        let v = from_utf16(val);
+        if !v.starts_with("iehistory://") &&
+            !(v.starts_with("winrt://") && v.contains("/LS/Desktop/Microsoft Edge/stable/Default/"))
         {
-            r.new_record();
-            r.int_val("WorkId", workId as u64);
-            for (col, val) in h {
-                let csp = column_string_part(col);
-                match csp {
-                    "System_ComputerName" => r.str_val(csp, from_utf16(val)),
-                    "System_DateModified" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-                    "System_ItemUrl" => r.str_val(csp, url.clone()),
-                    "System_Link_TargetUrl" => r.str_val(csp, from_utf16(val)),
-                    "System_ItemDate" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-                    "System_Search_GatherTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-                    "System_Title" => r.str_val(csp, url.clone()),
-                    "System_Link_DateVisited" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            _ => {}
-                }
-            }
-            return true;
+            return false;
         }
     }
-    false
+
+    r.new_record();
+    r.int_val("WorkId", workId as u64);
+    for (col, val) in h {
+        let csp = column_string_part(col);
+        match csp {
+            "System_ComputerName" => r.str_val(csp, from_utf16(val)),
+            "System_DateModified" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "System_ItemUrl" => r.str_val(csp, from_utf16(val)),
+            "System_Link_TargetUrl" => r.str_val(csp, from_utf16(val)),
+            "System_ItemDate" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "System_Search_GatherTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "System_Title" => r.str_val(csp, from_utf16(val)),
+            "System_Link_DateVisited" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            _ => {}
+        }
+    }
+    true
 }
 
 // Activity History Report
