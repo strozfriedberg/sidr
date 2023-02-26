@@ -178,7 +178,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
     let recovered_hostname = ese_get_first_value_as_string(
         &*jdb,
         table_id,
-        &sel_cols.iter().find(|i| column_string_part(&i.name) == "System_ComputerName").unwrap())?;
+        sel_cols.iter().find(|i| column_string_part(&i.name) == "System_ComputerName").unwrap())?;
 
     let (file_rep_path, file_rep) = report_prod.new_report(f, &recovered_hostname, "File_Report")?;
     // declare all headers (using in csv report)
@@ -227,18 +227,15 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
         let mut workId : u32 = 0;
         for c in &sel_cols {
             if c.name == "WorkID" { // INTEGER
-                match get_column::<u32>(&*jdb, table_id, &c) {
-                    Ok(r) => match r {
-                        Some(wId) => {
-                            workId = wId;
-                            // Join WorkID within SystemIndex_PropertyStore with DocumentID in SystemIndex_Gthr
-                            // if let Some(gh) = gather_table_fields.get(&workId) {
-                            //     for (k, v) in gh {
-                            //         h.insert(k.into(), v.clone());
-                            //     }
-                            // }
-                        },
-                        None => {}
+                match get_column::<u32>(&*jdb, table_id, c) {
+                    Ok(r) => if let Some(wId) = r {
+                        workId = wId;
+                        // Join WorkID within SystemIndex_PropertyStore with DocumentID in SystemIndex_Gthr
+                        // if let Some(gh) = gather_table_fields.get(&workId) {
+                        //     for (k, v) in gh {
+                        //         h.insert(k.into(), v.clone());
+                        //     }
+                        // }
                     },
                     Err(e) => println!("Error while getting column {} from {}: {}", c.name, t, e)
                 }
@@ -254,16 +251,16 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
                 }
             }
         }
-        let ie_history = ese_IE_history_record(&ie_rep, workId, &h);
+        let ie_history = ese_IE_history_record(&*ie_rep, workId, &h);
         if ie_history && ie_rep.is_some_val_in_record() {
             ie_rep.str_val("System_ComputerName", recovered_hostname.clone());
         }
-        let act_history = ese_activity_history_record(&act_rep, workId, &h);
+        let act_history = ese_activity_history_record(&*act_rep, workId, &h);
         if act_history && act_rep.is_some_val_in_record() {
             act_rep.str_val("System_ComputerName", recovered_hostname.clone());
         }
         if !ie_history && !act_history {
-            ese_dump_file_record(&file_rep, workId, &h);
+            ese_dump_file_record(&*file_rep, workId, &h);
             if file_rep.is_some_val_in_record() {
                 file_rep.str_val("System_ComputerName", recovered_hostname.clone());
             }
@@ -278,7 +275,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
 }
 
 // File Report
-fn ese_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Vec<u8>>) {
+fn ese_dump_file_record(r: &dyn Report, workId: u32, h: &HashMap<String, Vec<u8>>) {
     // let item_type = h.get_key_value("4447-System_ItemPathDisplay");
     // if item_type.is_none() {
     //     return ;
@@ -297,13 +294,13 @@ fn ese_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Ve
         let csp = column_string_part(col);
         match csp {
             "System_ItemPathDisplay" => r.str_val(csp, from_utf16(val)),
-            "System_DateModified" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "System_DateCreated" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "System_DateAccessed" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "System_Size" => r.int_val(csp, u64::from_bytes(&val)),
-            "System_FileOwner" => r.str_val(csp, from_utf16(&val)),
-            "System_Search_AutoSummary" => r.str_val(csp, from_utf16(&val)),
-            "System_Search_GatherTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "System_DateModified" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(val)))),
+            "System_DateCreated" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(val)))),
+            "System_DateAccessed" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(val)))),
+            "System_Size" => r.int_val(csp, u64::from_bytes(val)),
+            "System_FileOwner" => r.str_val(csp, from_utf16(val)),
+            "System_Search_AutoSummary" => r.str_val(csp, from_utf16(val)),
+            "System_Search_GatherTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(val)))),
             "System_ItemType" => r.str_val(csp, from_utf16(val)),
             // "ScopeID" => println!("{}: {}", col, i32::from_bytes(val)),
             // "DocumentID" => println!("{}: {}", col, i32::from_bytes(val)),
@@ -337,15 +334,15 @@ fn ese_dump_file_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Ve
 }
 
 // IE/Edge History Report
-fn ese_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
+fn ese_IE_history_record(r: &dyn Report, workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
     let url = h.get_key_value("33-System_ItemUrl");
     if url.is_none() {
         return false;
     }
     if let Some((_, val)) = url {
         let v = from_utf16(val);
-        if !v.starts_with("iehistory://") &&
-            !(v.starts_with("winrt://") && v.contains("/LS/Desktop/Microsoft Edge/stable/Default/"))
+        if !(v.starts_with("iehistory://") ||
+            v.starts_with("winrt://") && v.contains("/LS/Desktop/Microsoft Edge/stable/Default/"))
         {
             return false;
         }
@@ -356,13 +353,13 @@ fn ese_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, V
     for (col, val) in h {
         let csp = column_string_part(col);
         match csp {
-            "System_DateModified" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "System_DateModified" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(val)))),
             "System_ItemUrl" => r.str_val(csp, from_utf16(val)),
             "System_Link_TargetUrl" => r.str_val(csp, from_utf16(val)),
-            "System_ItemDate" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "System_Search_GatherTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "System_ItemDate" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(val)))),
+            "System_Search_GatherTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(val)))),
             "System_Title" => r.str_val(csp, from_utf16(val)),
-            "System_Link_DateVisited" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "System_Link_DateVisited" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(val)))),
             _ => {}
         }
     }
@@ -370,7 +367,7 @@ fn ese_IE_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, V
 }
 
 // Activity History Report
-fn ese_activity_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
+fn ese_activity_history_record(r: &dyn Report, workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
     // record only if "4450-System_ItemType" == "ActivityHistoryItem"
     let item_type = h.get_key_value("4450-System_ItemType");
     if item_type.is_none() {
@@ -389,8 +386,8 @@ fn ese_activity_history_record(r: &Box<dyn Report>, workId: u32, h: &HashMap<Str
         match csp {
             "System_ItemNameDisplay" => r.str_val(csp, from_utf16(val)),
             "System_ItemUrl" => r.str_val(csp, from_utf16(val)), // TODO: get UserSID from here
-            "System_ActivityHistory_StartTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            "System_ActivityHistory_EndTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+            "System_ActivityHistory_StartTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(val)))),
+            "System_ActivityHistory_EndTime" => r.str_val(csp, format_date_time(get_date_time_from_filetime(u64::from_bytes(val)))),
             "System_Activity_AppDisplayName" => r.str_val(csp, from_utf16(val)),
             "System_ActivityHistory_AppId" => r.str_val(csp, from_utf16(val)),
             "System_Activity_DisplayText" => r.str_val(csp, from_utf16(val)),
