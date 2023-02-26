@@ -1,4 +1,3 @@
-
 use chrono::prelude::*;
 
 use std::convert::TryInto;
@@ -11,7 +10,10 @@ pub fn get_date_time_from_filetime(filetime: u64) -> DateTime<Utc> {
 
     // Add nanoseconds to timestamp via Duration
     DateTime::<Utc>::from_utc(
-        chrono::NaiveDate::from_ymd_opt(1970, 1, 1).unwrap().and_hms_nano_opt(0, 0, 0, 0).unwrap()
+        chrono::NaiveDate::from_ymd_opt(1970, 1, 1)
+            .unwrap()
+            .and_hms_nano_opt(0, 0, 0, 0)
+            .unwrap()
             + chrono::Duration::nanoseconds((filetime_nanos - UNIX_EPOCH_NANOS) as i64),
         Utc,
     )
@@ -46,7 +48,7 @@ pub fn find_guid(inp: &str, v: &str) -> String {
     if let Some(i) = inp.find(v) {
         let start = i + v.len();
         if let Some(j) = inp[start..].find('}') {
-            s = inp[start..start+j+1].into();
+            s = inp[start..start + j + 1].into();
         }
     }
     s
@@ -90,11 +92,13 @@ bitflags! {
 pub fn file_attributes_to_string(bytes: &Vec<u8>) -> String {
     let at = if bytes.len() == 1 {
         u8::from_le_bytes(bytes[..].try_into().unwrap()) as u32
-    } else  if bytes.len() == 2 {
+    } else if bytes.len() == 2 {
         u16::from_le_bytes(bytes[..].try_into().unwrap()) as u32
     } else if bytes.len() == 4 {
         u32::from_le_bytes(bytes[..].try_into().unwrap())
-    } else { return format!("{:?}", bytes) };
+    } else {
+        return format!("{:?}", bytes);
+    };
     let f = unsafe { file_attributes_flag::from_bits_unchecked(at) };
     format!("{:?}", f)
 }
@@ -103,7 +107,7 @@ pub fn file_attributes_to_string(bytes: &Vec<u8>) -> String {
 // out: System_DateModified
 pub fn column_string_part(s: &str) -> &str {
     match s.find('-') {
-        Some(i) => &s[i+1..],
-        None => s
+        Some(i) => &s[i + 1..],
+        None => s,
     }
 }

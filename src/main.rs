@@ -1,8 +1,4 @@
-#![allow(
-    non_upper_case_globals,
-    non_snake_case,
-    non_camel_case_types,
-)]
+#![allow(non_upper_case_globals, non_snake_case, non_camel_case_types)]
 
 #[macro_use]
 extern crate bitflags;
@@ -13,14 +9,14 @@ use std::path::PathBuf;
 
 use simple_error::SimpleError;
 
-pub mod utils;
 pub mod ese;
-pub mod sqlite;
 pub mod report;
+pub mod sqlite;
+pub mod utils;
 
 use crate::ese::*;
-use crate::sqlite::*;
 use crate::report::*;
+use crate::sqlite::*;
 
 fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
     for entry in fs::read_dir(f).unwrap().flatten() {
@@ -32,12 +28,20 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
             if f == "Windows.edb" {
                 println!("Processing ESE db: {}", p.to_string_lossy());
                 if let Err(e) = ese_generate_report(&p, report_prod) {
-                    eprintln!("ese_generate_report({}) failed with error: {}", p.to_string_lossy(), e);
+                    eprintln!(
+                        "ese_generate_report({}) failed with error: {}",
+                        p.to_string_lossy(),
+                        e
+                    );
                 }
             } else if f == "Windows.db" {
                 println!("Processing sqlite: {}", p.to_string_lossy());
                 if let Err(e) = sqlite_generate_report(&p, report_prod) {
-                    eprintln!("sqlite_generate_report({}) failed with error: {}", p.to_string_lossy(), e);
+                    eprintln!(
+                        "sqlite_generate_report({}) failed with error: {}",
+                        p.to_string_lossy(),
+                        e
+                    );
                 }
             }
         }
@@ -45,21 +49,34 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
     Ok(())
 }
 
+fn current_fn() -> String {
+    std::env::current_exe()
+        .unwrap()
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .to_string()
+}
+
 fn main() {
     let mut rep_dir = std::env::current_dir().unwrap();
     let mut args = env::args().skip(1).collect::<Vec<_>>();
     if args.is_empty() {
         eprintln!("path to directory is required, example of usage:");
-        eprintln!("> {} /f json C:\\test", std::env::current_exe().unwrap().file_name().unwrap().to_string_lossy());
+        eprintln!("> {} /f json C:\\test", current_fn());
         eprintln!();
         eprintln!("type /help for more details");
         eprintln!();
         return;
     }
     if args[0].contains("help") {
-        eprintln!("\nThe Windows Search Forensic Artifact Parser is a RUST based tool designed to parse");
+        eprintln!(
+            "\nThe Windows Search Forensic Artifact Parser is a RUST based tool designed to parse"
+        );
         eprintln!("Windows search artifacts from Windows 10 (and prior) and Windows 11 systems.");
-        eprintln!("The tool handles both ESE databases (Windows.edb) and SQLite databases (Windows.db)");
+        eprintln!(
+            "The tool handles both ESE databases (Windows.edb) and SQLite databases (Windows.db)"
+        );
         eprintln!("as input and generates four detailed reports as output.\n");
         eprintln!("[/f format] [/outdir directory] input\n");
         eprintln!("format: json (default) or csv.");
@@ -68,8 +85,10 @@ fn main() {
         eprintln!(" input: Path to input directory (which will recursively scanned for Windows.edb and Windows.db).");
         eprintln!();
         eprintln!("Example:");
-        eprintln!("> {} /f json C:\\test", std::env::current_exe().unwrap().file_name().unwrap().to_string_lossy());
-        eprintln!("will scan C:\\test directory for Windows.db/Windows.edb files and produce 3 logs:");
+        eprintln!("> {} /f json C:\\test", current_fn());
+        eprintln!(
+            "will scan C:\\test directory for Windows.db/Windows.edb files and produce 3 logs:"
+        );
         eprintln!("Windows.db/edb.file-report.json");
         eprintln!("Windows.db/edb.ie-report.json");
         eprintln!("Windows.db/edb.act-report.json");
