@@ -1,2 +1,3 @@
 - decompress Partial Content of File (if available) in File report
 - reports file configuration
+- unit tests
