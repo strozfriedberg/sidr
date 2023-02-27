@@ -1,4 +1,5 @@
 use chrono::prelude::*;
+use clap::ValueEnum;
 use simple_error::SimpleError;
 use std::cell::{Cell, RefCell};
 use std::fs::File;
@@ -6,6 +7,7 @@ use std::io::Write;
 use std::ops::IndexMut;
 use std::path::{Path, PathBuf};
 
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum ReportFormat {
     Json,
     Csv,
