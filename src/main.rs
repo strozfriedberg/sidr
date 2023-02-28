@@ -57,7 +57,7 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
 }
 
 /// The Windows Search Forensic Artifact Parser is a RUST based tool designed to parse Windows search artifacts from Windows 10 (and prior) and Windows 11 systems.
-/// The tool handles both ESE databases (Windows.edb) and SQLite databases (Windows.db) as input and generates four detailed reports as output.
+/// The tool handles both ESE databases (Windows.edb) and SQLite databases (Windows.db) as input and generates three detailed reports as output.
 ///
 /// Example:
 /// `> windows_search_artifact -f json C:\\test`
@@ -74,26 +74,23 @@ struct Cli {
     input: String,
 
     /// Output format: json (default) or csv
-    #[arg(short, long, value_name = "json")]
-    format: Option<ReportFormat>,
+    #[arg(short, long, value_enum, default_value_t = ReportFormat::Json)]
+    format: ReportFormat,
 
     /// Path to the directory where reports will be created (will be created if not present). Default is the current directory.
-    #[arg(short, long, value_name = "CURRENT DIR")]
+    #[arg(short, long, value_name = "OUTPUT DIRECTORY")]
     outdir: Option<PathBuf>,
 }
 
 fn main() -> Result<(), SimpleError> {
     let cli = Cli::parse();
 
-    if let Some(format) = cli.format {
-        let dir = cli.input;
-        let rep_dir = match cli.outdir {
-            Some(outdir) => outdir,
-            None => std::env::current_dir().map_err(|e| SimpleError::new(format!("{}", e)))?,
-        };
-        let rep_producer = ReportProducer::new(rep_dir.as_path(), format);
+    let rep_dir = match cli.outdir {
+        Some(outdir) => outdir,
+        None => std::env::current_dir().map_err(|e| SimpleError::new(format!("{}", e)))?,
+    };
+    let rep_producer = ReportProducer::new(rep_dir.as_path(), cli.format);
 
-        dump(&dir, &rep_producer)?;
-    }
+    dump(&cli.input, &rep_producer)?;
     Ok(())
 }
