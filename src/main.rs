@@ -12,6 +12,7 @@ use simple_error::SimpleError;
 
 pub mod ese;
 pub mod report;
+pub mod shared;
 pub mod sqlite;
 pub mod utils;
 
@@ -20,6 +21,7 @@ use crate::report::*;
 use crate::sqlite::*;
 
 fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
+    let mut processed = 0;
     for entry in fs::read_dir(f).unwrap().flatten() {
         let p = entry.path();
         let metadata = fs::metadata(&p).unwrap();
@@ -35,6 +37,7 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
                         e
                     );
                 }
+                processed += 1;
             } else if f == "Windows.db" {
                 println!("Processing sqlite: {}", p.to_string_lossy());
                 if let Err(e) = sqlite_generate_report(&p, report_prod) {
@@ -44,9 +47,12 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
                         e
                     );
                 }
+                processed += 1;
             }
         }
     }
+    println!("Processed {} Windows Search database(s)", processed);
+
     Ok(())
 }
 
@@ -76,17 +82,18 @@ struct Cli {
     outdir: Option<PathBuf>,
 }
 
-fn main() {
+fn main() -> Result<(), SimpleError> {
     let cli = Cli::parse();
 
     if let Some(format) = cli.format {
         let dir = cli.input;
         let rep_dir = match cli.outdir {
             Some(outdir) => outdir,
-            None => std::env::current_dir().unwrap(),
+            None => std::env::current_dir().map_err(|e| SimpleError::new(format!("{}", e)))?,
         };
         let rep_producer = ReportProducer::new(rep_dir.as_path(), format);
 
-        dump(&dir, &rep_producer).unwrap();
+        dump(&dir, &rep_producer)?;
     }
+    Ok(())
 }
