@@ -3,7 +3,8 @@
 #[macro_use]
 extern crate bitflags;
 
-use std::env;
+use clap::Parser;
+
 use std::fs;
 use std::path::PathBuf;
 
@@ -11,6 +12,7 @@ use simple_error::SimpleError;
 
 pub mod ese;
 pub mod report;
+pub mod shared;
 pub mod sqlite;
 pub mod utils;
 
@@ -19,6 +21,7 @@ use crate::report::*;
 use crate::sqlite::*;
 
 fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
+    let mut processed = 0;
     for entry in fs::read_dir(f).unwrap().flatten() {
         let p = entry.path();
         let metadata = fs::metadata(&p).unwrap();
@@ -34,6 +37,7 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
                         e
                     );
                 }
+                processed += 1;
             } else if f == "Windows.db" {
                 println!("Processing sqlite: {}", p.to_string_lossy());
                 if let Err(e) = sqlite_generate_report(&p, report_prod) {
@@ -43,75 +47,50 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
                         e
                     );
                 }
+                processed += 1;
             }
         }
     }
+    println!("Found {} Windows Search database(s)", processed);
+
     Ok(())
 }
 
-fn current_fn() -> String {
-    std::env::current_exe()
-        .unwrap()
-        .file_name()
-        .unwrap()
-        .to_string_lossy()
-        .to_string()
+/// The Windows Search Forensic Artifact Parser is a RUST based tool designed to parse Windows search artifacts from Windows 10 (and prior) and Windows 11 systems.
+/// The tool handles both ESE databases (Windows.edb) and SQLite databases (Windows.db) as input and generates three detailed reports as output.
+///
+/// Example:
+/// `> windows_search_artifact -f json C:\\test`
+///
+/// will scan C:\\test directory for Windows.db/Windows.edb files and produce 3 logs:
+///
+///  `Windows.db/edb.file-report.json`
+///  `Windows.db/edb.ie-report.json`
+///  `Windows.db/edb.act-report.json`
+#[derive(Parser)]
+#[command(author, version, about, long_about)]
+struct Cli {
+    /// Path to input directory (which will be recursively scanned for Windows.edb and Windows.db).
+    input: String,
+
+    /// Output format: json (default) or csv
+    #[arg(short, long, value_enum, default_value_t = ReportFormat::Json)]
+    format: ReportFormat,
+
+    /// Path to the directory where reports will be created (will be created if not present). Default is the current directory.
+    #[arg(short, long, value_name = "OUTPUT DIRECTORY")]
+    outdir: Option<PathBuf>,
 }
 
-fn main() {
-    let mut rep_dir = std::env::current_dir().unwrap();
-    let mut args = env::args().skip(1).collect::<Vec<_>>();
-    if args.is_empty() {
-        eprintln!("path to directory is required, example of usage:");
-        eprintln!("> {} /f json C:\\test", current_fn());
-        eprintln!();
-        eprintln!("type /help for more details");
-        eprintln!();
-        return;
-    }
-    if args[0].contains("help") {
-        eprintln!(
-            "\nThe Windows Search Forensic Artifact Parser is a RUST based tool designed to parse"
-        );
-        eprintln!("Windows search artifacts from Windows 10 (and prior) and Windows 11 systems.");
-        eprintln!(
-            "The tool handles both ESE databases (Windows.edb) and SQLite databases (Windows.db)"
-        );
-        eprintln!("as input and generates four detailed reports as output.\n");
-        eprintln!("[/f format] [/outdir directory] input\n");
-        eprintln!("format: json (default) or csv.");
-        eprintln!("outdir: Path to the directory where reports will be created (will be created if not present).");
-        eprintln!("        Default is the current directory.");
-        eprintln!(" input: Path to input directory (which will recursively scanned for Windows.edb and Windows.db).");
-        eprintln!();
-        eprintln!("Example:");
-        eprintln!("> {} /f json C:\\test", current_fn());
-        eprintln!(
-            "will scan C:\\test directory for Windows.db/Windows.edb files and produce 3 logs:"
-        );
-        eprintln!("Windows.db/edb.file-report.json");
-        eprintln!("Windows.db/edb.ie-report.json");
-        eprintln!("Windows.db/edb.act-report.json");
-        eprintln!();
-        std::process::exit(0);
-    }
-    let mut format = ReportFormat::Json;
-    if args[0].to_lowercase() == "/f" {
-        if args[1].to_lowercase() == "json" {
-            format = ReportFormat::Json;
-        } else if args[1].to_lowercase() == "csv" {
-            format = ReportFormat::Csv;
-        } else {
-            eprintln!("unknown format: {}", args[1]);
-            std::process::exit(-1);
-        }
-        args.drain(..2);
-    }
-    if args[0].to_lowercase() == "/outdir" {
-        rep_dir = PathBuf::from(args[1].clone());
-        args.drain(..2);
-    }
-    let rep_producer = ReportProducer::new(rep_dir.as_path(), format);
-    let dir = args.concat();
-    dump(&dir, &rep_producer).unwrap();
+fn main() -> Result<(), SimpleError> {
+    let cli = Cli::parse();
+
+    let rep_dir = match cli.outdir {
+        Some(outdir) => outdir,
+        None => std::env::current_dir().map_err(|e| SimpleError::new(format!("{}", e)))?,
+    };
+    let rep_producer = ReportProducer::new(rep_dir.as_path(), cli.format);
+
+    dump(&cli.input, &rep_producer)?;
+    Ok(())
 }
