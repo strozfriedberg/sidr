@@ -8,6 +8,7 @@ enum ColumnType {
     String,
     Integer,
     DateTime,
+    GUID
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -19,8 +20,8 @@ struct Column {
 struct ColumnPair {
     title: String,
     kind: ColumnType,
-    edb: Column,
-    sql: Column,
+    edb:  Column,
+    sql:  Column,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -28,14 +29,20 @@ enum OutputFormat {
     Csv,
     Json,
 }
+
 #[derive(Debug, Serialize, Deserialize)]
-struct FileReportCfg {
+struct ReportCfg {
     title: String,
+    columns: Vec<ColumnPair>
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ReportsCfg {
     table_edb: String,
     table_sql: String,
     output_format: OutputFormat,
     output_dir: String,
-    columns: Vec<ColumnPair>
+    reports: Vec<ReportCfg>
 }
 
 //--------------------------------------------------------------------
@@ -256,13 +263,17 @@ use std::fs;
 mod report;
 use crate::report::*;
 
-fn do_report(cfg: &FileReportCfg, reader: &mut dyn FieldReader) {
-    let mut out_path = PathBuf::from(cfg.output_dir.as_str());
-    if !out_path.exists() {
-        fs::create_dir_all(out_path.clone()).unwrap();
+fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
+    for report in &cfg.reports {
+        do_report(report, reader, cfg.output_dir.as_str(), cfg.output_format);
     }
+}
+
+fn do_report(cfg: &ReportCfg, reader: &mut dyn FieldReader, output_dir: &str, output_format: OutputFormat) {
+    let mut out_path = PathBuf::from(output_dir);
     out_path.push(cfg.title.clone());
-    let reporter: Box<dyn Report> = match cfg.output_format {
+
+    let reporter: Box<dyn Report> = match output_format {
         OutputFormat::Csv => {
             out_path.set_extension("csv");
             Box::new(ReportCsv::new(&out_path).unwrap())
@@ -330,8 +341,9 @@ struct Cli {
     db_path: PathBuf,
 }
 
-fn do_sql_report(db_path: &str, cfg: &FileReportCfg) {
-    let connection = Rc::new(sqlite::Connection::open(db_path).unwrap());
+fn do_sql_report(db_path: &str, cfg: &ReportsCfg) {
+    todo!()
+/*    let connection = Rc::new(sqlite::Connection::open(db_path).unwrap());
     let mut fields = Vec::<&'static str>::new();
 
     for col_pair in &cfg.columns {
@@ -361,18 +373,19 @@ fn do_sql_report(db_path: &str, cfg: &FileReportCfg) {
     }
     .build();
 
-    do_report(cfg, &mut sql_reader);
+    do_reports(cfg, &mut sql_reader);
+*/
 }
 
-fn do_edb_report(db_path: &str, cfg: &FileReportCfg) {
+fn do_edb_report(db_path: &str, cfg: &ReportsCfg) {
     let mut edb_reader = EseReader::new(db_path, &cfg.table_edb, &cfg.columns);
-    do_report(cfg, &mut edb_reader);
+    do_reports(cfg, &mut edb_reader);
 }
 
 fn main() {
     let cli = Cli::parse();
     let s = fs::read_to_string(&cli.cfg_path).unwrap();
-    let mut cfg: FileReportCfg = serde_yaml::from_str(s.as_str()).unwrap();
+    let mut cfg: ReportsCfg = serde_yaml::from_str(s.as_str()).unwrap();
     let db_path = cli.db_path.display().to_string();
 
     if let Some(output_dir) = &cli.outdir {
