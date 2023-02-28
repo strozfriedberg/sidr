@@ -83,17 +83,18 @@ struct Cli {
 }
 
 fn main() -> Result<(), SimpleError> {
-    let cli = Cli::parse();
+    let cli = Cli::try_parse().map_err(|e| {
+        eprintln!("{}", e.to_string());
+        SimpleError::new("Invalid usage of arguments, type --help for a detailed description.")
+    })?;
 
-    if let Some(format) = cli.format {
-        let dir = cli.input;
-        let rep_dir = match cli.outdir {
-            Some(outdir) => outdir,
-            None => std::env::current_dir().map_err(|e| SimpleError::new(format!("{}", e)))?,
-        };
-        let rep_producer = ReportProducer::new(rep_dir.as_path(), format);
+    let format = cli.format.unwrap_or(ReportFormat::Json);
+    let rep_dir = match cli.outdir {
+        Some(outdir) => outdir,
+        None => std::env::current_dir().map_err(|e| SimpleError::new(format!("{}", e)))?,
+    };
+    let rep_producer = ReportProducer::new(rep_dir.as_path(), format);
+    dump(&cli.input, &rep_producer)?;
 
-        dump(&dir, &rep_producer)?;
-    }
     Ok(())
 }
