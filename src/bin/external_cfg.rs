@@ -51,9 +51,11 @@ use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 type FldId = String;
 
 trait FieldReader {
+    fn init(&mut self, columns: &Vec<ColumnPair>);
     fn next(&mut self) -> bool;
     fn get_int(&mut self, id: &FldId) -> Option<i64>;
     fn get_str(&mut self, id: &FldId) -> Option<String>;
+    fn get_guid(&mut self, id: &FldId) -> Option<String>;
     fn get_datetime(&mut self, id: &FldId) -> Option<DateTime<Utc>>;
 }
 
@@ -62,12 +64,6 @@ use ese_parser_lib::{ese_parser::EseParser, ese_trait::*};
 use ese_parser_lib::vartime::{get_date_time_from_filetime, SYSTEMTIME, VariantTimeToSystemTime};
 use std::{fs::File, io::BufReader, str};
 use num;
-
-struct EseReader {
-    jdb: Box<EseParser<BufReader<File>>>,
-    table: u64,
-    col_infos: HashMap<String, (u32, u32)>,
-}
 
 const CACHE_SIZE_ENTRIES: usize = 10;
 
@@ -92,6 +88,14 @@ fn field_size(col_type: u32, size: u32) -> u32 {
     }
 }
 
+struct EseReader {
+    jdb: Box<EseParser<BufReader<File>>>,
+    filename: String,
+    table: u64,
+    tablename: String,
+    col_infos: HashMap<String, (u32, u32)>,
+}
+
 fn get_column<T: FromBytes + num::NumCast>(jdb: &dyn EseDb, table: u64, column: u32) -> Option<i64> {
     match jdb.get_column(table, column) {
         Ok(r) => match r {
@@ -103,11 +107,25 @@ fn get_column<T: FromBytes + num::NumCast>(jdb: &dyn EseDb, table: u64, column: 
 }
 
 impl EseReader {
-    fn new(filename: &str, tablename: &str, columns: &Vec<ColumnPair>) -> Self {
+    fn new(filename: &str, tablename: &str) -> Self {
         let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, filename).unwrap());
         let table = jdb.open_table(tablename).unwrap();
-        let cols = jdb.get_columns(tablename).unwrap();
-        let mut col_infos = HashMap::<String, (u32, u32)>::new();
+
+        EseReader {
+            jdb,
+            table,
+            tablename: tablename.to_string(),
+            filename: filename.to_string(),
+            col_infos: HashMap::<String, (u32, u32)>::new(),
+        }
+    }
+}
+
+impl FieldReader for EseReader {
+    fn init(&mut self, columns: &Vec<ColumnPair>) {
+        let tablename= &self.tablename;
+        let cols = self.jdb.get_columns(tablename).unwrap();
+        let col_infos = &mut self.col_infos;
         for col_pair in columns {
             let name = col_pair.edb.name.clone();
 
@@ -119,20 +137,12 @@ impl EseReader {
                             (col_info.id, field_size(col_info.typ, col_info.cbmax)),
                         );
                     }
-                    None => panic!("Could not find '{name}' column in '{tablename}' table in '{filename}'"),
+                    None => panic!("Could not find '{name}' column in '{tablename}' table in '{}'", self.filename),
                 }
             }
         }
-
-        EseReader {
-            jdb,
-            table,
-            col_infos,
-        }
     }
-}
 
-impl FieldReader for EseReader {
     fn next(&mut self) -> bool {
         self.jdb.move_row(self.table, ESE_MoveNext).unwrap()
     }
@@ -197,6 +207,10 @@ impl FieldReader for EseReader {
             Err(e) => panic!("Error: {e}"),
         }
     }
+
+    fn get_guid(&mut self, id: &FldId) -> Option<String> {
+        todo!()
+    }
 }
 
 //--------------------------------------------------------------------
@@ -213,6 +227,10 @@ struct SqlReader {
 }
 
 impl FieldReader for SqlReader {
+    fn init(&mut self, columns: &Vec<ColumnPair>) {
+        todo!()
+    }
+
     fn next(&mut self) -> bool {
         self.with_statement_mut(|st| st.next().is_ok())
     }
@@ -255,6 +273,10 @@ impl FieldReader for SqlReader {
             Err(e) => panic!("{e}"),
         }
     }
+
+    fn get_guid(&mut self, id: &FldId) -> Option<String> {
+        todo!()
+    }
 }
 
 //--------------------------------------------------------------------
@@ -265,11 +287,11 @@ use crate::report::*;
 
 fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     for report in &cfg.reports {
-        do_report(report, reader, cfg.output_dir.as_str(), cfg.output_format);
+        do_report(report, reader, cfg.output_dir.as_str(), &cfg.output_format);
     }
 }
 
-fn do_report(cfg: &ReportCfg, reader: &mut dyn FieldReader, output_dir: &str, output_format: OutputFormat) {
+fn do_report(cfg: &ReportCfg, reader: &mut dyn FieldReader, output_dir: &str, output_format: &OutputFormat) {
     let mut out_path = PathBuf::from(output_dir);
     out_path.push(cfg.title.clone());
 
@@ -284,12 +306,12 @@ fn do_report(cfg: &ReportCfg, reader: &mut dyn FieldReader, output_dir: &str, ou
         }
     };
     //println!("FileReport: {}", cfg.title);
+    reader.init(&cfg.columns);
 
     while reader.next() {
         reporter.new_record();
 
         for col in &cfg.columns {
-            //print!("  {} -> ", col.title);
             let col_id = &col.title;
 
             match col.kind {
@@ -300,18 +322,20 @@ fn do_report(cfg: &ReportCfg, reader: &mut dyn FieldReader, output_dir: &str, ou
                         "".to_string()
                     };
                     reporter.str_val(col.title.as_str(), s);
-                    //println!("{}", s);
                 }
                 ColumnType::Integer => {
                     if let Some(v) = reader.get_int(col_id) {
                         reporter.int_val(col.title.as_str(), v as u64);
                     };
-                    //println!("{}", s);
                 }
                 ColumnType::DateTime => {
                     if let Some(dt) = reader.get_datetime(col_id) {
                         reporter.str_val(col.title.as_str(), format!("{dt}"));
-                        //println!("{}", dt);
+                    }
+                }
+                ColumnType::GUID => {
+                    if let Some(dt) = reader.get_guid(col_id) {
+                        reporter.str_val(col.title.as_str(), format!("{dt}"));
                     }
                 }
             }
@@ -378,7 +402,7 @@ fn do_sql_report(db_path: &str, cfg: &ReportsCfg) {
 }
 
 fn do_edb_report(db_path: &str, cfg: &ReportsCfg) {
-    let mut edb_reader = EseReader::new(db_path, &cfg.table_edb, &cfg.columns);
+    let mut edb_reader = EseReader::new(db_path, &cfg.table_edb);
     do_reports(cfg, &mut edb_reader);
 }
 
