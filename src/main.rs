@@ -51,7 +51,7 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
             }
         }
     }
-    println!("Processed {} Windows Search database(s)", processed);
+    println!("Found {} Windows Search database(s)", processed);
 
     Ok(())
 }
