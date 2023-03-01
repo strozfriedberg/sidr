@@ -51,7 +51,7 @@ use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 type FldId = String;
 
 trait FieldReader {
-    fn init(&mut self, columns: &Vec<ColumnPair>);
+    fn init(&mut self, columns: &Vec<ColumnPair>) -> Vec<String>;
     fn next(&mut self) -> bool;
     fn get_int(&mut self, id: &FldId) -> Option<i64>;
     fn get_str(&mut self, id: &FldId) -> Option<String>;
@@ -122,7 +122,8 @@ impl EseReader {
 }
 
 impl FieldReader for EseReader {
-    fn init(&mut self, columns: &Vec<ColumnPair>) {
+    fn init(&mut self, columns: &Vec<ColumnPair>) -> Vec<String> {
+        let mut used_cols = Vec::<String>::with_capacity(columns.len());
         let tablename= &self.tablename;
         let cols = self.jdb.get_columns(tablename).unwrap();
         let col_infos = &mut self.col_infos;
@@ -136,11 +137,14 @@ impl FieldReader for EseReader {
                             col_pair.title.clone(),
                             (col_info.id, field_size(col_info.typ, col_info.cbmax)),
                         );
+                        used_cols.push(col_pair.title.clone());
                     }
                     None => panic!("Could not find '{name}' column in '{tablename}' table in '{}'", self.filename),
                 }
             }
         }
+
+        used_cols
     }
 
     fn next(&mut self) -> bool {
@@ -151,10 +155,6 @@ impl FieldReader for EseReader {
         if !self.col_infos.contains_key(id) {
             return None;
         }
-        // match self.jdb.get_column_date(self.table, self.col_infos[id].0) {
-        //     Ok(date) => date,
-        //     Err(e) => panic!("Error '{}'", e.as_str()),
-        // }
 
         let r = self.jdb.get_column(self.table, self.col_infos[id].0).unwrap();
         if let Some(v) = r {
@@ -187,7 +187,7 @@ impl FieldReader for EseReader {
             2 => get_column::<i16>(&*self.jdb, self.table, fld_id),
             4 => get_column::<i32>(&*self.jdb, self.table, fld_id),
             8 => get_column::<i64>(&*self.jdb, self.table, fld_id),
-            _ => panic!("{fld_size} - wrong size of int field"),
+            _ => panic!("{id} - {fld_size} wrong size of int field"),
         }
     }
 
@@ -197,14 +197,13 @@ impl FieldReader for EseReader {
         }
         match self.jdb.get_column(self.table, self.col_infos[id].0) {
             Ok(r) => match r {
-                Some(v) =>
-                match str::from_utf8(v.as_slice()) {
-                    Ok(s) => Some(s.to_string()),
-                    Err(e) => panic!("Invalid UTF-8 sequence: {e}"),
+                Some(v) => match from_utf16(v.as_slice()) {
+                    Ok(s) => Some(s),
+                    Err(e) => panic!("{id} - error: {e}"),
                 },
                 None => None,
             },
-            Err(e) => panic!("Error: {e}"),
+            Err(e) => panic!("{id} - error: {e}"),
         }
     }
 
@@ -227,7 +226,7 @@ struct SqlReader {
 }
 
 impl FieldReader for SqlReader {
-    fn init(&mut self, columns: &Vec<ColumnPair>) {
+    fn init(&mut self, columns: &Vec<ColumnPair>) -> Vec<String> {
         todo!()
     }
 
@@ -291,9 +290,9 @@ fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     }
 }
 
-fn do_report(cfg: &ReportCfg, reader: &mut dyn FieldReader, output_dir: &str, output_format: &OutputFormat) {
+fn FieldReader(cfg: &ReportCfg, reader: &mut dyn FieldReader, output_dir: &str, output_format: &OutputFormat) {
     let mut out_path = PathBuf::from(output_dir);
-    out_path.push(cfg.title.clone());
+    out_path.push(cfg.title.clone().replace(|c| "\\/ ".contains(c), "_"));
 
     let reporter: Box<dyn Report> = match output_format {
         OutputFormat::Csv => {
@@ -306,12 +305,21 @@ fn do_report(cfg: &ReportCfg, reader: &mut dyn FieldReader, output_dir: &str, ou
         }
     };
     //println!("FileReport: {}", cfg.title);
-    reader.init(&cfg.columns);
+    let used_cols = reader.init(&cfg.columns);
+    let indices: Vec<usize> = cfg.columns
+        .iter()
+        .enumerate()
+        .filter(|(i, x)|
+            used_cols.iter().find(|c| **c == x.title ).is_some()
+        )
+        .map(|(i, _)| i)
+        .collect();
 
     while reader.next() {
         reporter.new_record();
 
-        for col in &cfg.columns {
+        for i in &indices{
+            let col= &cfg.columns[*i];
             let col_id = &col.title;
 
             match col.kind {
@@ -347,6 +355,7 @@ fn do_report(cfg: &ReportCfg, reader: &mut dyn FieldReader, output_dir: &str, ou
 
 use clap::Parser;
 use std::path::PathBuf;
+use ese_parser_lib::utils::from_utf16;
 
 #[derive(Parser)]
 struct Cli {
