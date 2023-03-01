@@ -7,7 +7,7 @@ use std::io::Write;
 use std::ops::IndexMut;
 use std::path::{Path, PathBuf};
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+#[derive(Clone, Debug, ValueEnum)]
 pub enum ReportFormat {
     Json,
     Csv,
