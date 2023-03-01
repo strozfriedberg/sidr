@@ -1,6 +1,7 @@
 use chrono::prelude::*;
 
 use std::convert::TryInto;
+use std::fmt::Write;
 
 /// Converts a u64 filetime to a DateTime<Utc>
 pub fn get_date_time_from_filetime(filetime: u64) -> DateTime<Utc> {
@@ -114,57 +115,23 @@ pub fn column_string_part(s: &str) -> &str {
 
 // https://www.ietf.org/rfc/rfc4627.txt
 // 2.5.  Strings
-pub fn json_escape(s: &str) -> String {
-    let mut ns = String::with_capacity(s.len());
-    let mut last_escaped = 0;
-
-    let mut escape_with = |i, es: &str| {
-        if last_escaped < i {
-            ns.push_str(&s[last_escaped .. i]);
-        }
-        ns.push_str(es);
-        last_escaped = i + 1;
-    };
-
-    for i in 0..s.as_bytes().len() {
-        let c = s.as_bytes()[i];
+pub fn json_escape(input: &str) -> String {
+    let mut s = String::with_capacity(input.len());
+    for c in input.chars() {
         match c {
-            0x22 |    // " quotation mark
-            0x5C |    // \ reverse solidus
-            0x2F => { // / solidus
-                // escape with same symbol
-                escape_with(i, &format!("\\{}", c as char));
-            }
-            0x08 |    // \b backspace
-            0x0C |    // \f form feed
-            0x0A |    // \n line feed
-            0x0D |    // \r carriage return
-            0x09 => { // \t tab
-                let correspond_char = |c| {
-                    match c {
-                        0x08 => 'b',
-                        0x0C => 'f',
-                        0x0A => 'n',
-                        0x0D => 'r',
-                        0x09 => 't',
-                        _ => panic!("bug here: escape with special symbol only")
-                    }
-                };
-                // escape with special symbol
-                escape_with(i, &format!("\\{}", correspond_char(c)));
-
-            }
-            0 ..= 0x1F => { // all rest chars
-                // escape like \uXXXX
-                escape_with(i, &format!("\\u{:04X}", c));
-            }
-            _ => {}
+            '"' => s.push_str("\\\""),
+            '/' => s.push_str("\\/"),
+            '\\' => s.push_str("\\\\"),
+            '\u{8}' => s.push_str("\\b"),
+            '\u{c}' => s.push_str("\\f"),
+            '\n' => s.push_str("\\n"),
+            '\r' => s.push_str("\\r"),
+            '\t' => s.push_str("\\t"),
+            c if c.is_control() => write!(s, "\\u{:04X}", c as u32).unwrap(),
+            _ => s.push(c),
         }
     }
-    if last_escaped < s.len() {
-        ns.push_str(&s[last_escaped ..]);
-    }
-    ns
+    s
 }
 
 #[test]
