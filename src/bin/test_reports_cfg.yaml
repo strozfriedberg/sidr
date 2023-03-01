@@ -6,7 +6,7 @@ reports:
   - title: File Report
     columns:
       - title: WorkID
-        kind: String
+        kind: Integer
         edb:
           name: "WorkID"
         sql:
