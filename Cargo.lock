@@ -383,6 +383,7 @@ dependencies = [
 [[package]]
 name = "ese_parser_lib"
 version = "0.1.0"
+source = "git+ssh://git@stash.strozfriedberg.com/asdf/ese_parser.git#b9f612e6061e9346f2b524853c82e4481bdb8740"
 dependencies = [
  "bindgen",
  "bitfield",
@@ -394,7 +395,6 @@ dependencies = [
  "encoding",
  "filepath",
  "hexdump",
- "lazy_static",
  "libc",
  "log",
  "md5",
