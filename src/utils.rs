@@ -111,3 +111,86 @@ pub fn column_string_part(s: &str) -> &str {
         None => s,
     }
 }
+
+// https://www.ietf.org/rfc/rfc4627.txt
+// 2.5.  Strings
+pub fn json_escape(s: &str) -> String {
+    let mut ns = String::with_capacity(s.len());
+    let mut last_escaped = 0;
+
+    let mut escape_with = |i, es: &str| {
+        if last_escaped < i {
+            ns.push_str(&s[last_escaped .. i]);
+        }
+        ns.push_str(es);
+        last_escaped = i + 1;
+    };
+
+    for i in 0..s.as_bytes().len() {
+        let c = s.as_bytes()[i];
+        match c {
+            0x22 |    // " quotation mark
+            0x5C |    // \ reverse solidus
+            0x2F => { // / solidus
+                // escape with same symbol
+                escape_with(i, &format!("\\{}", c as char));
+            }
+            0x08 |    // \b backspace
+            0x0C |    // \f form feed
+            0x0A |    // \n line feed
+            0x0D |    // \r carriage return
+            0x09 => { // \t tab
+                let correspond_char = |c| {
+                    match c {
+                        0x08 => 'b',
+                        0x0C => 'f',
+                        0x0A => 'n',
+                        0x0D => 'r',
+                        0x09 => 't',
+                        _ => panic!("bug here: escape with special symbol only")
+                    }
+                };
+                // escape with special symbol
+                escape_with(i, &format!("\\{}", correspond_char(c)));
+
+            }
+            0 ..= 0x1F => { // all rest chars
+                // escape like \uXXXX
+                escape_with(i, &format!("\\u{:04X}", c));
+            }
+            _ => {}
+        }
+    }
+    if last_escaped < s.len() {
+        ns.push_str(&s[last_escaped ..]);
+    }
+    ns
+}
+
+#[test]
+fn json_escape_test() {
+    let tests = &[
+        ("", ""),
+        ("test", "test"),
+        ("\"", "\\\""),
+        ("/", "\\/"),
+        ("\\", "\\\\"),
+        ("\x08", "\\b"),
+        ("\x0C", "\\f"),
+        ("\n", "\\n"),
+        ("\r", "\\r"),
+        ("\t", "\\t"),
+        ("\x1F", "\\u001F"),
+        ("t\n", "t\\n"),
+        ("\nt", "\\nt"),
+        ("t\nt\nt", "t\\nt\\nt"),
+        ("\n\n", "\\n\\n"),
+        ("t\n\n", "t\\n\\n"),
+        ("\n\nt", "\\n\\nt"),
+        ("test\n\n", "test\\n\\n"),
+        ("\n\ntest", "\\n\\ntest"),
+    ];
+    for i in tests {
+        assert_eq!(json_escape(i.0), i.1);
+    }
+}
