@@ -1084,7 +1084,7 @@ checksum = "bf4d1122317eddd6ff351aa852118a2418ad4214e6613a50e0191f7004372605"
 
 [[package]]
 name = "windows_search_artifact"
-version = "0.1.0"
+version = "0.8.0"
 dependencies = [
  "bitflags",
  "chrono",
