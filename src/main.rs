@@ -83,7 +83,10 @@ struct Cli {
 }
 
 fn main() -> Result<(), SimpleError> {
-    let cli = Cli::parse();
+    let cli = Cli::try_parse().map_err(|e| {
+        eprintln!("{}", e.to_string());
+        SimpleError::new("Invalid usage of arguments, type --help for a detailed description.")
+    })?;
 
     let rep_dir = match cli.outdir {
         Some(outdir) => outdir,

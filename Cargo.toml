@@ -7,12 +7,12 @@ edition = "2018"
 [dependencies]
 ese_parser_lib = { path = "../ese_parser/lib" }
 sqlite = "0.30.4"
-
-simple-error = "*"
+simple-error = "0.3.0"
 chrono = "0.4"
 #libc = "*"
 bitflags = "1.2.1"
 clap = { version = "4.1.7", features = ["derive"] }
+json = "0.12.4"
 
 [dependencies.sqlite3-sys]
 version = "0.14"
