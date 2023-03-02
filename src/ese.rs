@@ -130,6 +130,7 @@ fn ese_get_first_value_as_string(
             Ok(r) => match r {
                 None => {} // Empty field, look further
                 Some(v) => {
+                    let _ = jdb.move_row(table_id, ESE_MoveFirst)?;
                     return Ok(from_utf16(&v));
                 }
             },
