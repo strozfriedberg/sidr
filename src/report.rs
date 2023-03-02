@@ -130,7 +130,7 @@ impl Report for ReportJson {
     fn str_val(&self, f: &str, s: String) {
         self.values
             .borrow_mut()
-            .push(format!("\"{}\":\"{}\"", f, ReportJson::escape(s)));
+            .push(format!("\"{}\":{}", f, ReportJson::escape(s)));
     }
 
     fn int_val(&self, f: &str, n: u64) {

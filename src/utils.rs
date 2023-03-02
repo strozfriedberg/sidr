@@ -1,7 +1,6 @@
 use chrono::prelude::*;
 
 use std::convert::TryInto;
-use std::fmt::Write;
 
 /// Converts a u64 filetime to a DateTime<Utc>
 pub fn get_date_time_from_filetime(filetime: u64) -> DateTime<Utc> {
@@ -113,49 +112,31 @@ pub fn column_string_part(s: &str) -> &str {
     }
 }
 
-// https://www.ietf.org/rfc/rfc4627.txt
-// 2.5.  Strings
 pub fn json_escape(input: &str) -> String {
-    let mut s = String::with_capacity(input.len());
-    for c in input.chars() {
-        match c {
-            '"' => s.push_str("\\\""),
-            '/' => s.push_str("\\/"),
-            '\\' => s.push_str("\\\\"),
-            '\u{8}' => s.push_str("\\b"),
-            '\u{c}' => s.push_str("\\f"),
-            '\n' => s.push_str("\\n"),
-            '\r' => s.push_str("\\r"),
-            '\t' => s.push_str("\\t"),
-            c if c.is_control() => write!(s, "\\u{:04X}", c as u32).unwrap(),
-            _ => s.push(c),
-        }
-    }
-    s
+    json::stringify(input)
 }
 
 #[test]
 fn json_escape_test() {
     let tests = &[
-        ("", ""),
-        ("test", "test"),
-        ("\"", "\\\""),
-        ("/", "\\/"),
-        ("\\", "\\\\"),
-        ("\x08", "\\b"),
-        ("\x0C", "\\f"),
-        ("\n", "\\n"),
-        ("\r", "\\r"),
-        ("\t", "\\t"),
-        ("\x1F", "\\u001F"),
-        ("t\n", "t\\n"),
-        ("\nt", "\\nt"),
-        ("t\nt\nt", "t\\nt\\nt"),
-        ("\n\n", "\\n\\n"),
-        ("t\n\n", "t\\n\\n"),
-        ("\n\nt", "\\n\\nt"),
-        ("test\n\n", "test\\n\\n"),
-        ("\n\ntest", "\\n\\ntest"),
+        ("", "\"\""),
+        ("test", "\"test\""),
+        ("\"", "\"\\\"\""),
+        ("\\", "\"\\\\\""),
+        ("\x08", "\"\\b\""),
+        ("\x0C", "\"\\f\""),
+        ("\n", "\"\\n\""),
+        ("\r", "\"\\r\""),
+        ("\t", "\"\\t\""),
+        ("\x1F", "\"\\u001f\""),
+        ("t\n", "\"t\\n\""),
+        ("\nt", "\"\\nt\""),
+        ("t\nt\nt", "\"t\\nt\\nt\""),
+        ("\n\n", "\"\\n\\n\""),
+        ("t\n\n", "\"t\\n\\n\""),
+        ("\n\nt", "\"\\n\\nt\""),
+        ("test\n\n", "\"test\\n\\n\""),
+        ("\n\ntest", "\"\\n\\ntest\""),
     ];
     for i in tests {
         assert_eq!(json_escape(i.0), i.1);
