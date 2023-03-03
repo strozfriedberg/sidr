@@ -17,6 +17,9 @@ chrono = "0.4"
 #libc = "*"
 bitflags = "1.2.1"
 clap = { version = "4.1.7", features = ["derive"] }
+log = "0.4"
+env_logger = "*"
+function_name = "*"
 
 [dependencies.sqlite3-sys]
 version = "0.14"
