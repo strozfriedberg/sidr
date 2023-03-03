@@ -182,7 +182,6 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
             "System_Title",
             "System_Link_DateVisited",
             // Activity History Report
-            "System_ItemType",
             "System_ItemNameDisplay",
             "System_ActivityHistory_StartTime",
             "System_ActivityHistory_EndTime",
