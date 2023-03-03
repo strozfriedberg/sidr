@@ -2,7 +2,15 @@
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 use std::{collections::HashMap, string::String};
+use log::{info, trace/*, warn */};
+use env_logger;
+use ::function_name::named;
 
+macro_rules! function_path {() => (concat!(
+    module_path!(), "::", function_name!()
+))}
+
+//---------------------------------------------------
 #[derive(Debug, Serialize, Deserialize)]
 enum ColumnType {
     String,
@@ -46,7 +54,7 @@ struct ReportsCfg {
 }
 
 //--------------------------------------------------------------------
-use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc, SecondsFormat};
 
 type FldId = String;
 
@@ -107,7 +115,9 @@ fn get_column<T: FromBytes + num::NumCast>(jdb: &dyn EseDb, table: u64, column: 
 }
 
 impl EseReader {
+    #[named]
     fn new(filename: &str, tablename: &str) -> Self {
+        info!("{}: {filename}/{tablename}", function_path!());
         let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, filename).unwrap());
         let table = jdb.open_table(tablename).unwrap();
 
@@ -122,7 +132,9 @@ impl EseReader {
 }
 
 impl FieldReader for EseReader {
+    #[named]
     fn init(&mut self, columns: &Vec<ColumnPair>) -> Vec<String> {
+        trace!("{}", function_path!());
         let mut used_cols = Vec::<String>::with_capacity(columns.len());
         let tablename= &self.tablename;
         let cols = self.jdb.get_columns(tablename).unwrap();
@@ -144,10 +156,13 @@ impl FieldReader for EseReader {
             }
         }
 
+        info!("{}: {used_cols:?}", function_path!());
         used_cols
     }
 
+    //#[named]
     fn next(&mut self) -> bool {
+        //trace!("{}", function_path!());
         self.jdb.move_row(self.table, ESE_MoveNext).unwrap()
     }
 
@@ -207,7 +222,7 @@ impl FieldReader for EseReader {
         }
     }
 
-    fn get_guid(&mut self, id: &FldId) -> Option<String> {
+    fn get_guid(&mut self, _id: &FldId) -> Option<String> {
         todo!()
     }
 }
@@ -215,23 +230,91 @@ impl FieldReader for EseReader {
 //--------------------------------------------------------------------
 use ouroboros::self_referencing;
 use sqlite;
+//use simple_error::SimpleError;
 use std::rc::Rc;
+
+type ColCode = String;
+type ColName = String;
+type CodeColDict = HashMap<ColCode, ColName>;
+type SqlRow = HashMap<ColName, sqlite::Value>;
 
 #[self_referencing]
 struct SqlReader {
+    code_col_dict: CodeColDict,
+    row_values: SqlRow,
     connection: Rc<sqlite::Connection>,
     #[borrows(mut connection)]
     #[not_covariant]
     statement: sqlite::Statement<'this>,
 }
 
+impl SqlReader {
+    fn new_(db_path: &str) -> Self {
+        let connection = Rc::new(sqlite::Connection::open(db_path).unwrap());
+        let select = "select * from SystemIndex_1_PropertyStore order by WorkId";
+        let sql_reader = SqlReaderBuilder {
+                connection: connection,
+                statement_builder: |connection| connection.prepare(select).unwrap(),
+                row_values: SqlRow::new(),
+                code_col_dict: CodeColDict::new(),
+            }
+            .build();
+        sql_reader
+    }
+}
+
 impl FieldReader for SqlReader {
+    #[named]
     fn init(&mut self, columns: &Vec<ColumnPair>) -> Vec<String> {
-        todo!()
+        trace!("{}", function_path!());
+
+        let code_col_dict: CodeColDict = 
+        HashMap::from_iter(columns
+        .into_iter()
+        .filter(|pair| !pair.sql.name.is_empty())
+        .map(|pair| (pair.sql.name.clone(), pair.title.clone())));
+        self.with_code_col_dict_mut(|x| *x = code_col_dict);
+        // self.with_code_col_dict_mut(|code_col_dict| code_col_dict = 
+        //     &mut HashMap::from_iter(columns
+        //     .into_iter()
+        //     .filter(|pair| !pair.sql.name.is_empty())
+        //     .map(|pair| (pair.sql.name.clone(), pair.title.clone()))));
+
+        info!("{}: used_cols {:?}", function_path!(), self.with_code_col_dict(|x| x));
+        Vec::from_iter(self.with_code_col_dict(|x| x).values().map(|s| s.clone()))
     }
 
     fn next(&mut self) -> bool {
-        self.with_statement_mut(|st| st.next().is_ok())
+        let mut work_id = 0;
+        self.with_row_values_mut(|row| row.clear());
+        while self.with_statement_mut(|st| st.next().is_ok()) {
+            let wi = match self.with_statement_mut(|st| st.read::<i64, _>("WorkId")) {
+                            Ok(x) => x,
+                            Err(e) => panic!("{}", e),
+                        };
+            if work_id == 0 {
+                work_id = wi;
+            }
+            if wi != work_id {
+                break;
+            }
+
+            let code = match self.with_statement_mut(|st| st.read::<ColName, _>("ColumnId")) {
+                Ok(x) => x,
+                Err(e) => panic!("{}", e),
+            };
+
+            if self.with_code_col_dict(|dict| dict.contains_key(&code)) {
+                let value = match self.with_statement_mut(|st| st.read::<sqlite::Value, _>("Value")) {
+                    Ok(x) => x,
+                    Err(e) => panic!("{}", e),
+                };
+                let col_name = self.with_code_col_dict(|dict| dict.get(&code)).unwrap().clone();
+                self.with_row_values_mut(|row| row.insert(col_name, value));
+            }
+        }
+
+        !self.with_row_values(|row| row.is_empty())
     }
 
     fn get_datetime(self: &mut SqlReader, id: &FldId) -> Option<DateTime<Utc>> {
@@ -290,9 +373,12 @@ fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     }
 }
 
-fn FieldReader(cfg: &ReportCfg, reader: &mut dyn FieldReader, output_dir: &str, output_format: &OutputFormat) {
+#[named]
+fn do_report(cfg: &ReportCfg, reader: &mut dyn FieldReader, output_dir: &str, output_format: &OutputFormat) {
     let mut out_path = PathBuf::from(output_dir);
     out_path.push(cfg.title.clone().replace(|c| "\\/ ".contains(c), "_"));
+
+    info!("{}: cfg: {cfg:?}, out_path: {out_path:?}, {output_format:?}", function_path!());
 
     let reporter: Box<dyn Report> = match output_format {
         OutputFormat::Csv => {
@@ -338,7 +424,7 @@ fn FieldReader(cfg: &ReportCfg, reader: &mut dyn FieldReader, output_dir: &str, 
                 }
                 ColumnType::DateTime => {
                     if let Some(dt) = reader.get_datetime(col_id) {
-                        reporter.str_val(col.title.as_str(), format!("{dt}"));
+                        reporter.str_val(col.title.as_str(), dt.to_rfc3339_opts(SecondsFormat::Micros, true));
                     }
                 }
                 ColumnType::GUID => {
@@ -375,39 +461,8 @@ struct Cli {
 }
 
 fn do_sql_report(db_path: &str, cfg: &ReportsCfg) {
-    todo!()
-/*    let connection = Rc::new(sqlite::Connection::open(db_path).unwrap());
-    let mut fields = Vec::<&'static str>::new();
-
-    for col_pair in &cfg.columns {
-        let code = &col_pair.sql.name;
-
-        if !code.is_empty() {
-            let name = &col_pair.title;
-            let sql = format!("CREATE TEMP VIEW {name} AS SELECT WorkId, Value as {name} from {table} where ColumnId = {code};",
-                              table = cfg.table_sql);
-            connection
-                .execute(sql.as_str())
-                .unwrap_or_else(|_| panic!("bad sql: '{sql}'"));
-            fields.push(name.as_str());
-        }
-    }
-
-    let mut select = "SELECT ".to_string();
-    select.push_str(fields.join(",").as_str());
-    select = format!("{} from {} as a", select, fields[0]);
-    for field in &mut fields[1..] {
-        select.push_str(format!(" LEFT JOIN {field} on a.WorkId = {field}.WorkId").as_str());
-    }
-
-    let mut sql_reader = SqlReaderBuilder {
-        connection: connection,
-        statement_builder: |connection| connection.prepare(select).unwrap(),
-    }
-    .build();
-
+    let mut sql_reader = SqlReader::new_(db_path);
     do_reports(cfg, &mut sql_reader);
-*/
 }
 
 fn do_edb_report(db_path: &str, cfg: &ReportsCfg) {
@@ -416,6 +471,7 @@ fn do_edb_report(db_path: &str, cfg: &ReportsCfg) {
 }
 
 fn main() {
+    env_logger::init();
     let cli = Cli::parse();
     let s = fs::read_to_string(&cli.cfg_path).unwrap();
     let mut cfg: ReportsCfg = serde_yaml::from_str(s.as_str()).unwrap();
