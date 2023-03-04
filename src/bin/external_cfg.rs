@@ -1,7 +1,7 @@
 #![allow(non_upper_case_globals)]
 use ::function_name::named;
 use env_logger;
-use log::{info, trace /*, warn */};
+use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 use std::{collections::HashMap, string::String};
@@ -56,7 +56,7 @@ struct ReportsCfg {
 }
 
 //--------------------------------------------------------------------
-use chrono::{DateTime, NaiveDateTime, SecondsFormat, TimeZone, Utc};
+use chrono::{DateTime, SecondsFormat, TimeZone, Utc};
 
 type FldId = String;
 
@@ -251,14 +251,20 @@ use ouroboros::self_referencing;
 use sqlite;
 //use simple_error::SimpleError;
 use std::rc::Rc;
+#[path = "../utils.rs"]
+mod utils;
 
 type ColCode = String;
 type ColName = String;
 type CodeColDict = HashMap<ColCode, ColName>;
 type SqlRow = HashMap<ColName, sqlite::Value>;
 
+use once_cell::sync::Lazy;
+static WORK_ID: Lazy<String> = Lazy::new(|| { "WorkID".to_string() });
+
 #[self_referencing]
 struct SqlReader {
+    last_work_id: u64,
     code_col_dict: CodeColDict,
     row_values: SqlRow,
     connection: Rc<sqlite::Connection>,
@@ -270,15 +276,44 @@ struct SqlReader {
 impl SqlReader {
     fn new_(db_path: &str) -> Self {
         let connection = Rc::new(sqlite::Connection::open(db_path).unwrap());
-        let select = "select * from SystemIndex_1_PropertyStore order by WorkId";
+        let select = format!("select WorkId as {}, * from SystemIndex_1_PropertyStore order by WorkId", *WORK_ID);
         let sql_reader = SqlReaderBuilder {
             connection: connection,
             statement_builder: |connection| connection.prepare(select).unwrap(),
             row_values: SqlRow::new(),
             code_col_dict: CodeColDict::new(),
+            last_work_id: 0,
         }
         .build();
         sql_reader
+    }
+
+    fn next_row(&mut self) -> bool {
+        self.with_statement_mut(|st| if let Ok(State::Row) = st.next() {true} else {false})
+    }
+
+    fn read<T: sqlite::ReadableWithIndex, U: sqlite::ColumnIndex>(&self, index: U) -> sqlite::Result<T> {
+        self.with_statement(|st| st.read(index))
+    }
+
+    fn store_value(&mut self, code: &ColCode) {
+        let code_col = self.with_code_col_dict(|dict| dict);
+
+        if code_col.contains_key(code) {
+            let value = match self.read::<sqlite::Value, _>("Value")
+            {
+                Ok(x) => x,
+                Err(e) => panic!("{}", e),
+            };
+            let col_name = code_col
+                .get(code)
+                .unwrap()
+                .clone();
+            debug!("{col_name} ({code}) => {value:?}");
+            self.with_row_values_mut(|row| row.insert(col_name, value));
+        } else {
+            debug!("skip code {code}");
+        }
     }
 }
 
@@ -290,7 +325,11 @@ impl FieldReader for SqlReader {
         let code_col_dict: CodeColDict = HashMap::from_iter(
             columns
                 .into_iter()
-                .filter(|pair| !pair.sql.name.is_empty())
+                .filter(|pair| {
+                    let ok = !pair.sql.name.is_empty();
+                    debug!("{pair:?} -> {ok}");
+                    ok
+                })
                 .map(|pair| (pair.sql.name.clone(), pair.title.clone())),
         );
         self.with_code_col_dict_mut(|x| *x = code_col_dict);
@@ -303,39 +342,38 @@ impl FieldReader for SqlReader {
         Vec::from_iter(self.with_code_col_dict(|x| x).values().map(|s| s.clone()))
     }
 
+    #[named]
     fn next(&mut self) -> bool {
         let mut work_id = 0;
+
         self.with_row_values_mut(|row| row.clear());
-        while self.with_statement_mut(|st| st.next().is_ok()) {
-            let wi = match self.with_statement_mut(|st| st.read::<i64, _>("WorkId")) {
+        while self.next_row() {
+            let wi = match self.read::<i64, _>(&*WORK_ID.as_str()) {
                 Ok(x) => x,
                 Err(e) => panic!("{}", e),
             };
             if work_id == 0 {
                 work_id = wi;
-            }
-            if wi != work_id {
-                break;
+                if work_id < self.with_last_work_id(|id| *id as i64) {
+                    break;
+                }
+                self.with_row_values_mut(|row| row.insert((*WORK_ID).to_string(), sqlite::Value::Integer(work_id)));
+                self.with_last_work_id_mut(|id| *id = wi as u64);
+            } else {
+                if wi != work_id {
+                    break;
+                }
             }
 
-            let code = match self.with_statement_mut(|st| st.read::<ColName, _>("ColumnId")) {
+            let code = match self.read::<ColName, _>("ColumnId") {
                 Ok(x) => x,
                 Err(e) => panic!("{}", e),
             };
 
-            if self.with_code_col_dict(|dict| dict.contains_key(&code)) {
-                let value = match self.with_statement_mut(|st| st.read::<sqlite::Value, _>("Value"))
-                {
-                    Ok(x) => x,
-                    Err(e) => panic!("{}", e),
-                };
-                let col_name = self
-                    .with_code_col_dict(|dict| dict.get(&code))
-                    .unwrap()
-                    .clone();
-                self.with_row_values_mut(|row| row.insert(col_name, value));
-            }
+            self.store_value(&code);
         }
+
+        debug!("{}: work_id {work_id} => {:?}", function_path!(), self.with_row_values(|row| row));
 
         !self.with_row_values(|row| row.is_empty())
     }
@@ -344,18 +382,17 @@ impl FieldReader for SqlReader {
         if id.is_empty() {
             return None;
         }
-        if let Ok(vec) = self.with_statement_mut(|st| st.read::<Vec<u8>, _>(id.as_str())) {
-            if let Ok(bytes) = vec.try_into() {
-                let nanos = i64::from_le_bytes(bytes);
-                const A_BILLION: i64 = 1_000_000_000;
 
-                if let Some(naive_datetime) =
-                    NaiveDateTime::from_timestamp_opt(nanos / A_BILLION, (nanos % A_BILLION) as u32)
-                {
-                    return Some(DateTime::<Utc>::from_utc(naive_datetime, Utc));
-                }
-            }
+        if let Some(v) = self.with_row_values(|row| row.get(id.as_str())) {
+            return match v {
+                sqlite::Value::Binary(vec) => {
+                    Some(get_date_time_from_filetime(u64::from_bytes(&vec)))
+                },
+                sqlite::Value::Null => None,
+                _ => panic!("unexpected {v:?} for {id}"),
+            };
         }
+
         None
     }
 
@@ -363,29 +400,46 @@ impl FieldReader for SqlReader {
         if id.is_empty() {
             return None;
         }
-        match self.with_statement_mut(|st| st.read::<i64, _>(id.as_str())) {
-            Ok(x) => Some(x),
-            Err(e) => panic!("{e}"),
+
+        if let Some(v) = self.with_row_values(|row| row.get(id.as_str())) {
+            return match v {
+                sqlite::Value::Integer(x) => Some(*x),
+                sqlite::Value::Binary(vec) => Some(i64::from_bytes(vec)),
+                sqlite::Value::Null => None,
+                _ => panic!("unexpected {v:?} for {id}"),
+            };
         }
+
+        None
     }
 
     fn get_str(&mut self, id: &FldId) -> Option<String> {
         if id.is_empty() {
             return None;
         }
-        match self.with_statement_mut(|st| st.read::<String, _>(id.as_str())) {
-            Ok(x) => Some(x),
-            Err(e) => panic!("{e}"),
+
+        if let Some(v) = self.with_row_values(|row| row.get(id.as_str())) {
+            return match v {
+                sqlite::Value::String(x) => Some(x.clone()),
+                sqlite::Value::Null => None,
+                _ => panic!("unexpected {v:?} for {id}"),
+            };
         }
+
+        None
     }
 
     fn get_guid(&mut self, id: &FldId) -> Option<String> {
-        todo!()
+        if let Some(s) = self.get_str(id) {
+            return Some(find_guid(s.as_str(), (id.to_owned() + "=").as_str()));
+        }
+        None
     }
 }
 
 //--------------------------------------------------------------------
 use std::fs;
+#[allow(dead_code)]
 #[path = "../report.rs"]
 mod report;
 use crate::report::*;
@@ -427,7 +481,7 @@ fn do_report(
         .columns
         .iter()
         .enumerate()
-        .filter(|(i, x)| used_cols.iter().find(|c| **c == x.title).is_some())
+        .filter(|(_, x)| used_cols.iter().find(|c| **c == x.title).is_some())
         .map(|(i, _)| i)
         .collect();
 
@@ -475,6 +529,8 @@ fn do_report(
 use clap::Parser;
 use ese_parser_lib::utils::from_utf16;
 use std::path::PathBuf;
+use sqlite::State;
+use crate::utils::find_guid;
 
 #[derive(Parser)]
 struct Cli {
@@ -504,7 +560,14 @@ fn do_edb_report(db_path: &str, cfg: &ReportsCfg) {
 }
 
 fn main() {
-    env_logger::init();
+    use std::io::Write;
+
+    env_logger::builder()
+        .format(|buf, record| {
+            writeln!(buf, "{}: {}", record.level(), record.args())
+        })
+        .init();
+    //env_logger::init();
     let cli = Cli::parse();
     let s = fs::read_to_string(&cli.cfg_path).unwrap();
     let mut cfg: ReportsCfg = serde_yaml::from_str(s.as_str()).unwrap();
