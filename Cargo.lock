@@ -1263,6 +1263,7 @@ dependencies = [
  "function_name",
  "log",
  "num",
+ "once_cell",
  "ouroboros",
  "serde",
  "serde_yaml",
