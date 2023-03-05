@@ -21,6 +21,7 @@ log = "0.4"
 env_logger = "*"
 function_name = "*"
 once_cell = "*"
+multimap = "*"
 
 [dependencies.sqlite3-sys]
 version = "0.14"
