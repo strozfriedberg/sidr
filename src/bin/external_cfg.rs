@@ -250,7 +250,7 @@ impl FieldReader for EseReader {
 use ouroboros::self_referencing;
 use sqlite;
 use multimap::MultiMap;
-use std::rc::Rc;
+use std::{ rc::Rc, cell::RefCell };
 #[allow(non_camel_case_types)]
 #[path = "../utils.rs"]
 mod utils;
@@ -267,7 +267,7 @@ static WORK_ID: Lazy<String> = Lazy::new(|| { "WorkID".to_string() });
 struct SqlReader {
     last_work_id: u64,
     code_col_dict: CodeColDict,
-    row_values: SqlRow,
+    row_values: RefCell<SqlRow>,
     connection: Rc<sqlite::Connection>,
     #[borrows(mut connection)]
     #[not_covariant]
@@ -281,7 +281,7 @@ impl SqlReader {
         let sql_reader = SqlReaderBuilder {
             connection: connection,
             statement_builder: |connection| connection.prepare(select).unwrap(),
-            row_values: SqlRow::new(),
+            row_values: RefCell::new(SqlRow::new()),
             code_col_dict: CodeColDict::new(),
             last_work_id: 0,
         }
@@ -297,6 +297,13 @@ impl SqlReader {
         self.with_statement(|st| st.read(index))
     }
 
+    fn store_values(&self, names: &Vec<ColName>, value: &sqlite::Value) {
+        for col_name in names {
+            debug!("{col_name} => {value:?}");
+            self.with_row_values(|row| row.borrow_mut().insert(col_name.to_string(), value.clone()));
+        }
+    }
+
     fn store_value(&mut self, code: &ColCode) {
         let code_col = self.with_code_col_dict(|dict| dict);
 
@@ -306,16 +313,21 @@ impl SqlReader {
                 Ok(x) => x,
                 Err(e) => panic!("{}", e),
             };
-            let col_name = code_col
-                .get(code)
-                .unwrap()
-                .clone();
-            debug!("{col_name} ({code}) => {value:?}");
-            self.with_row_values_mut(|row| row.insert(col_name, value));
+
+            let names = code_col.get_vec(code).unwrap();
+            self.store_values(names, &value);
         } else {
             debug!("skip code {code}");
         }
     }
+
+    fn get_value(&self, col_name: &ColName) -> Option<sqlite::Value> {
+        if let Some(x) = self.with_row_values(|row| row.borrow().get(col_name).cloned()) {
+            return Some(x);
+        }
+        None
+    }
+
 }
 
 impl FieldReader for SqlReader {
@@ -356,7 +368,7 @@ impl FieldReader for SqlReader {
     fn next(&mut self) -> bool {
         let mut work_id = 0;
 
-        self.with_row_values_mut(|row| row.clear());
+        self.with_row_values(|row| row.borrow_mut().clear());
         while self.next_row() {
             let wi = match self.read::<i64, _>(&*WORK_ID.as_str()) {
                 Ok(x) => x,
@@ -367,7 +379,7 @@ impl FieldReader for SqlReader {
                 if work_id < self.with_last_work_id(|id| *id as i64) {
                     break;
                 }
-                self.with_row_values_mut(|row| row.insert((*WORK_ID).to_string(), sqlite::Value::Integer(work_id)));
+                self.with_row_values(|row| row.borrow_mut().insert((*WORK_ID).to_string(), sqlite::Value::Integer(work_id)));
                 self.with_last_work_id_mut(|id| *id = wi as u64);
             } else {
                 if wi != work_id {
@@ -385,7 +397,7 @@ impl FieldReader for SqlReader {
 
         debug!("{}: work_id {work_id} => {:?}", function_path!(), self.with_row_values(|row| row));
 
-        !self.with_row_values(|row| row.is_empty())
+        !self.with_row_values(|row| row.borrow_mut().is_empty())
     }
 
     fn get_datetime(self: &mut SqlReader, id: &FldId) -> Option<DateTime<Utc>> {
@@ -393,7 +405,7 @@ impl FieldReader for SqlReader {
             return None;
         }
 
-        if let Some(v) = self.with_row_values(|row| row.get(id.as_str())) {
+        if let Some(v) = self.get_value(id) {
             return match v {
                 sqlite::Value::Binary(vec) => {
                     Some(get_date_time_from_filetime(u64::from_bytes(&vec)))
@@ -411,10 +423,10 @@ impl FieldReader for SqlReader {
             return None;
         }
 
-        if let Some(v) = self.with_row_values(|row| row.get(id.as_str())) {
+        if let Some(v) = self.get_value(id) {
             return match v {
-                sqlite::Value::Integer(x) => Some(*x),
-                sqlite::Value::Binary(vec) => Some(i64::from_bytes(vec)),
+                sqlite::Value::Integer(x) => Some(x),
+                sqlite::Value::Binary(vec) => Some(i64::from_bytes(&vec)),
                 sqlite::Value::Null => None,
                 _ => panic!("unexpected {v:?} for {id}"),
             };
@@ -428,9 +440,9 @@ impl FieldReader for SqlReader {
             return None;
         }
 
-        if let Some(v) = self.with_row_values(|row| row.get(id.as_str())) {
+        if let Some(v) = self.get_value(id) {
             return match v {
-                sqlite::Value::String(x) => Some(x.clone()),
+                sqlite::Value::String(x) => Some(x),
                 sqlite::Value::Null => None,
                 _ => panic!("unexpected {v:?} for {id}"),
             };
@@ -529,8 +541,8 @@ fn do_report(
                     }
                 }
                 ColumnType::GUID => {
-                    if let Some(dt) = reader.get_guid(col_id) {
-                        reporter.str_val(col.title.as_str(), format!("{dt}"));
+                    if let Some(guid) = reader.get_guid(col_id) {
+                        reporter.str_val(col.title.as_str(), guid);
                     } else {
                         reporter.str_val(col.title.as_str(), "".to_string());
                     }
