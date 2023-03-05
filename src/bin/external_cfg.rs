@@ -249,14 +249,15 @@ impl FieldReader for EseReader {
 //--------------------------------------------------------------------
 use ouroboros::self_referencing;
 use sqlite;
-//use simple_error::SimpleError;
+use multimap::MultiMap;
 use std::rc::Rc;
+#[allow(non_camel_case_types)]
 #[path = "../utils.rs"]
 mod utils;
 
 type ColCode = String;
 type ColName = String;
-type CodeColDict = HashMap<ColCode, ColName>;
+type CodeColDict = MultiMap<ColCode, ColName>;
 type SqlRow = HashMap<ColName, sqlite::Value>;
 
 use once_cell::sync::Lazy;
@@ -322,7 +323,7 @@ impl FieldReader for SqlReader {
     fn init(&mut self, columns: &Vec<ColumnPair>) -> Vec<String> {
         trace!("{}", function_path!());
 
-        let code_col_dict: CodeColDict = HashMap::from_iter(
+        let code_col_dict: CodeColDict = CodeColDict::from_iter(
             columns
                 .into_iter()
                 .filter(|pair| {
@@ -332,6 +333,14 @@ impl FieldReader for SqlReader {
                 })
                 .map(|pair| (pair.sql.name.clone(), pair.title.clone())),
         );
+
+        let mut names = Vec::<String>::with_capacity(code_col_dict.iter().count());
+        for (_, values) in code_col_dict.iter_all() {
+            for name in values {
+                names.push(name.clone());
+            }
+        }
+
         self.with_code_col_dict_mut(|x| *x = code_col_dict);
 
         info!(
@@ -339,7 +348,8 @@ impl FieldReader for SqlReader {
             function_path!(),
             self.with_code_col_dict(|x| x)
         );
-        Vec::from_iter(self.with_code_col_dict(|x| x).values().map(|s| s.clone()))
+
+        names
     }
 
     #[named]
@@ -461,7 +471,7 @@ fn do_report(
     out_path.push(cfg.title.clone().replace(|c| "\\/ ".contains(c), "_"));
 
     info!(
-        "{}: cfg: {cfg:?}, out_path: {out_path:?}, {output_format:?}",
+        "{}: out_path: {out_path:?}, {output_format:?}",
         function_path!()
     );
 
@@ -504,7 +514,9 @@ fn do_report(
                 ColumnType::Integer => {
                     if let Some(v) = reader.get_int(col_id) {
                         reporter.int_val(col.title.as_str(), v as u64);
-                    };
+                    } else {
+                        reporter.str_val(col.title.as_str(), "".to_string());
+                    }
                 }
                 ColumnType::DateTime => {
                     if let Some(dt) = reader.get_datetime(col_id) {
@@ -512,11 +524,15 @@ fn do_report(
                             col.title.as_str(),
                             dt.to_rfc3339_opts(SecondsFormat::Micros, true),
                         );
+                    } else {
+                        reporter.str_val(col.title.as_str(), "".to_string());
                     }
                 }
                 ColumnType::GUID => {
                     if let Some(dt) = reader.get_guid(col_id) {
                         reporter.str_val(col.title.as_str(), format!("{dt}"));
+                    } else {
+                        reporter.str_val(col.title.as_str(), "".to_string());
                     }
                 }
             }
@@ -529,6 +545,7 @@ fn do_report(
 use clap::Parser;
 use ese_parser_lib::utils::from_utf16;
 use std::path::PathBuf;
+use env_logger::Target;
 use sqlite::State;
 use crate::utils::find_guid;
 
@@ -560,14 +577,11 @@ fn do_edb_report(db_path: &str, cfg: &ReportsCfg) {
 }
 
 fn main() {
-    use std::io::Write;
-
     env_logger::builder()
-        .format(|buf, record| {
-            writeln!(buf, "{}: {}", record.level(), record.args())
-        })
+        .format_timestamp(None)
+        .target(Target::Stderr)
         .init();
-    //env_logger::init();
+
     let cli = Cli::parse();
     let s = fs::read_to_string(&cli.cfg_path).unwrap();
     let mut cfg: ReportsCfg = serde_yaml::from_str(s.as_str()).unwrap();
