@@ -77,12 +77,6 @@ reports:
           name: ""
         sql:
           name: 318
-      - title: System_ItemUrl
-        kind: String
-        edb:
-          name: ""
-        sql:
-          name: 39
       - title: System_ItemDate
         kind: DateTime
         edb:
@@ -223,12 +217,6 @@ reports:
           name: ""
         sql:
           name: 441
-      - title: System_DateCreated
-        kind: DateTime
-        edb:
-          name: ""
-        sql:
-          name: 445
       - title: System_DateAccessed
         kind: DateTime
         edb:
@@ -253,12 +241,6 @@ reports:
           name: ""
         sql:
           name: 303
-      - title: System_Search_GatherTime
-        kind: DateTime
-        edb:
-          name: ""
-        sql:
-          name: 26
       - title: System_ItemType
         kind: String
         edb:
@@ -441,12 +423,6 @@ reports:
           name: ""
         sql:
           name: 318
-      - title: System_ItemUrl
-        kind: String
-        edb:
-          name: ""
-        sql:
-          name: 39
       - title: System_ItemDate
         kind: DateTime
         edb:
