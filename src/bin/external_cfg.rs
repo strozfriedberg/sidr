@@ -465,6 +465,7 @@ use std::fs;
 #[path = "../report.rs"]
 mod report;
 use crate::report::*;
+use crate::utils::format_date_time;
 
 fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     for report in &cfg.reports {
@@ -534,7 +535,7 @@ fn do_report(
                     if let Some(dt) = reader.get_datetime(col_id) {
                         reporter.str_val(
                             col.title.as_str(),
-                            dt.to_rfc3339_opts(SecondsFormat::Micros, true),
+                            format_date_time(dt),
                         );
                     } else {
                         reporter.str_val(col.title.as_str(), "".to_string());
