@@ -3,6 +3,15 @@ name = "windows_search_artifact"
 version = "0.1.0"
 authors = ["Aon"]
 edition = "2021"
+default-run = "windows_search_artifact"
+
+[lib]
+name = "wsa_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "external_cfg"
+path = "src/bin/external_cfg.rs"
 
 [dependencies]
 ese_parser_lib = { git = "ssh://git@stash.strozfriedberg.com/asdf/ese_parser.git" }
