@@ -26,7 +26,11 @@ fn compare_with_sql_select() {
     let cfg_path = env::var(env_cfg_path).expect(format!("Error getting environment variable '{env_cfg_path}'").as_str());
     let export_csv_path = env::var(env_export_csv_path).expect(format!("Error getting environment variable '{env_export_csv_path}'").as_str());
     let work_dir_name = format!("{reporter_bin}_testing");
-    let work_dir = TempDir::new(work_dir_name.as_str()).expect("{work_dir_name} creation");
+    //let work_dir = TempDir::new(work_dir_name.as_str()).expect("{work_dir_name} creation");
+
+    let work_dir_name = format!("D:/work/tmp/{work_dir_name}");
+    fs::create_dir_all(work_dir_name.clone()).expect("{work_dir_name} creation");
+    let work_dir = std::path::PathBuf::from(work_dir_name.clone().as_str());
 
     println!("db_path: {db_path}");
     println!("cfg_path: {cfg_path}");
@@ -36,7 +40,7 @@ fn compare_with_sql_select() {
     let cmd = cmd
         .args(["--db-path", db_path.as_str()])
         .args(["--cfg-path", cfg_path.as_str()])
-        .args(["--outdir", work_dir.path().to_str().unwrap()])
+        .args(["--outdir", work_dir./*path().*/to_str().unwrap()])
         .args(["--format", "csv"]);
 
     println!("cmd '{cmd:?}'");
@@ -53,10 +57,36 @@ fn compare_with_sql_select() {
         panic!("stderr: {stderr:?}");
     }
 
+    let files_to_copy = ["dtformat.c"];
+    for file in files_to_copy {
+        fs::copy(format!("tests/{file}"),
+                 format!("{}/{file}", work_dir./*path().*/to_str().unwrap()))
+            .expect("copy file '{file}'");
+    }
+
+    let mut cmd =
+        Command::new("clang");
+    let mut cmd = cmd
+        .current_dir(work_dir./*path().*/to_str().unwrap())
+        .arg("-shared")
+        .args(["-o", "dtformat.dll"])
+        .arg("dtformat.c");
+
+    println!("cmd '{cmd:?}'");
+
+    let output = cmd
+        .stderr(Stdio::inherit())
+        .spawn()
+        .expect(format!("'{cmd:?}' command failed to start").as_str());
+
+    if let Some(stderr) = output.stderr {
+        panic!("stderr: {stderr:?}");
+    }
+
     let mut cmd =
         Command::new("sqlite3");
     let mut cmd = cmd
-        .current_dir(work_dir.path().to_str().unwrap())
+        .current_dir(work_dir./*path().*/to_str().unwrap())
         .arg("-readonly")
         .arg("-echo")
         .args(["-init", export_csv_path.as_str()])
@@ -79,5 +109,5 @@ fn compare_with_sql_select() {
 
     press_any();
 
-    fs::remove_dir_all(work_dir);
+//    fs::remove_dir_all(work_dir);
 }
