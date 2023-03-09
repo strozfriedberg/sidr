@@ -35,3 +35,6 @@ multimap = "*"
 [dependencies.sqlite3-sys]
 version = "0.14"
 default-features = false
+
+[dev-dependencies]
+tempdir = "*"
