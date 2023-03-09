@@ -1,3 +1,4 @@
+use std::env;
 use clap::Parser;
 use std::path::PathBuf;
 use env_logger::Target;
@@ -38,6 +39,9 @@ fn main() {
         .target(Target::Stderr)
         .init();
 
+    // for s in env::args() {
+    //     println!("{s}");
+    // }
     let cli = Cli::parse();
     let s = std::fs::read_to_string(&cli.cfg_path).unwrap();
     let mut cfg: ReportsCfg = serde_yaml::from_str(s.as_str()).unwrap();
@@ -47,7 +51,7 @@ fn main() {
         cfg.output_dir = output_dir.clone();
     }
 
-    if let Some(output_format) = &cli.outdir {
+    if let Some(output_format) = &cli.format {
         cfg.output_format = match output_format.to_lowercase().as_str() {
             "json" => wsa_lib::OutputFormat::Json,
             "csv" => wsa_lib::OutputFormat::Csv,
