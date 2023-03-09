@@ -1,4 +1,3 @@
-.open Windows.db
 .load dtformat
 CREATE TEMP VIEW WorkId as SELECT WorkId FROM SystemIndex_1_PropertyStore;
 CREATE TEMP VIEW System_ComputerName as SELECT WorkId, Value as System_ComputerName FROM SystemIndex_1_PropertyStore as a where a.ColumnId=557;
