@@ -1,10 +1,9 @@
-use std::env;
 use clap::Parser;
 use std::path::PathBuf;
 use env_logger::Target;
 use env_logger;
 use serde_yaml;
-use wsa_lib::{ReportsCfg, FieldReader, do_reports};
+use wsa_lib::{ReportsCfg, do_reports};
 
 #[derive(Parser)]
 struct Cli {
