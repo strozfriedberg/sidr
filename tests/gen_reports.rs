@@ -1,8 +1,6 @@
 #[cfg(test)]
-//use wsa_lib::*;
 use std::fs;
 use std::env;
-use std::io::Write;
 use std::process::{Command, Stdio};
 use tempdir::TempDir;
 
@@ -15,22 +13,37 @@ fn press_any() {
     let _ = stdin.read(&mut [0u8]).unwrap();
 }
 
+fn get_env(var: &str) -> String {
+    env::var(var).expect(format!("Error getting environment variable '{var}'").as_str())
+}
+
+fn do_invoke(cmd: &mut Command) {
+    println!("cmd '{cmd:?}'");
+
+    let mut child = cmd
+            .stderr(Stdio::inherit())
+            .spawn()
+            .expect(format!("'{cmd:?}' command failed to start").as_str());
+
+    if ! child.wait().unwrap().success() {
+        if let Some(stderr) = child.stderr {
+            panic!("stderr: {stderr:?}");
+        }
+        panic!("Failed '{cmd:?}'");
+    }
+}
+
 #[test]
 fn compare_with_sql_select() {
     let reporter_bin = "external_cfg";
     let reporter_bin_path = format!("target/debug/{reporter_bin}");
-    let env_db_path = "WSA_TEST_WINDOWS_DB_PATH";
-    let env_cfg_path = "WSA_TEST_CONFIGURATION_PATH";
-    let env_export_csv_path = "WSA_TEST_EXPORT_CSV_PATH";
-    let db_path = env::var(env_db_path).expect(format!("Error getting environment variable '{env_db_path}'").as_str());
-    let cfg_path = env::var(env_cfg_path).expect(format!("Error getting environment variable '{env_cfg_path}'").as_str());
-    let export_csv_path = env::var(env_export_csv_path).expect(format!("Error getting environment variable '{env_export_csv_path}'").as_str());
+    let db_path = get_env("WSA_TEST_WINDOWS_DB_PATH");
+    let cfg_path = get_env("WSA_TEST_CONFIGURATION_PATH");
+    let export_csv_path = get_env("WSA_TEST_EXPORT_CSV_PATH");
+    let sqlite3ext_h_path = get_env("ENV_SQLITE3EXT_H_PATH");
     let work_dir_name = format!("{reporter_bin}_testing");
-    //let work_dir = TempDir::new(work_dir_name.as_str()).expect("{work_dir_name} creation");
-
-    let work_dir_name = format!("D:/work/tmp/{work_dir_name}");
-    fs::create_dir_all(work_dir_name.clone()).expect("{work_dir_name} creation");
-    let work_dir = std::path::PathBuf::from(work_dir_name.clone().as_str());
+    let work_dir = TempDir::new(work_dir_name.as_str()).expect("{work_dir_name} creation");
+    let work_dir = work_dir.path().to_str().unwrap();
 
     println!("db_path: {db_path}");
     println!("cfg_path: {cfg_path}");
@@ -40,74 +53,43 @@ fn compare_with_sql_select() {
     let cmd = cmd
         .args(["--db-path", db_path.as_str()])
         .args(["--cfg-path", cfg_path.as_str()])
-        .args(["--outdir", work_dir./*path().*/to_str().unwrap()])
+        .args(["--outdir", work_dir])
         .args(["--format", "csv"]);
 
-    println!("cmd '{cmd:?}'");
-
-    let output =
-        // Command::new(reporter_bin_path.as_str())
-        // .args(args)
-        cmd
-        .stderr(Stdio::inherit())
-        .spawn()
-        .expect(format!("'{cmd:?}' command failed to start").as_str());
-
-    if let Some(stderr) = output.stderr {
-        panic!("stderr: {stderr:?}");
-    }
+    do_invoke(cmd);
 
     let files_to_copy = ["dtformat.c"];
     for file in files_to_copy {
         fs::copy(format!("tests/{file}"),
-                 format!("{}/{file}", work_dir./*path().*/to_str().unwrap()))
+                 format!("{}/{file}", work_dir))
             .expect("copy file '{file}'");
     }
 
     let mut cmd =
         Command::new("clang");
-    let mut cmd = cmd
-        .current_dir(work_dir./*path().*/to_str().unwrap())
+    let cmd = cmd
+        .current_dir(work_dir)
         .arg("-shared")
+        .args(["-I", sqlite3ext_h_path.as_str()])
+        .args(["-arch", "x86"])
         .args(["-o", "dtformat.dll"])
         .arg("dtformat.c");
 
-    println!("cmd '{cmd:?}'");
-
-    let output = cmd
-        .stderr(Stdio::inherit())
-        .spawn()
-        .expect(format!("'{cmd:?}' command failed to start").as_str());
-
-    if let Some(stderr) = output.stderr {
-        panic!("stderr: {stderr:?}");
-    }
+    do_invoke(cmd);
 
     let mut cmd =
         Command::new("sqlite3");
-    let mut cmd = cmd
-        .current_dir(work_dir./*path().*/to_str().unwrap())
+    let cmd = cmd
+        .current_dir(work_dir)
         .arg("-readonly")
         .arg("-echo")
         .args(["-init", export_csv_path.as_str()])
         .arg(db_path)
         ;
 
-    println!("cmd '{cmd:?}'");
-
-    let output =
-        // Command::new(reporter_bin_path.as_str())
-        // .args(args)
-        cmd
-            .stderr(Stdio::inherit())
-            .spawn()
-            .expect(format!("'{cmd:?}' command failed to start").as_str());
-
-    if let Some(stderr) = output.stderr {
-        panic!("stderr: {stderr:?}");
-    }
+    do_invoke(cmd);
 
     press_any();
 
-//    fs::remove_dir_all(work_dir);
+    fs::remove_dir_all(work_dir).unwrap();
 }
