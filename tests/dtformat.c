@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include "sqlite3ext.h"
 SQLITE_EXTENSION_INIT1
@@ -198,21 +199,44 @@ static void to_int(
   sqlite3_result_int64(pCtx, *ptr);
 }
 
+static void log(const char *format, ...) {
+    FILE  * log = fopen("sql.log", "a");
+    va_list args;
+    va_start(args, format);
+
+    vfprintf(log, format, args);
+
+    fclose(log);
+    va_end(args);
+}
+
 static void extract_guid(sqlite3_context *pCtx, sqlite3_value **argv, const char *pat) {
   const char *str = (const char*)sqlite3_value_text(argv[0]);
-  if (str == NULL)
+
+  log("extract_guid: pat %s, str ", pat);
+  if (str == NULL) {
+    log("NULL\n");
     return;
+  }
+  log("%s\n", str);
 
   const char *start = strstr(str, pat) + strlen(pat);
 
+  log("start: ");
   if (start) {
+    log("%s\n", start);
     const char *end = strchr(start, '}');
     size_t      size = end - start + 1;
     char       *text = (char *)malloc(size + 1);
+
+    log("size %d, end %s\n", size, end);
     
-    strncpy_s(text, sizeof text, start, size);
+    strncpy_s(text, size + 1, start, size);
+    log("result %s\n", text);
     sqlite3_result_text(pCtx, text, size, free);
-  } 
+  } else {
+    log("NULL\n");
+  }
 }
 
 static void get_volume_id(
@@ -245,9 +269,9 @@ int sqlite3_dtformat_init(
                                to_int, 0, 0);
   rc = sqlite3_create_function(db, "datetime_format", 1, SQLITE_UTF8, 0,
                                datetime_format, 0, 0);
-  rc = sqlite3_create_function(db, "get_volume_id", 1, SQLITE_UTF8, 0,
+  rc = sqlite3_create_function(db, "get_volumeid", 1, SQLITE_UTF8, 0,
                                get_volume_id, 0, 0);
-  rc = sqlite3_create_function(db, "get_object_id", 1, SQLITE_UTF8, 0,
+  rc = sqlite3_create_function(db, "get_objectid", 1, SQLITE_UTF8, 0,
                                get_object_id, 0, 0);
 
   return rc;
