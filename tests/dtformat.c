@@ -178,8 +178,8 @@ static void datetime_format(
   if (FileTimeToSystemTime((const FILETIME *)ptr, &st)) {
     int     size = 30;
     char  * buf = malloc(size);
-    size_t  mult = 10000000;
-    size_t  fract = v % mult;
+    int64_t mult = 10000000;
+    int64_t fract = v % mult;
 
     snprintf (buf, size,"%04d-%02d-%02dT%02d:%02d:%02d.%07lluZ", 
               st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, fract);
