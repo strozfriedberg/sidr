@@ -1,7 +1,6 @@
 use clap::Parser;
 use std::path::PathBuf;
-use env_logger::Target;
-use env_logger;
+use env_logger::{self, Target};
 use serde_yaml;
 use wsa_lib::{ReportsCfg, do_reports};
 
