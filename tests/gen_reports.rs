@@ -3,6 +3,8 @@ use std::fs;
 use std::env;
 use std::process::{Command, Stdio};
 use tempdir::TempDir;
+use env_logger::{self, Target};
+use log::info;
 
 fn press_any() {
     let mut stdin = std::io::stdin();
@@ -18,7 +20,7 @@ fn get_env(var: &str) -> String {
 }
 
 fn do_invoke(cmd: &mut Command) {
-    println!("cmd '{cmd:?}'");
+    info!("cmd '{cmd:?}'");
 
     let mut child = cmd
             .stderr(Stdio::inherit())
@@ -35,19 +37,23 @@ fn do_invoke(cmd: &mut Command) {
 
 #[test]
 fn compare_with_sql_select() {
+    env_logger::builder()
+        .target(Target::Stderr)
+        .init();
+
     let reporter_bin = "external_cfg";
     let reporter_bin_path = format!("target/debug/{reporter_bin}");
     let db_path = get_env("WSA_TEST_WINDOWS_DB_PATH");
     let cfg_path = get_env("WSA_TEST_CONFIGURATION_PATH");
-    let export_csv_path = get_env("WSA_TEST_EXPORT_CSV_PATH");
+    let sql_generator_path = get_env("WSA_TEST_SQL_GENERATOR_PATH");
     let sqlite3ext_h_path = get_env("ENV_SQLITE3EXT_H_PATH");
     let work_dir_name = format!("{reporter_bin}_testing");
     let work_dir = TempDir::new(work_dir_name.as_str()).expect("{work_dir_name} creation");
     let work_dir = work_dir.path().to_str().unwrap();
 
-    println!("db_path: {db_path}");
-    println!("cfg_path: {cfg_path}");
-    println!("work_dir: {work_dir:?}");
+    info!("db_path: {db_path}");
+    info!("cfg_path: {cfg_path}");
+    info!("work_dir: {work_dir:?}");
 
     let mut cmd = Command::new(reporter_bin_path.as_str());
     let cmd = cmd
@@ -71,23 +77,38 @@ fn compare_with_sql_select() {
         .current_dir(work_dir)
         .arg("-shared")
         .args(["-I", sqlite3ext_h_path.as_str()])
-        .args(["-arch", "x86"])
+        .arg("-m32")
         .args(["-o", "dtformat.dll"])
         .arg("dtformat.c");
 
     do_invoke(cmd);
 
     let mut cmd =
-        Command::new("sqlite3");
+        Command::new("python");
     let cmd = cmd
         .current_dir(work_dir)
-        .arg("-readonly")
-        .arg("-echo")
-        .args(["-init", export_csv_path.as_str()])
-        .arg(db_path)
-        ;
+        .arg(sql_generator_path)
+        .arg(cfg_path);
 
     do_invoke(cmd);
+
+    for item in std::path::Path::new(work_dir).read_dir().unwrap() {
+        let path = item.unwrap().path();
+        if let Some(extension) = path.extension() {
+            if extension == "sql" {
+                let mut cmd =
+                    Command::new("sqlite3");
+                let cmd = cmd
+                    .current_dir(work_dir)
+                    .arg(&db_path)
+                    .arg(format!(".read {}", path.file_name().unwrap().to_str().unwrap()))
+                    ;
+
+                do_invoke(cmd);
+            }
+        }
+    }
+
 
     press_any();
 
