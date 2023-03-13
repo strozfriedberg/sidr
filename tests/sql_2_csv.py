@@ -13,7 +13,7 @@ CREATE TABLE named.NamedFields(
 FOOTER = """
 .headers on
 .mode csv
-.output {}.csv
+.output {}_test.csv
 select * from named.NamedFields;
 .exit
 """
@@ -35,10 +35,13 @@ def process(fields_path):
             if title == 'WorkID':
                 continue
 
+            col_code = column['sql']['name']
+            if not col_code:
+                continue
+
             header += f'  {title} STRING,\n'
             sql += f'UPDATE named.NamedFields set {title}=(select {title} from {title} where NamedFields.WorkId = {title}.WorkId);\n'
 
-            col_code = column['sql']['name']
             template = f'CREATE TEMP VIEW {title} as SELECT a.WorkId, Value as {title} FROM {table_sql} as a inner join WorkId as b on a.WorkId = b.WorkId where a.ColumnId={col_code};\n'
             col_kind = column['kind']
             match col_kind:
@@ -56,7 +59,7 @@ def process(fields_path):
 
         header += '  PRIMARY KEY(WorkId)\n);\n'
 
-        report_name = re.sub('([\s/]+)', '_', report['title'])
+        report_name = re.sub(r'([\s/]+)', '_', report['title'])
         with open(report_name + '.sql', 'w') as f:
             f.write(header)
             f.write(views)
@@ -64,4 +67,7 @@ def process(fields_path):
             f.write(FOOTER.format(report_name))
 
 if __name__ == '__main__':
+    if len(sys.argv) != 2:
+      sys.exit("Expected path to <configuration.yaml>")
+
     process(sys.argv[1])
