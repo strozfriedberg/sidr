@@ -375,6 +375,7 @@ impl FieldReader for SqlReader {
             if work_id == 0 {
                 work_id = wi;
                 if work_id < self.with_last_work_id(|id| *id as i64) {
+                    self.with_last_work_id_mut(|id| *id = 0_u64);
                     break;
                 }
                 self.with_row_values(|row| row.borrow_mut().insert((*WORK_ID).to_string(), sqlite::Value::Integer(work_id)));
