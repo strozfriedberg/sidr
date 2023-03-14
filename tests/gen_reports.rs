@@ -1,19 +1,11 @@
+use std::env;
 #[cfg(test)]
 use std::fs;
-use std::env;
 use std::process::{Command, Stdio};
-use tempdir::TempDir;
+
 use env_logger::{self, Target};
 use log::info;
-
-fn press_any() {
-    let mut stdin = std::io::stdin();
-    let mut stdout = std::io::stdout();
-    write!(stdout, "Press any key to continue...").unwrap();
-    stdout.flush().unwrap();
-    use std::io::prelude::*;
-    let _ = stdin.read(&mut [0u8]).unwrap();
-}
+use tempdir::TempDir;
 
 fn get_env(var: &str) -> String {
     env::var(var).expect(format!("Error getting environment variable '{var}'").as_str())
@@ -23,11 +15,11 @@ fn do_invoke(cmd: &mut Command) {
     info!("cmd '{cmd:?}'");
 
     let mut child = cmd
-            .stderr(Stdio::inherit())
-            .spawn()
-            .expect(format!("'{cmd:?}' command failed to start").as_str());
+        .stderr(Stdio::inherit())
+        .spawn()
+        .expect(format!("'{cmd:?}' command failed to start").as_str());
 
-    if ! child.wait().unwrap().success() {
+    if !child.wait().unwrap().success() {
         if let Some(stderr) = child.stderr {
             panic!("stderr: {stderr:?}");
         }
@@ -48,8 +40,14 @@ fn compare_with_sql_select() {
     let sql_generator_path = get_env("WSA_TEST_SQL_GENERATOR_PATH");
     let sqlite3ext_h_path = get_env("ENV_SQLITE3EXT_H_PATH");
     let work_dir_name = format!("{reporter_bin}_testing");
-    let work_dir = TempDir::new(work_dir_name.as_str()).expect("{work_dir_name} creation");
-    let work_dir = work_dir.path().to_str().unwrap();
+    let work_temp_dir = TempDir::new(work_dir_name.as_str()).expect("{work_dir_name} creation");
+    let _work_dir_keeper;
+    let work_dir = if env::var("KEEP_TEMP_WORK_DIR").is_ok() {
+        _work_dir_keeper = work_temp_dir.into_path();
+        _work_dir_keeper.as_path().to_str().unwrap()
+    } else {
+        work_temp_dir.path().to_str().unwrap()
+    };
 
     info!("db_path: {db_path}");
     info!("cfg_path: {cfg_path}");
@@ -108,9 +106,4 @@ fn compare_with_sql_select() {
             }
         }
     }
-
-
-    press_any();
-
-    fs::remove_dir_all(work_dir).unwrap();
 }
