@@ -32,7 +32,7 @@ def process(fields_path):
         columns = report['columns']
         for column in columns:
             title = column['title']
-            if title == 'WorkID':
+            if title == 'WorkId':
                 continue
 
             col_code = column['sql']['name']
