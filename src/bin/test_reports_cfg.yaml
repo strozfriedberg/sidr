@@ -5,7 +5,7 @@ output_dir: "./report"
 reports:
   - title: File Report
     columns:
-      - title: WorkID
+      - title: WorkId
         kind: Integer
         edb:
           name: "WorkID"
@@ -73,7 +73,7 @@ reports:
           name: 567
   - title: IE/Edge History Report
     columns:
-      - title: WorkID
+      - title: WorkId
         kind: Integer
         edb:
           name: "WorkID"
@@ -117,7 +117,7 @@ reports:
           name: 414
   - title: Activity History Report
     columns:
-      - title: WorkID
+      - title: WorkId
         kind: Integer
         edb:
           name: "WorkID"
