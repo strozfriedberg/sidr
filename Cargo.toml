@@ -29,8 +29,9 @@ clap = { version = "4.1.7", features = ["derive"] }
 log = "0.4"
 env_logger = "*"
 function_name = "*"
-once_cell = "*"
 multimap = "*"
+glob = "*"
+csv = "*"
 
 [dependencies.sqlite3-sys]
 version = "0.14"
