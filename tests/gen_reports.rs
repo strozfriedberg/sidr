@@ -1,18 +1,36 @@
 use std::env;
 #[cfg(test)]
 use std::fs;
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 use env_logger::{self, Target};
 use log::info;
 use tempdir::TempDir;
+use glob::glob;
+
+fn glob_vec_path(pattern: &str) -> Vec<PathBuf> {
+    glob(pattern).unwrap().map(|r| r.unwrap()).collect()
+}
+
+fn glob_vec_string(pattern: &str) -> Vec<String> {
+    glob_vec_path(pattern).into_iter().map(|p| p.to_str().unwrap().to_string()).collect()
+}
+
+fn glob_vec_names(pattern: &str) -> Vec<String> {
+    glob_vec_path(pattern).into_iter().map(|p| p.file_name().unwrap().to_str().unwrap().to_string()).collect()
+}
 
 fn get_env(var: &str) -> String {
     env::var(var).expect(format!("Error getting environment variable '{var}'").as_str())
 }
 
 fn do_invoke(cmd: &mut Command) {
-    info!("cmd '{cmd:?}'");
+    let args: Vec<&str> = cmd.get_args().into_iter().map(|a| a.to_str().unwrap()).collect();
+    info!("cmd '{} {}'", cmd.get_program().to_str().unwrap(), args.join(" "));
+    // if let Some(cur_dir) = cmd.get_current_dir() {
+    //     info!("current_dir: {}", cur_dir.display());
+    // }
 
     let mut child = cmd
         .stderr(Stdio::inherit())
@@ -59,6 +77,20 @@ fn compare_with_sql_select() {
         .args(["--cfg-path", cfg_path.as_str()])
         .args(["--outdir", work_dir])
         .args(["--format", "csv"]);
+
+    do_invoke(cmd);
+
+    let mut cmd =
+        Command::new("sed");
+    let cmd = cmd
+        .current_dir(work_dir)
+        .arg("-i")
+        .arg("'s/\"\"//'")
+        ;
+
+    glob_vec_names(format!("{}/*.csv", work_dir).as_str())
+        .into_iter()
+        .for_each(|f| { cmd.arg(f.as_str()); });
 
     do_invoke(cmd);
 
