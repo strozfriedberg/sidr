@@ -258,9 +258,6 @@ type ColName = String;
 type CodeColDict = MultiMap<ColCode, ColName>;
 type SqlRow = HashMap<ColName, sqlite::Value>;
 
-use once_cell::sync::Lazy;
-static WORK_ID: Lazy<String> = Lazy::new(|| { "WorkID".to_string() });
-
 #[self_referencing]
 pub struct SqlReader {
     last_work_id: u64,
@@ -275,7 +272,7 @@ pub struct SqlReader {
 impl SqlReader {
     pub fn new_(db_path: &str) -> Self {
         let connection = Rc::new(sqlite::Connection::open(db_path).unwrap());
-        let select = format!("select WorkId as {}, * from SystemIndex_1_PropertyStore order by WorkId", *WORK_ID);
+        let select = "select WorkId, * from SystemIndex_1_PropertyStore order by WorkId";
         let sql_reader = SqlReaderBuilder {
             connection: connection,
             statement_builder: |connection| connection.prepare(select).unwrap(),
@@ -368,7 +365,7 @@ impl FieldReader for SqlReader {
 
         self.with_row_values(|row| row.borrow_mut().clear());
         while self.next_row() {
-            let wi = match self.read::<i64, _>(&*WORK_ID.as_str()) {
+            let wi = match self.read::<i64, _>("WorkId") {
                 Ok(x) => x,
                 Err(e) => panic!("{}", e),
             };
@@ -378,7 +375,7 @@ impl FieldReader for SqlReader {
                     self.with_last_work_id_mut(|id| *id = 0_u64);
                     break;
                 }
-                self.with_row_values(|row| row.borrow_mut().insert((*WORK_ID).to_string(), sqlite::Value::Integer(work_id)));
+                self.with_row_values(|row| row.borrow_mut().insert("WorkId".to_string(), sqlite::Value::Integer(work_id)));
                 self.with_last_work_id_mut(|id| *id = wi as u64);
             } else {
                 if wi != work_id {
@@ -459,7 +456,53 @@ impl FieldReader for SqlReader {
 }
 
 //--------------------------------------------------------------------
-use report::{Report, ReportCsv, ReportJson};
+use std::path::Path;
+use simple_error::SimpleError;
+use report::Report;
+use csv::Writer;
+
+struct ReportCsv {
+    writer: RefCell<Writer<File>>,
+}
+
+impl ReportCsv {
+    pub fn new(cfg: &ReportCfg, report_path: &Path) -> Result<Self, SimpleError> {
+        let writer = Writer::from_path(report_path.to_str().unwrap());
+        let mut writer = writer.expect(format!("Could not create '{}'", report_path.display()).as_str());
+
+        for column in &cfg.columns {
+            writer.write_field(column.sql.name.as_str()).unwrap();
+        }
+
+        let writer = RefCell::new(writer);
+
+        Ok(ReportCsv {
+            writer: writer,
+        })
+    }
+}
+
+impl Report for ReportCsv {
+    fn new_record(&self) {
+        let mut writer = self.writer.borrow_mut();
+        writer.write_record(None::<&[u8]>).unwrap();
+    }
+
+    fn str_val(&self, _f: &str, s: String) {
+        let mut writer = self.writer.borrow_mut();
+        writer.write_field(s.as_str()).unwrap();
+    }
+
+    fn int_val(&self, _f: &str, n: u64) {
+        let mut writer = self.writer.borrow_mut();
+        writer.write_field(format!("{n}").as_str()).unwrap();;
+    }
+
+    fn is_some_val_in_record(&self) -> bool {
+        todo!()
+    }
+}
+struct ReportJson;
 
 pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     for report in &cfg.reports {
@@ -485,11 +528,12 @@ pub fn do_report(
     let reporter: Box<dyn Report> = match output_format {
         OutputFormat::Csv => {
             out_path.set_extension("csv");
-            Box::new(ReportCsv::new(&out_path).unwrap())
+            Box::new(ReportCsv::new(&cfg,&out_path).unwrap())
         }
         OutputFormat::Json => {
-            out_path.set_extension("json");
-            Box::new(ReportJson::new(&out_path).unwrap())
+            todo!()
+            // out_path.set_extension("json");
+            // Box::new(ReportJson::new(&out_path).unwrap())
         }
     };
     //println!("FileReport: {}", cfg.title);
