@@ -56,6 +56,7 @@ fn compare_with_sql_select() {
     let db_path = get_env("WSA_TEST_WINDOWS_DB_PATH");
     let cfg_path = get_env("WSA_TEST_CONFIGURATION_PATH");
     let sql_generator_path = get_env("WSA_TEST_SQL_GENERATOR_PATH");
+    let sql_to_csv_path = get_env("WSA_TEST_SQL_TO_CSV_PATH");
     let sqlite3ext_h_path = get_env("ENV_SQLITE3EXT_H_PATH");
     let work_dir_name = format!("{reporter_bin}_testing");
     let work_temp_dir = TempDir::new(work_dir_name.as_str()).expect("{work_dir_name} creation");
@@ -71,12 +72,26 @@ fn compare_with_sql_select() {
     info!("cfg_path: {cfg_path}");
     info!("work_dir: {work_dir:?}");
 
+    let common_args = vec!["--db-path", db_path.as_str(), "--cfg-path", cfg_path.as_str(), "--outdir", work_dir, "--format"];
     let mut cmd = Command::new(reporter_bin_path.as_str());
     let cmd = cmd
-        .args(["--db-path", db_path.as_str()])
-        .args(["--cfg-path", cfg_path.as_str()])
-        .args(["--outdir", work_dir])
-        .args(["--format", "csv"]);
+        .args(&common_args)
+        .arg("csv");
+
+    do_invoke(cmd);
+
+    let mut cmd = Command::new(reporter_bin_path.as_str());
+    let cmd = cmd
+        .args(&common_args)
+        .arg("json");
+
+    do_invoke(cmd);
+
+    let mut cmd =
+        Command::new("python");
+    let cmd = cmd
+        .current_dir(work_dir)
+        .arg(sql_to_csv_path);
 
     do_invoke(cmd);
 
