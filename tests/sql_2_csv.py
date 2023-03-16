@@ -13,16 +13,22 @@ CREATE TABLE temp_db.NamedFields(
 FOOTER = """
 .headers on
 .mode csv
-.once {report_name}_test.csv
+.once {report_name}_csv.csv
 select * from temp_db.NamedFields;
+.headers off
 
 .open ":memory:"
 .import {report_name}.csv {report_name} --csv
-.import {report_name}_test.csv {report_name}_test --csv
-create table diffs as select * from (SELECT * FROM {report_name} EXCEPT SELECT * FROM {report_name}_test) union select * from (SELECT * FROM {report_name}_test EXCEPT SELECT * FROM {report_name});
-.headers off
-.once {report_name}.discrepancy
-select count(*) from diffs;
+.import {report_name}_csv.csv {report_name}_csv --csv
+.import {report_name}_json.csv {report_name}_json --csv
+
+create table diffs_csv as select * from (SELECT * FROM {report_name} EXCEPT SELECT * FROM {report_name}_csv) union select * from (SELECT * FROM {report_name}_csv EXCEPT SELECT * FROM {report_name});
+.once {report_name}_csv.discrepancy
+select count(*) from diffs_csv;
+
+create table diffs_json as select * from (SELECT * FROM {report_name} EXCEPT SELECT * FROM {report_name}_json) union select * from (SELECT * FROM {report_name}_json EXCEPT SELECT * FROM {report_name});
+.once {report_name}_json.discrepancy
+select count(*) from diffs_json;
 .exit
 """
 
