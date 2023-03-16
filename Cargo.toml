@@ -31,6 +31,7 @@ function_name = "0.3.0"
 multimap = "0.8.3"
 glob = "0.3.1"
 csv = "1.2.1"
+json = "0.12.4"
 
 [dependencies.sqlite3-sys]
 version = "0.14"
