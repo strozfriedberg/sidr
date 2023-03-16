@@ -5,16 +5,24 @@ import yaml
 HEADER = """
 .load dtformat
 
-ATTACH DATABASE '' AS named;
-CREATE TABLE named.NamedFields(
+ATTACH DATABASE ':memory:' AS temp_db;
+CREATE TABLE temp_db.NamedFields(
   WorkId INTEGER NOT NULL,
 """
 
 FOOTER = """
 .headers on
 .mode csv
-.output {}_test.csv
-select * from named.NamedFields;
+.once {report_name}_test.csv
+select * from temp_db.NamedFields;
+
+.open ":memory:"
+.import {report_name}.csv {report_name} --csv
+.import {report_name}_test.csv {report_name}_test --csv
+create table diffs as select * from (SELECT * FROM {report_name} EXCEPT SELECT * FROM {report_name}_test) union select * from (SELECT * FROM {report_name}_test EXCEPT SELECT * FROM {report_name});
+.headers off
+.once {report_name}.discrepancy
+select count(*) from diffs;
 .exit
 """
 
@@ -26,7 +34,7 @@ def process(fields_path):
     table_sql = cfg['table_sql']
     for report in cfg['reports']:
         views = f'CREATE TEMP VIEW WorkId as SELECT DISTINCT WorkId FROM {table_sql} order by workid;\n'
-        sql = 'insert into named.NamedFields(WorkId) SELECT WorkId FROM WorkId;\n'
+        sql = 'insert into temp_db.NamedFields(WorkId) SELECT WorkId FROM WorkId;\n'
         header = HEADER
 
         columns = report['columns']
@@ -40,7 +48,7 @@ def process(fields_path):
                 continue
 
             header += f'  {title} STRING,\n'
-            sql += f'UPDATE named.NamedFields set {title}=(select {title} from {title} where NamedFields.WorkId = {title}.WorkId);\n'
+            sql += f'UPDATE temp_db.NamedFields set {title}=(select {title} from {title} where NamedFields.WorkId = {title}.WorkId);\n'
 
             template = f'CREATE TEMP VIEW {title} as SELECT a.WorkId, Value as {title} FROM {table_sql} as a inner join WorkId as b on a.WorkId = b.WorkId where a.ColumnId={col_code};\n'
             col_kind = column['kind']
@@ -64,7 +72,7 @@ def process(fields_path):
             f.write(header)
             f.write(views)
             f.write(sql)
-            f.write(FOOTER.format(report_name))
+            f.write(FOOTER.replace("{report_name}", report_name))
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
