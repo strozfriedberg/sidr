@@ -7,6 +7,8 @@ use std::io::Write;
 use std::ops::IndexMut;
 use std::path::{Path, PathBuf};
 
+use crate::utils::*;
+
 #[derive(Clone, Debug, ValueEnum)]
 pub enum ReportFormat {
     Json,
@@ -74,8 +76,7 @@ pub struct ReportJson {
 
 impl ReportJson {
     pub fn new(f: &Path) -> Result<Self, SimpleError> {
-        let mut f = File::create(f).map_err(|e| SimpleError::new(format!("{}", e)))?;
-        f.write_all(b"[").unwrap();
+        let f = File::create(f).map_err(|e| SimpleError::new(format!("{}", e)))?;
         Ok(ReportJson {
             f: RefCell::new(f),
             first_record: Cell::new(true),
@@ -84,7 +85,7 @@ impl ReportJson {
     }
 
     fn escape(s: String) -> String {
-        s.replace('\\', "\\\\").replace('\"', "\\\"")
+        json_escape(&s)
     }
 
     pub fn write_values(&self) {
@@ -113,13 +114,12 @@ impl ReportJson {
 impl Report for ReportJson {
     fn footer(&self) {
         self.new_record();
-        self.f.borrow_mut().write_all(b"]").unwrap();
     }
 
     fn new_record(&self) {
         if !self.values.borrow().is_empty() {
             if !self.first_record.get() {
-                self.f.borrow_mut().write_all(b",\n").unwrap();
+                self.f.borrow_mut().write_all(b"\n").unwrap();
             } else {
                 self.first_record.set(false);
             }
@@ -130,7 +130,7 @@ impl Report for ReportJson {
     fn str_val(&self, f: &str, s: String) {
         self.values
             .borrow_mut()
-            .push(format!("\"{}\":\"{}\"", f, ReportJson::escape(s)));
+            .push(format!("\"{}\":{}", f, ReportJson::escape(s)));
     }
 
     fn int_val(&self, f: &str, n: u64) {
@@ -291,7 +291,7 @@ pub fn test_report_csv() {
 }
 
 #[test]
-pub fn test_report_json() {
+pub fn test_report_jsonl() {
     let p = Path::new("test.json");
     {
         let r = ReportJson::new(&p).unwrap();
@@ -307,16 +307,16 @@ pub fn test_report_json() {
         }
     }
     let data = std::fs::read_to_string(&p).unwrap();
-    let expected = r#"[{"int_field":0,"str_field":"string0_with_escapes_here1\"here2\\"},
-{"int_field":1},
-{"str_field":"string2"},
-{"int_field":3},
-{"str_field":"string4"},
-{"int_field":5},
-{"str_field":"string6"},
-{"int_field":7},
-{"str_field":"string8"},
-{"int_field":9}]"#;
+    let expected = r#"{"int_field":0,"str_field":"string0_with_escapes_here1\"here2\\"}
+{"int_field":1}
+{"str_field":"string2"}
+{"int_field":3}
+{"str_field":"string4"}
+{"int_field":5}
+{"str_field":"string6"}
+{"int_field":7}
+{"str_field":"string8"}
+{"int_field":9}"#;
     assert_eq!(data, expected);
     std::fs::remove_file(&p).unwrap();
 }

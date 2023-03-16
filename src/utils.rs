@@ -111,3 +111,34 @@ pub fn column_string_part(s: &str) -> &str {
         None => s,
     }
 }
+
+pub fn json_escape(input: &str) -> String {
+    json::stringify(input)
+}
+
+#[test]
+fn json_escape_test() {
+    let tests = &[
+        ("", "\"\""),
+        ("test", "\"test\""),
+        ("\"", "\"\\\"\""),
+        ("\\", "\"\\\\\""),
+        ("\x08", "\"\\b\""),
+        ("\x0C", "\"\\f\""),
+        ("\n", "\"\\n\""),
+        ("\r", "\"\\r\""),
+        ("\t", "\"\\t\""),
+        ("\x1F", "\"\\u001f\""),
+        ("t\n", "\"t\\n\""),
+        ("\nt", "\"\\nt\""),
+        ("t\nt\nt", "\"t\\nt\\nt\""),
+        ("\n\n", "\"\\n\\n\""),
+        ("t\n\n", "\"t\\n\\n\""),
+        ("\n\nt", "\"\\n\\nt\""),
+        ("test\n\n", "\"test\\n\\n\""),
+        ("\n\ntest", "\"\\n\\ntest\""),
+    ];
+    for i in tests {
+        assert_eq!(json_escape(i.0), i.1);
+    }
+}
