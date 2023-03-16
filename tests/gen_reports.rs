@@ -80,24 +80,10 @@ fn compare_with_sql_select() {
 
     do_invoke(cmd);
 
-    let mut cmd =
-        Command::new("sed");
-    let cmd = cmd
-        .current_dir(work_dir)
-        .arg("-i")
-        .arg("'s/\"\"//'")
-        ;
-
-    glob_vec_names(format!("{}/*.csv", work_dir).as_str())
-        .into_iter()
-        .for_each(|f| { cmd.arg(f.as_str()); });
-
-    do_invoke(cmd);
-
     let files_to_copy = ["dtformat.c"];
     for file in files_to_copy {
         fs::copy(format!("tests/{file}"),
-                 format!("{}/{file}", work_dir))
+                 format!("{work_dir}/{file}"))
             .expect("copy file '{file}'");
     }
 
@@ -122,20 +108,29 @@ fn compare_with_sql_select() {
 
     do_invoke(cmd);
 
-    for item in std::path::Path::new(work_dir).read_dir().unwrap() {
-        let path = item.unwrap().path();
-        if let Some(extension) = path.extension() {
-            if extension == "sql" {
-                let mut cmd =
-                    Command::new("sqlite3");
-                let cmd = cmd
-                    .current_dir(work_dir)
-                    .arg(&db_path)
-                    .arg(format!(".read {}", path.file_name().unwrap().to_str().unwrap()))
-                    ;
+    let scripts = glob_vec_names(format!("{work_dir}/*.sql").as_str());
+    for script in &scripts {
+        let mut cmd =
+            Command::new("sqlite3");
+        let cmd = cmd
+            .current_dir(work_dir)
+            .arg(&db_path)
+            .arg(format!(".read {}", script.as_str()))
+            ;
 
-                do_invoke(cmd);
-            }
+        do_invoke(cmd);
+    }
+
+    let diffs = glob_vec_string(format!("{work_dir}/*.discrepancy").as_str());
+    let mut failed = Vec::<String>::with_capacity(diffs.len());
+    for diff in &diffs {
+        let count = fs::read_to_string(diff).expect(format!("error reading {diff}").as_str());
+        if count.trim() != "0" {
+            failed.push(format!("'{diff}' has {count} discrepancies"));
         }
+    }
+
+    if failed.len() != 0 {
+        panic!("{}", failed.join("\n"));
     }
 }
