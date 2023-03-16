@@ -458,7 +458,7 @@ impl FieldReader for SqlReader {
 //--------------------------------------------------------------------
 use std::path::Path;
 use simple_error::SimpleError;
-use report::Report;
+use report::{Report, ReportJson};
 use csv::Writer;
 
 struct ReportCsv {
@@ -471,7 +471,7 @@ impl ReportCsv {
         let mut writer = writer.expect(format!("Could not create '{}'", report_path.display()).as_str());
 
         for column in &cfg.columns {
-            writer.write_field(column.sql.name.as_str()).unwrap();
+            writer.write_field(column.title.as_str()).unwrap();
         }
 
         let writer = RefCell::new(writer);
@@ -495,14 +495,19 @@ impl Report for ReportCsv {
 
     fn int_val(&self, _f: &str, n: u64) {
         let mut writer = self.writer.borrow_mut();
-        writer.write_field(format!("{n}").as_str()).unwrap();;
+        writer.write_field(format!("{n}").as_str()).unwrap();
     }
 
     fn is_some_val_in_record(&self) -> bool {
         todo!()
     }
 }
-struct ReportJson;
+
+impl Drop for ReportCsv {
+    fn drop(&mut self) {
+        self.new_record();
+    }
+}
 
 pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     for report in &cfg.reports {
@@ -531,9 +536,8 @@ pub fn do_report(
             Box::new(ReportCsv::new(&cfg,&out_path).unwrap())
         }
         OutputFormat::Json => {
-            todo!()
-            // out_path.set_extension("json");
-            // Box::new(ReportJson::new(&out_path).unwrap())
+            out_path.set_extension("json");
+            Box::new(ReportJson::new(&out_path).unwrap())
         }
     };
     //println!("FileReport: {}", cfg.title);
