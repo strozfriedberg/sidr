@@ -17,21 +17,20 @@ path = "src/bin/external_cfg.rs"
 ese_parser_lib = { git = "ssh://git@stash.strozfriedberg.com/asdf/ese_parser.git" }
 sqlite = "0.30.4"
 serde = { version = "*", features = ["derive"] }
-serde_yaml = "*"
-ouroboros = "*"
-num = "*"
+serde_yaml = "0.9.17"
+ouroboros = "0.15.6"
+num = "0.4.0"
 
-simple-error = "*"
+simple-error = "0.3.0"
 chrono = "0.4"
-#libc = "*"
 bitflags = "1.2.1"
 clap = { version = "4.1.7", features = ["derive"] }
 log = "0.4"
-env_logger = "*"
-function_name = "*"
-multimap = "*"
-glob = "*"
-csv = "*"
+env_logger = "0.8.4"
+function_name = "0.3.0"
+multimap = "0.8.3"
+glob = "0.3.1"
+csv = "1.2.1"
 
 [dependencies.sqlite3-sys]
 version = "0.14"
