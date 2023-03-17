@@ -25,15 +25,15 @@ enum ColumnType {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Column {
-    name: String,
+pub struct Column {
+    pub name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ColumnPair {
-    title: String,
+    pub title: String,
     kind: ColumnType,
-    edb: Column,
+    pub edb: Column,
     sql: Column,
 }
 
@@ -45,8 +45,8 @@ pub enum OutputFormat {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ReportCfg {
-    title: String,
-    columns: Vec<ColumnPair>,
+    pub title: String,
+    pub columns: Vec<ColumnPair>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -108,6 +108,7 @@ pub struct EseReader {
     table: u64,
     tablename: String,
     col_infos: HashMap<String, (u32, u32)>,
+    rec_no: u64,
 }
 
 fn get_column<T: FromBytes + num::NumCast>(
@@ -137,6 +138,7 @@ impl EseReader {
             tablename: tablename.to_string(),
             filename: filename.to_string(),
             col_infos: HashMap::<String, (u32, u32)>::new(),
+            rec_no: 0,
         }
     }
 }
@@ -169,6 +171,7 @@ impl FieldReader for EseReader {
             }
         }
 
+        self.rec_no = 0;
         info!("{}: {used_cols:?}", function_path!());
         used_cols
     }
@@ -176,7 +179,14 @@ impl FieldReader for EseReader {
     //#[named]
     fn next(&mut self) -> bool {
         //trace!("{}", function_path!());
-        self.jdb.move_row(self.table, ESE_MoveNext).unwrap()
+        let ok = if self.rec_no == 0 {
+            self.jdb.move_row(self.table, ESE_MoveFirst).unwrap()
+        } else {
+            self.jdb.move_row(self.table, ESE_MoveNext).unwrap()
+        };
+
+        self.rec_no += 1;
+        ok
     }
 
     fn get_datetime(&mut self, id: &FldId) -> Option<DateTime<Utc>> {
