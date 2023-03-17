@@ -38,4 +38,5 @@ version = "0.14"
 default-features = false
 
 [dev-dependencies]
-tempdir = "*"
+tempdir = "0.3.7"
+libesedb = "0.1.4"
