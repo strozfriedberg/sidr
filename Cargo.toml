@@ -14,7 +14,7 @@ name = "external_cfg"
 path = "src/bin/external_cfg.rs"
 
 [dependencies]
-ese_parser_lib = { git = "ssh://git@stash.strozfriedberg.com/asdf/ese_parser.git" }
+ese_parser_lib = { git = "ssh://git@stash.strozfriedberg.com/asdf/ese_parser.git", features = ["nt_comparison"]}
 sqlite = "0.30.4"
 serde = { version = "*", features = ["derive"] }
 serde_yaml = "0.9.17"
@@ -39,4 +39,3 @@ default-features = false
 
 [dev-dependencies]
 tempdir = "0.3.7"
-libesedb = "0.1.4"
