@@ -476,34 +476,41 @@ struct ReportCsv {
 }
 
 impl ReportCsv {
-    pub fn new(cfg: &ReportCfg, report_path: &Path) -> Result<Self, SimpleError> {
+    pub fn new(report_path: &Path) -> Result<Self, SimpleError> {
         let writer = Writer::from_path(report_path.to_str().unwrap());
-        let mut writer = writer.expect(format!("Could not create '{}'", report_path.display()).as_str());
-
-        for column in &cfg.columns {
-            writer.write_field(column.title.as_str()).unwrap();
-        }
-
-        let writer = RefCell::new(writer);
+        let writer = writer.expect(format!("Could not create '{}'", report_path.display()).as_str());
 
         Ok(ReportCsv {
-            writer: writer,
+            writer: RefCell::new(writer),
         })
     }
 }
 
 impl Report for ReportCsv {
+    #[named]
+    fn set_field(&self, fld: &str) {
+        trace!("{} {fld}", function_path!());
+        let mut writer = self.writer.borrow_mut();
+        writer.write_field(fld).unwrap();
+    }
+
+    #[named]
     fn new_record(&self) {
+        trace!("{}", function_path!());
         let mut writer = self.writer.borrow_mut();
         writer.write_record(None::<&[u8]>).unwrap();
     }
 
+    #[named]
     fn str_val(&self, _f: &str, s: String) {
+        trace!("{} {_f}={s}", function_path!());
         let mut writer = self.writer.borrow_mut();
         writer.write_field(s.as_str()).unwrap();
     }
 
+    #[named]
     fn int_val(&self, _f: &str, n: u64) {
+        trace!("{} {_f}={n}", function_path!());
         let mut writer = self.writer.borrow_mut();
         writer.write_field(format!("{n}").as_str()).unwrap();
     }
@@ -543,7 +550,7 @@ pub fn do_report(
     let reporter: Box<dyn Report> = match output_format {
         OutputFormat::Csv => {
             out_path.set_extension("csv");
-            Box::new(ReportCsv::new(&cfg,&out_path).unwrap())
+            Box::new(ReportCsv::new(&out_path).unwrap())
         }
         OutputFormat::Json => {
             out_path.set_extension("json");
@@ -559,6 +566,10 @@ pub fn do_report(
         .filter(|(_, x)| used_cols.iter().find(|c| **c == x.title).is_some())
         .map(|(i, _)| i)
         .collect();
+
+    used_cols
+        .iter()
+        .for_each(|c| reporter.set_field(c));
 
     while reader.next() {
         reporter.new_record();
