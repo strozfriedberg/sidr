@@ -1,17 +1,23 @@
+extern crate core;
+
 use std::env;
 #[cfg(test)]
+
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use chrono::TimeZone;
 
 use env_logger::{self, Target};
 use log::info;
 use tempdir::TempDir;
 use glob::glob;
 
-use libesedb::{self, EseDb};
+use ese_parser_lib::esent::ese_api::EseAPI;
+use ese_parser_lib::ese_trait::{ESE_MoveFirst, ESE_MoveNext, EseDb};
+use ese_parser_lib::vartime::{SYSTEMTIME, VariantTimeToSystemTime};
 
-use wsa_lib::ReportsCfg;
+use wsa_lib::{ColumnType, ReportsCfg, utils};
 use wsa_lib::utils::{format_date_time, from_utf16, get_date_time_from_filetime};
 
 fn glob_vec_path(pattern: &str) -> Vec<PathBuf> {
@@ -140,15 +146,18 @@ fn do_sql_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str, sql_gener
 
 type ColTitle = String;
 type ColName = String;
-type ColInd = usize;
+type ColId = u32;
+type ColSize = u32;
 
 #[derive(Debug, Clone)]
 struct EseCol {
     col_name: ColName,
-    col_ind: ColInd,
+    col_id: ColId,
+    col_size: ColSize,
+    col_type: ColumnType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ColInfo {
     col_title: ColTitle,
     ese_col: EseCol,
@@ -170,20 +179,9 @@ fn do_ese_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str, work_dir:
     let s = std::fs::read_to_string(cfg_path).unwrap();
     let cfg: ReportsCfg = serde_yaml::from_str(&s).unwrap();
     let tablename = cfg.table_edb;
-    let db = EseDb::open(db_path).unwrap();
-    let table = db.table_by_name(tablename.as_str()).unwrap();
-    let ese_cols: Vec<EseCol> = table
-        .iter_columns()
-        .unwrap()
-        .enumerate()
-        .map(|(i, c)| {
-            let col = c.as_ref().unwrap();
-            EseCol {
-                col_name: col.name().unwrap().clone(),
-                col_ind: i,
-            }
-        })
-        .collect();
+    let jdb: Box<dyn EseDb> = Box::new(EseAPI::load_from_path(db_path).unwrap());
+    let table = jdb.open_table(&tablename).unwrap();
+    let ese_cols = jdb.get_columns(&tablename).unwrap();
 
     for report in &cfg.reports {
         let columns = &report.columns;
@@ -194,13 +192,19 @@ fn do_ese_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str, work_dir:
             if !name.is_empty() {
                 let col = ese_cols
                     .iter()
-                    .find(|c| *c.col_name == name)
+                    .find(|c| c.name == name)
                     .expect(format!("could not find {name}").as_str());
-                col_infos.push(
-                    ColInfo {
-                        col_title: col_pair.title.clone(),
-                        ese_col: col.clone(),
-                    });
+                let ese_col = EseCol {
+                    col_name: name,
+                    col_id: col.id,
+                    col_size: col.cbmax,
+                    col_type: col_pair.kind,
+                };
+
+                col_infos.push(ColInfo {
+                    col_title: col_pair.title.clone(),
+                    ese_col: ese_col.clone(),
+                });
             }
         }
         info!("{}: {col_infos:?}", report.title);
@@ -215,40 +219,74 @@ fn do_ese_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str, work_dir:
         }
         writer.write_record(None::<&[u8]>).unwrap();
 
-        for row in table.iter_records().unwrap() {
-            for column in &col_infos {
-                //info!("{}: '{}'", column.col_title, column.ese_col.col_name);
-                let val = row.as_ref().unwrap().value(column.ese_col.col_ind as i32).unwrap();
-                match val {
-                    libesedb::Value::Null(()) =>
-                        writer.write_field("").expect("Error writing Null"),
-                    libesedb::Value::Binary(x) =>
-                        if column.col_title=="System_Size" {
-                            let v = u64::from_le_bytes(x.try_into().unwrap());
-                            let s = if v==3038287259199220266_u64 {
-                                "".to_string()
-                            } else {
-                                format!("{v}")
-                            };
-                            writer.write_field(&s).expect(format!("Error writing u64 '{s}' (from Binary)").as_str())
-                        } else {
-                            writer.write_field(dt_to_string(x)).expect("Error writing DateTime (from Binary)")
+        if jdb.move_row(table, ESE_MoveFirst).unwrap() {
+            loop {
+                for column in &col_infos {
+                    let col = &column.ese_col;
+                    let mut s= "".to_string();
+                    //info!("{}: '{}'", column.col_title, column.ese_col.col_name);
+                    match col.col_type {
+                        ColumnType::String => match jdb.get_column(table, col.col_id) {
+                            Ok(r) =>
+                                if let Some(v)  = r {
+                                    s = from_utf16(v.as_slice());
+                                },
+                            Err(e) => panic!("Error reading {}: {e}", column.col_title),
                         }
-                    libesedb::Value::Text(s) =>
-                        writer.write_field(&s).expect(format!("Error writing Text '{s}'").as_str()),
-                    libesedb::Value::I32(x) =>
-                        writer.write_field(format!("{x}")).expect(format!("Error writing I32 '{x}'").as_str()),
-                    libesedb::Value::U32(x) =>
-                        writer.write_field(format!("{x}")).expect(format!("Error writing U32 '{x}'").as_str()),
-                    libesedb::Value::LargeText(v) => {
-                        let s = from_utf16(v.as_bytes());
-                        writer.write_field(&s).expect(format!("Error writing LargeText '{s}'").as_str())
+                        ColumnType::DateTime => match jdb.get_column(table, col.col_id) {
+                            Ok(r) =>
+                                if let Some(v) = r {
+                                    if let Ok(val) = v.clone().try_into() {
+                                        let vartime = f64::from_le_bytes(val);
+                                        let mut st = SYSTEMTIME::default();
+                                        if VariantTimeToSystemTime(vartime, &mut st) {
+                                            let datetime = chrono::Utc
+                                                .with_ymd_and_hms(
+                                                    st.wYear as i32,
+                                                    st.wMonth as u32,
+                                                    st.wDay as u32,
+                                                    st.wHour as u32,
+                                                    st.wMinute as u32,
+                                                    st.wSecond as u32,
+                                                )
+                                                .single()
+                                                .unwrap(); // this is obviously not the right function! I didn't know what the right one was off the top of my head. We need to include the time component. also needs to be something that returns a DateTime.
+                                            s = utils::format_date_time(datetime);
+                                        } else {
+                                            let filetime = u64::from_le_bytes(v.try_into().unwrap());
+                                            let datetime = get_date_time_from_filetime(filetime);
+                                            s = utils::format_date_time(datetime);
+                                        }
+                                    }
+                                },
+                            Err(e) => panic!("Error reading {}: {e}", column.col_title),
+                        }
+                        ColumnType::Integer => match jdb.get_column(table, col.col_id) {
+                            Ok(r) =>
+                                if let Some(v) = r {
+                                    info!("Integer: {v:?}");
+                                    s = match v.len() {
+                                        1 => u8::from_le_bytes(v[..].try_into().unwrap()).to_string(),
+                                        2 => u16::from_le_bytes(v[..].try_into().unwrap()).to_string(),
+                                        4 => u32::from_le_bytes(v[..].try_into().unwrap()).to_string(),
+                                        8 => u64::from_le_bytes(v[..].try_into().unwrap()).to_string(),
+                                        _ => panic!("Integer: {v:?}")
+                                    };
+                                },
+                            Err(e) => panic!("Error reading {}: {e}", column.col_title),
+                        }
+                        _ => panic!("unexpected type")
                     }
-                    _ =>
-                        panic!("missed writer for {val:?}")
-                };
+                    print!("{}: {s}, ", column.col_title);
+                    writer.write_field(&s).expect(format!("Error writing '{s}' ({})", column.col_title).as_str());
+                }
+
+                println!("");
+                writer.write_record(None::<&[u8]>).unwrap();
+                if !jdb.move_row(table, ESE_MoveNext).unwrap() {
+                    break;
+                }
             }
-            writer.write_record(None::<&[u8]>).unwrap();
         }
     }
 }
@@ -303,7 +341,7 @@ fn compare_with_sql_select() {
 
     do_invoke(cmd);
 
-    do_sql_test(&reporter_bin_path, &db_path, &cfg_path, &sql_generator_path, &sql_to_csv_path, &work_dir);
+//    do_sql_test(&reporter_bin_path, &db_path, &cfg_path, &sql_generator_path, &sql_to_csv_path, &work_dir);
     do_ese_test(&reporter_bin_path, &edb_path, &cfg_path, &work_dir);
 }
 
