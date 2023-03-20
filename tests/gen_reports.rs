@@ -12,7 +12,7 @@ use glob::glob;
 use libesedb::{self, EseDb};
 
 use wsa_lib::ReportsCfg;
-use wsa_lib::utils::{format_date_time, get_date_time_from_filetime};
+use wsa_lib::utils::{format_date_time, from_utf16, get_date_time_from_filetime};
 
 fn glob_vec_path(pattern: &str) -> Vec<PathBuf> {
     glob(pattern).unwrap().map(|r| r.unwrap()).collect()
@@ -58,6 +58,8 @@ fn do_invoke(cmd: &mut Command) {
 }
 
 fn generate_csv_json(reporter_bin_path: &str, common_args: &Vec<&str>) {
+    info!("generate_csv_json");
+
     let mut cmd = Command::new(&reporter_bin_path);
     let cmd = cmd
         .args(&*common_args)
@@ -88,6 +90,8 @@ fn do_generate(reporter_bin_path: &str, db_path: &str, cfg_path: &str, work_dir:
 }
 
 fn do_sql_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str, sql_generator_path: &str, sql_to_csv_path: &str, work_dir: &str) {
+    info!("do_sql_test");
+
     do_generate(reporter_bin_path, db_path, cfg_path, work_dir);
 
     let mut cmd =
@@ -157,7 +161,10 @@ pub fn dt_to_string(v: Vec<u8>) -> String {
     let dt = get_date_time_from_filetime(filetime);
     format_date_time(dt)
 }
+
 fn do_ese_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str, work_dir: &str) {
+    info!("do_ese_test");
+
     do_generate(reporter_bin_path, db_path, cfg_path, work_dir);
 
     let s = std::fs::read_to_string(cfg_path).unwrap();
@@ -214,17 +221,29 @@ fn do_ese_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str, work_dir:
                 let val = row.as_ref().unwrap().value(column.ese_col.col_ind as i32).unwrap();
                 match val {
                     libesedb::Value::Null(()) =>
-                        writer.write_field(""),
+                        writer.write_field("").expect("Error writing Null"),
                     libesedb::Value::Binary(x) =>
-                        writer.write_field(dt_to_string(x)),
+                        if column.col_title=="System_Size" {
+                            let v = u64::from_le_bytes(x.try_into().unwrap());
+                            let s = if v==3038287259199220266_u64 {
+                                "".to_string()
+                            } else {
+                                format!("{v}")
+                            };
+                            writer.write_field(&s).expect(format!("Error writing u64 '{s}' (from Binary)").as_str())
+                        } else {
+                            writer.write_field(dt_to_string(x)).expect("Error writing DateTime (from Binary)")
+                        }
                     libesedb::Value::Text(s) =>
-                        writer.write_field(s),
+                        writer.write_field(&s).expect(format!("Error writing Text '{s}'").as_str()),
                     libesedb::Value::I32(x) =>
-                        writer.write_field(format!("{x}")),
+                        writer.write_field(format!("{x}")).expect(format!("Error writing I32 '{x}'").as_str()),
                     libesedb::Value::U32(x) =>
-                        writer.write_field(format!("{x}")),
-                    libesedb::Value::LargeText(s) =>
-                        writer.write_field(s),
+                        writer.write_field(format!("{x}")).expect(format!("Error writing U32 '{x}'").as_str()),
+                    libesedb::Value::LargeText(v) => {
+                        let s = from_utf16(v.as_bytes());
+                        writer.write_field(&s).expect(format!("Error writing LargeText '{s}'").as_str())
+                    }
                     _ =>
                         panic!("missed writer for {val:?}")
                 };
@@ -239,6 +258,8 @@ fn compare_with_sql_select() {
     env_logger::builder()
         .target(Target::Stderr)
         .init();
+
+    info!("compare_with_sql_select");
 
     let reporter_bin = "external_cfg";
     let reporter_bin_path = format!("target/debug/{reporter_bin}");
