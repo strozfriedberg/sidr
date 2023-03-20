@@ -16,8 +16,8 @@ macro_rules! function_path {
 }
 
 //---------------------------------------------------
-#[derive(Debug, Serialize, Deserialize)]
-enum ColumnType {
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum ColumnType {
     String,
     Integer,
     DateTime,
@@ -32,7 +32,7 @@ pub struct Column {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ColumnPair {
     pub title: String,
-    kind: ColumnType,
+    pub kind: ColumnType,
     pub edb: Column,
     sql: Column,
 }
