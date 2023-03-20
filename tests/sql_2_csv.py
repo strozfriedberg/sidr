@@ -33,7 +33,7 @@ select count(*) from diffs_json;
 """
 
 def process(fields_path):
-    print(f'process {fields_path}')
+    print(f'{sys.argv[0]}: process {fields_path}')
     with open(fields_path) as f:
         cfg = yaml.safe_load(f)
 
