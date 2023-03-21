@@ -8,7 +8,7 @@ authors = ["Aon"]
 edition = "2018"
 
 [dependencies]
-ese_parser_lib = { path = "../ese_parser/lib" }
+ese_parser_lib = { git = "ssh://git@stash.strozfriedberg.com/asdf/ese_parser.git", tag="v0.1.0"}
 sqlite = "0.30.4"
 simple-error = "0.3.0"
 chrono = "0.4"
