@@ -58,7 +58,9 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
     Ok(())
 }
 
-/// The Windows Search Forensic Artifact Parser is a RUST based tool designed to parse Windows search artifacts from Windows 10 (and prior) and Windows 11 systems.
+/// Copyright 2023, Aon 
+/// 
+/// Created by the Stroz Friedberg digital forensics practice at Aon
 /// The tool handles both ESE databases (Windows.edb) and SQLite databases (Windows.db) as input and generates three detailed reports as output.
 ///
 /// Example:
