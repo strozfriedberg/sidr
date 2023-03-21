@@ -7,6 +7,7 @@ SIDR is a tool designed to parse Windows search artifacts from Windows 10 (and p
 * [Usage](#usage)
 * [Example](#example)
 * [Building](#building)
+* [Copyright](#copyright)
 
 
 ### Usage
@@ -61,3 +62,6 @@ $ cargo build --release
 $ ./target/release/sidr --version
 0.8.0
 ```
+
+### Copyright
+Copyright 2023, Aon. SIDR is licensed under the Apache License, Version 2.0.
