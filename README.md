@@ -60,7 +60,7 @@ $ git clone https://github.com/strozfriedberg/sidr.git
 $ cd sidr
 $ cargo build --release
 $ ./target/release/sidr --version
-0.8.0
+sidr 0.8.0
 ```
 
 ### Copyright
