@@ -12,7 +12,6 @@ ese_parser_lib = { git = "ssh://git@stash.strozfriedberg.com/asdf/ese_parser.git
 sqlite = "0.30.4"
 simple-error = "0.3.0"
 chrono = "^0.4"
-#libc = "*"
 bitflags = "1.2.1"
 clap = { version = "4.1.7", features = ["derive"] }
 json = "0.12.4"
