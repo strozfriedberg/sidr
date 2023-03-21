@@ -1,5 +1,8 @@
 [package]
 name = "windows_search_artifact"
+license = "Apache-2.0"
+readme = "README.md"
+
 version = "0.8.0"
 authors = ["Aon"]
 edition = "2018"
@@ -17,3 +20,7 @@ json = "0.12.4"
 [dependencies.sqlite3-sys]
 version = "0.14"
 default-features = false
+
+[[bin]]
+name = "sidr"
+path = "src/main.rs"
