@@ -134,9 +134,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chrono"
-version = "0.4.23"
+version = "0.4.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16b0a3d9ed01224b22057780a37bb8c5dbfe1be8ba48678e7bf57ec4b385411f"
+checksum = "4e3c5919066adf22df73762e50cffcde3a758f2a848b113b586d1f86728b673b"
 dependencies = [
  "iana-time-zone",
  "js-sys",
@@ -371,6 +371,7 @@ dependencies = [
 [[package]]
 name = "ese_parser_lib"
 version = "0.1.0"
+source = "git+ssh://git@stash.strozfriedberg.com/asdf/ese_parser.git?tag=v0.1.0#640cb8b622af8ad9d55e8e2ef1baaf03142c3944"
 dependencies = [
  "bindgen",
  "bitfield",
