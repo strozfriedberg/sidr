@@ -1,12 +1,21 @@
-extern crate core;
+//extern crate core;
 
 use std::env;
 #[cfg(test)]
+
+const SQL_GEN_SCRIPT: &str = "sql_2_csv.py";
+const JSON_TO_CSV: &str = "json_2_csv.py";
+const ESE_TO_CSV: &str = "ese_2_csv.py";
+
+use once_cell::sync::OnceCell;
+static PYTHON_SCRIPTS_PATH: OnceCell<String> = OnceCell::new();
+static WORK_DIR: OnceCell<String> = OnceCell::new();
 
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use chrono::TimeZone;
+use clap::__macro_refs::once_cell;
 
 use env_logger::{self, Target};
 use log::info;
@@ -63,6 +72,21 @@ fn do_invoke(cmd: &mut Command) {
     }
 }
 
+fn invoke_python(script: &str, args: &[&str]) {
+    let mut cmd =
+        Command::new("python");
+    let cmd = cmd
+        .current_dir(WORK_DIR.get().unwrap())
+        .arg(format!("{}/{script}", PYTHON_SCRIPTS_PATH.get().unwrap()));
+
+    for arg in args {
+        cmd.arg(arg);
+    }
+
+    do_invoke(cmd);
+}
+
+
 fn generate_csv_json(reporter_bin_path: &str, common_args: &Vec<&str>) {
     info!("generate_csv_json");
 
@@ -87,7 +111,9 @@ fn generate_reports(reporter_bin_path: &str, db_path: &str, common_args: &Vec<&s
     generate_csv_json(reporter_bin_path, &args);
 }
 
-fn do_generate(reporter_bin_path: &str, db_path: &str, cfg_path: &str, work_dir: &str) {
+fn do_generate(reporter_bin_path: &str, db_path: &str, cfg_path: &str) {
+    let work_dir = WORK_DIR.get().unwrap();
+
     remove_files(format!("{}/*.csv", work_dir).as_str());
     remove_files(format!("{}/*.json", work_dir).as_str());
 
@@ -95,65 +121,58 @@ fn do_generate(reporter_bin_path: &str, db_path: &str, cfg_path: &str, work_dir:
     generate_reports(&reporter_bin_path, &db_path, &common_args);
 }
 
-fn do_sql_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str, sql_generator_path: &str, sql_to_csv_path: &str, work_dir: &str) {
-    info!("do_sql_test");
-
-    do_generate(reporter_bin_path, db_path, cfg_path, work_dir);
-
-    let mut cmd =
-        Command::new("python");
-    let cmd = cmd
-        .current_dir(work_dir)
-        .arg(sql_to_csv_path);
-
-    do_invoke(cmd);
-
-    let mut cmd =
-        Command::new("python");
-    let cmd = cmd
-        .current_dir(work_dir)
-        .arg(sql_generator_path)
-        .arg(cfg_path);
-
-    do_invoke(cmd);
-
+fn do_sqlite3(db_path: &str, work_dir: &String) {
     let scripts = glob_vec_names(format!("{work_dir}/*.sql").as_str());
     for script in &scripts {
         let mut cmd =
             Command::new("sqlite3");
         let cmd = cmd
             .current_dir(work_dir)
-            .arg(&db_path)
+            .arg(db_path)
             .arg(format!(".read {}", script.as_str()))
             ;
 
         do_invoke(cmd);
     }
+}
 
-    let diffs = glob_vec_string(format!("{work_dir}/*.discrepancy").as_str());
-    let mut failed = Vec::<String>::with_capacity(diffs.len());
-    for diff in &diffs {
-        let count = fs::read_to_string(diff).expect(format!("error reading {diff}").as_str());
-        if count.trim() != "0" {
-            failed.push(format!("'{diff}' has {count} discrepancies"));
-        }
+fn do_sql_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str, sqlite3ext_h_path: &str) {
+    info!("do_sql_test");
+
+    do_generate(reporter_bin_path, db_path, cfg_path);
+
+    let work_dir = WORK_DIR.get().unwrap();
+    let files_to_copy = ["dtformat.c"];
+    for file in files_to_copy {
+        fs::copy(format!("tests/{file}"),
+                 format!("{work_dir}/{file}"))
+            .expect("copy file '{file}'");
     }
 
-    if failed.len() != 0 {
-        panic!("{}", failed.join("\n"));
-    }
+    let mut cmd =
+        Command::new("clang");
+    let cmd = cmd
+        .current_dir(work_dir)
+        .arg("-shared")
+        .args(["-I", sqlite3ext_h_path])
+        .arg("-m32")
+        .args(["-o", "dtformat.dll"])
+        .arg("dtformat.c");
+
+    do_invoke(cmd);
+
+    invoke_python(JSON_TO_CSV, &[]);
+    invoke_python(SQL_GEN_SCRIPT, &[&cfg_path]);
+
+    do_sqlite3(&db_path, work_dir)
 }
 
 type ColTitle = String;
-type ColName = String;
 type ColId = u32;
-type ColSize = u32;
 
 #[derive(Debug, Clone)]
 struct EseCol {
-    col_name: ColName,
     col_id: ColId,
-    col_size: ColSize,
     col_type: ColumnType,
 }
 
@@ -171,10 +190,10 @@ pub fn dt_to_string(v: Vec<u8>) -> String {
     format_date_time(dt)
 }
 
-fn do_ese_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str, work_dir: &str) {
+fn do_ese_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str) {
     info!("do_ese_test");
 
-    do_generate(reporter_bin_path, db_path, cfg_path, work_dir);
+    do_generate(reporter_bin_path, db_path, cfg_path);
 
     let s = std::fs::read_to_string(cfg_path).unwrap();
     let cfg: ReportsCfg = serde_yaml::from_str(&s).unwrap();
@@ -182,6 +201,7 @@ fn do_ese_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str, work_dir:
     let jdb: Box<dyn EseDb> = Box::new(EseAPI::load_from_path(db_path).unwrap());
     let table = jdb.open_table(&tablename).unwrap();
     let ese_cols = jdb.get_columns(&tablename).unwrap();
+    let work_dir = WORK_DIR.get().unwrap();
 
     for report in &cfg.reports {
         let columns = &report.columns;
@@ -195,9 +215,7 @@ fn do_ese_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str, work_dir:
                     .find(|c| c.name == name)
                     .expect(format!("could not find {name}").as_str());
                 let ese_col = EseCol {
-                    col_name: name,
                     col_id: col.id,
-                    col_size: col.cbmax,
                     col_type: col_pair.kind,
                 };
 
@@ -264,7 +282,6 @@ fn do_ese_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str, work_dir:
                         ColumnType::Integer => match jdb.get_column(table, col.col_id) {
                             Ok(r) =>
                                 if let Some(v) = r {
-                                    info!("Integer: {v:?}");
                                     s = match v.len() {
                                         1 => u8::from_le_bytes(v[..].try_into().unwrap()).to_string(),
                                         2 => u16::from_le_bytes(v[..].try_into().unwrap()).to_string(),
@@ -277,11 +294,11 @@ fn do_ese_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str, work_dir:
                         }
                         _ => panic!("unexpected type")
                     }
-                    print!("{}: {s}, ", column.col_title);
+                    //print!("{}: {s}, ", column.col_title);
                     writer.write_field(&s).expect(format!("Error writing '{s}' ({})", column.col_title).as_str());
                 }
 
-                println!("");
+                //println!("");
                 writer.write_record(None::<&[u8]>).unwrap();
                 if !jdb.move_row(table, ESE_MoveNext).unwrap() {
                     break;
@@ -289,6 +306,13 @@ fn do_ese_test(reporter_bin_path: &str, db_path: &str, cfg_path: &str, work_dir:
             }
         }
     }
+
+    remove_files(format!("{}/*.sql", work_dir).as_str());
+
+    invoke_python(JSON_TO_CSV, &[]);
+    invoke_python(ESE_TO_CSV, &[&cfg_path]);
+
+    do_sqlite3("", work_dir)
 }
 
 #[test]
@@ -304,8 +328,7 @@ fn compare_with_sql_select() {
     let db_path = get_env("WSA_TEST_WINDOWS_DB_PATH");
     let edb_path = get_env("WSA_TEST_WINDOWS_EDB_PATH");
     let cfg_path = get_env("WSA_TEST_CONFIGURATION_PATH");
-    let sql_generator_path = get_env("WSA_TEST_SQL_GENERATOR_PATH");
-    let sql_to_csv_path = get_env("WSA_TEST_SQL_TO_CSV_PATH");
+    let python_scripts_path = get_env("WSA_TEST_PYTHON_SCRIPTS_PATH");
     let sqlite3ext_h_path = get_env("ENV_SQLITE3EXT_H_PATH");
     let work_dir_name = format!("{reporter_bin}_testing");
     let work_temp_dir = TempDir::new(work_dir_name.as_str()).expect("{work_dir_name} creation");
@@ -320,28 +343,26 @@ fn compare_with_sql_select() {
     info!("db_path: {db_path}");
     info!("edb_path: {edb_path}");
     info!("cfg_path: {cfg_path}");
-    info!("work_dir: {work_dir:?}");
+    info!("work_dir: {work_dir}");
+    info!("python_scripts_path: {python_scripts_path}");
 
-    let files_to_copy = ["dtformat.c"];
-    for file in files_to_copy {
-        fs::copy(format!("tests/{file}"),
-                 format!("{work_dir}/{file}"))
-            .expect("copy file '{file}'");
+    PYTHON_SCRIPTS_PATH.set(python_scripts_path).expect("PYTHON_SCRIPTS_PATH.set failed");
+    WORK_DIR.set(work_dir.to_string()).expect("WORK_DIR.set failed");
+
+    do_sql_test(&reporter_bin_path, &db_path, &cfg_path, &sqlite3ext_h_path);
+    do_ese_test(&reporter_bin_path, &edb_path, &cfg_path);
+
+    let diffs = glob_vec_string(format!("{work_dir}/*.discrepancy").as_str());
+    let mut failed = Vec::<String>::with_capacity(diffs.len());
+    for diff in &diffs {
+        let count = fs::read_to_string(diff).expect(format!("error reading {diff}").as_str());
+        if count.trim() != "0" {
+            failed.push(format!("'{diff}' has {count} discrepancies"));
+        }
     }
 
-    let mut cmd =
-        Command::new("clang");
-    let cmd = cmd
-        .current_dir(work_dir)
-        .arg("-shared")
-        .args(["-I", sqlite3ext_h_path.as_str()])
-        .arg("-m32")
-        .args(["-o", "dtformat.dll"])
-        .arg("dtformat.c");
-
-    do_invoke(cmd);
-
-//    do_sql_test(&reporter_bin_path, &db_path, &cfg_path, &sql_generator_path, &sql_to_csv_path, &work_dir);
-    do_ese_test(&reporter_bin_path, &edb_path, &cfg_path, &work_dir);
+    if failed.len() != 0 {
+        panic!("{}", failed.join("\n"));
+    }
 }
 
