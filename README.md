@@ -49,3 +49,15 @@ Where file name of logs consists of:
 `HOSTNAME` is extracted from the database.
 
 ### Building
+
+Building SIDR requires [Rust](https://rustup.rs) to be installed. 
+
+To build SIDR:
+
+```
+$ git clone https://github.com/strozfriedberg/sidr.git
+$ cd sidr
+$ cargo build --release
+$ ./target/release/sidr --version
+0.8.0
+```
