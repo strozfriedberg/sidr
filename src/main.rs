@@ -70,9 +70,15 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
 ///
 /// will scan C:\test directory for Windows.db/Windows.edb files and produce 3 logs:
 ///
-///  `Windows.db/edb.file-report.json`
-///  `Windows.db/edb.ie-report.json`
-///  `Windows.db/edb.act-report.json`
+/// `DESKTOP-POG7R45_File_Report_20230307_015244.json`
+/// `DESKTOP-POG7R45_Internet_History_Report_20230307_015317.json`
+/// `DESKTOP-POG7R45_Activity_History_Report_20230307_015317.json`
+///
+/// Where the log name consists of:
+/// `HOSTNAME_ReportName_DateTime.json|csv`
+/// 
+/// `HOSTNAME` is extracted from the database
+
 #[derive(Parser)]
 #[command(author, version, about, long_about)]
 struct Cli {
