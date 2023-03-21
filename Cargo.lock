@@ -1365,6 +1365,7 @@ dependencies = [
  "log",
  "multimap",
  "num",
+ "once_cell",
  "ouroboros",
  "serde",
  "serde_yaml",
