@@ -1,5 +1,5 @@
 [package]
-name = "windows_search_artifact"
+name = "sidr"
 license = "Apache-2.0"
 readme = "README.md"
 

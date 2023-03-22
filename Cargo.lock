@@ -371,7 +371,7 @@ dependencies = [
 [[package]]
 name = "ese_parser_lib"
 version = "0.1.0"
-source = "git+ssh://git@stash.strozfriedberg.com/asdf/ese_parser.git?tag=v0.1.0#640cb8b622af8ad9d55e8e2ef1baaf03142c3944"
+source = "git+ssh://git@stash.strozfriedberg.com/asdf/ese_parser.git?tag=v0.1.0#5bcd12160667f0c470128225c0be3f4e42118e24"
 dependencies = [
  "bindgen",
  "bitfield",
@@ -796,6 +796,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
 
 [[package]]
+name = "sidr"
+version = "0.8.0"
+dependencies = [
+ "bitflags",
+ "chrono",
+ "clap 4.1.8",
+ "ese_parser_lib",
+ "json",
+ "simple-error",
+ "sqlite",
+ "sqlite3-sys",
+]
+
+[[package]]
 name = "simple-error"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1082,20 +1096,6 @@ name = "windows_i686_msvc"
 version = "0.42.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf4d1122317eddd6ff351aa852118a2418ad4214e6613a50e0191f7004372605"
-
-[[package]]
-name = "windows_search_artifact"
-version = "0.8.0"
-dependencies = [
- "bitflags",
- "chrono",
- "clap 4.1.8",
- "ese_parser_lib",
- "json",
- "simple-error",
- "sqlite",
- "sqlite3-sys",
-]
 
 [[package]]
 name = "windows_x86_64_gnu"
