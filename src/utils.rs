@@ -1,6 +1,7 @@
 use chrono::prelude::*;
 
 use std::convert::TryInto;
+use bitflags::bitflags;
 
 /// Converts a u64 filetime to a DateTime<Utc>
 pub fn get_date_time_from_filetime(filetime: u64) -> DateTime<Utc> {

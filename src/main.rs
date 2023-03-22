@@ -58,17 +58,27 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
     Ok(())
 }
 
-/// The Windows Search Forensic Artifact Parser is a RUST based tool designed to parse Windows search artifacts from Windows 10 (and prior) and Windows 11 systems.
+/// Copyright 2023, Aon 
+/// 
+/// Created by the Stroz Friedberg digital forensics practice at Aon
+/// 
+/// SIDR (Search Index DB Reporter) is a Rust-based tool designed to parse Windows search artifacts from Windows 10 (and prior) and Windows 11 systems.
 /// The tool handles both ESE databases (Windows.edb) and SQLite databases (Windows.db) as input and generates three detailed reports as output.
 ///
 /// Example:
-/// `> windows_search_artifact -f json C:\\test`
+/// `> sidr -f json C:\test`
 ///
-/// will scan C:\\test directory for Windows.db/Windows.edb files and produce 3 logs:
+/// will scan C:\test directory for Windows.db/Windows.edb files and produce 3 logs:
 ///
-///  `Windows.db/edb.file-report.json`
-///  `Windows.db/edb.ie-report.json`
-///  `Windows.db/edb.act-report.json`
+/// `DESKTOP-POG7R45_File_Report_20230307_015244.json`
+/// `DESKTOP-POG7R45_Internet_History_Report_20230307_015317.json`
+/// `DESKTOP-POG7R45_Activity_History_Report_20230307_015317.json`
+///
+/// Where the log name consists of:
+/// `HOSTNAME_ReportName_DateTime.json|csv`
+/// 
+/// `HOSTNAME` is extracted from the database
+
 #[derive(Parser)]
 #[command(author, version, about, long_about)]
 struct Cli {
