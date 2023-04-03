@@ -8,6 +8,7 @@ use ::function_name::named;
 use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, string::String};
+use evalexpr;
 
 macro_rules! function_path {
     () => {
@@ -27,6 +28,7 @@ pub enum ColumnType {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Column {
     pub name: String,
+    pub constraint: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -34,7 +36,7 @@ pub struct ColumnPair {
     pub title: String,
     pub kind: ColumnType,
     pub edb: Column,
-    sql: Column,
+    pub sql: Column,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -63,8 +65,23 @@ use chrono::{DateTime, TimeZone, Utc};
 
 type FldId = String;
 
+#[derive(PartialEq, Debug, Clone)]
+pub struct ConstrainedField {
+    name: String,
+    constraint: String,
+}
+
+impl ConstrainedField {
+    fn new(name: &str, constraint: &str) -> Self {
+        Self{
+            name: name.to_string(),
+            constraint: constraint.to_string(),
+        }
+    }
+}
+
 pub trait FieldReader {
-    fn init(&mut self, columns: &Vec<ColumnPair>) -> Vec<String>;
+    fn init(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField>;
     fn next(&mut self) -> bool;
     fn get_int(&mut self, id: &FldId) -> Option<i64>;
     fn get_str(&mut self, id: &FldId) -> Option<String>;
@@ -145,9 +162,9 @@ impl EseReader {
 
 impl FieldReader for EseReader {
     #[named]
-    fn init(&mut self, columns: &Vec<ColumnPair>) -> Vec<String> {
+    fn init(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField> {
         trace!("{}", function_path!());
-        let mut used_cols = Vec::<String>::with_capacity(columns.len());
+        let mut used_cols = Vec::<ConstrainedField>::with_capacity(columns.len());
         let tablename = &self.tablename;
         let cols = self.jdb.get_columns(tablename).unwrap();
         let col_infos = &mut self.col_infos;
@@ -161,7 +178,7 @@ impl FieldReader for EseReader {
                             col_pair.title.clone(),
                             (col_info.id, field_size(col_info.typ, col_info.cbmax)),
                         );
-                        used_cols.push(col_pair.title.clone());
+                        used_cols.push(ConstrainedField::new(&col_pair.title, &col_pair.edb.constraint) );
                     }
                     None => panic!(
                         "Could not find '{name}' column in '{tablename}' table in '{}'",
@@ -265,7 +282,7 @@ use std::{ rc::Rc, cell::RefCell };
 
 type ColCode = String;
 type ColName = String;
-type CodeColDict = MultiMap<ColCode, ColName>;
+type CodeColDict = MultiMap<ColCode, ConstrainedField>;
 type SqlRow = HashMap<ColName, sqlite::Value>;
 
 #[self_referencing]
@@ -302,13 +319,6 @@ impl SqlReader {
         self.with_statement(|st| st.read(index))
     }
 
-    fn store_values(&self, names: &Vec<ColName>, value: &sqlite::Value) {
-        for col_name in names {
-            debug!("{col_name} => {value:?}");
-            self.with_row_values(|row| row.borrow_mut().insert(col_name.to_string(), value.clone()));
-        }
-    }
-
     fn store_value(&mut self, code: &ColCode) {
         let code_col = self.with_code_col_dict(|dict| dict);
 
@@ -319,10 +329,13 @@ impl SqlReader {
                 Err(e) => panic!("{}", e),
             };
 
-            let names = code_col.get_vec(code).unwrap();
-            self.store_values(names, &value);
+            for cc in code_col.get_vec(code).unwrap() {
+                let col_name = &cc.name;
+                debug!("{col_name} => {value:?}");
+                self.with_row_values(|row| row.borrow_mut().insert(col_name.to_string(), value.clone()));
+            }
         } else {
-            debug!("skip code {code}");
+            //debug!("skip code {code}");
         }
     }
 
@@ -337,7 +350,7 @@ impl SqlReader {
 
 impl FieldReader for SqlReader {
     #[named]
-    fn init(&mut self, columns: &Vec<ColumnPair>) -> Vec<String> {
+    fn init(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField> {
         trace!("{}", function_path!());
 
         let code_col_dict: CodeColDict = CodeColDict::from_iter(
@@ -348,13 +361,15 @@ impl FieldReader for SqlReader {
                     debug!("{pair:?} -> {ok}");
                     ok
                 })
-                .map(|pair| (pair.sql.name.clone(), pair.title.clone())),
+                .map(|pair| {
+                    (pair.sql.name.clone(), ConstrainedField::new(&pair.title, &pair.sql.constraint))
+                }),
         );
 
-        let mut names = Vec::<String>::with_capacity(code_col_dict.iter().count());
+        let mut used_cols = Vec::<ConstrainedField>::with_capacity(code_col_dict.iter().count());
         for (_, values) in code_col_dict.iter_all() {
-            for name in values {
-                names.push(name.clone());
+            for field in values {
+                used_cols.push(field.clone());
             }
         }
 
@@ -366,7 +381,7 @@ impl FieldReader for SqlReader {
             self.with_code_col_dict(|x| x)
         );
 
-        names
+        used_cols
     }
 
     #[named]
@@ -470,6 +485,7 @@ use std::path::Path;
 use simple_error::SimpleError;
 use report::{Report, ReportJson};
 use csv::Writer;
+//use crate::ColumnType::String;
 
 struct ReportCsv {
     writer: RefCell<Writer<File>>,
@@ -559,24 +575,56 @@ pub fn do_report(
     };
     //println!("FileReport: {}", cfg.title);
     let used_cols = reader.init(&cfg.columns);
-    let indices: Vec<usize> = cfg
-        .columns
-        .iter()
-        .enumerate()
-        .filter(|(_, x)| used_cols.iter().find(|c| **c == x.title).is_some())
-        .map(|(i, _)| i)
-        .collect();
+
+    struct Column{
+        title: String,
+        kind: ColumnType,
+        constraint: String,
+    }
+    let mut columns = Vec::<Column>::with_capacity(used_cols.len());
 
     used_cols
         .iter()
-        .for_each(|c| reporter.set_field(c));
+        .for_each(|c| {
+            let title = &c.name;
+            let kind = cfg
+                .columns
+                .iter()
+                .find(|c| c.title == *title )
+                .unwrap()
+                .kind;
+
+            columns.push(Column{
+                title: title.clone(),
+                kind,
+                constraint: c.constraint.clone(),
+            });
+            reporter.set_field(title);
+        });
 
     while reader.next() {
         reporter.new_record();
 
-        for i in &indices {
-            let col = &cfg.columns[*i];
+        for col in &columns {
             let col_id = &col.title;
+
+            //debug!("{col_id} constraint {:?}", col.constraint);
+            if !col.constraint.is_empty() {
+                if let Some(value) = reader.get_str(col_id) {
+                    let expr = col.constraint.replace("{Value}", &value);
+
+                    match evalexpr::eval_boolean(&expr) {
+                        Ok(ok) =>
+                            if !ok {
+                                debug!("skip {col_id}='{value}' due constraint '{expr}'");
+                                reporter.str_val(col.title.as_str(), "".to_string());
+                                continue;
+                            }
+                        Err(e) =>
+                            panic!("Eval constraint failed: {e}"),
+                    };
+                }
+            }
 
             match col.kind {
                 ColumnType::String => {
