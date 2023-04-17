@@ -69,13 +69,15 @@ type FldId = String;
 pub struct ConstrainedField {
     name: String,
     constraint: String,
+    idx: usize,
 }
 
 impl ConstrainedField {
-    fn new(name: &str, constraint: &str) -> Self {
+    fn new(name: &str, constraint: &str, idx: usize) -> Self {
         Self {
             name: name.to_string(),
             constraint: constraint.to_string(),
+            idx,
         }
     }
 }
@@ -170,6 +172,7 @@ impl FieldReader for EseReader {
         let col_infos = &mut self.col_infos;
         for col_pair in columns {
             let name = col_pair.edb.name.clone();
+            let mut idx = 0_usize;
 
             if !name.is_empty() {
                 match cols.iter().find(|col| col.name == name) {
@@ -181,7 +184,9 @@ impl FieldReader for EseReader {
                         used_cols.push(ConstrainedField::new(
                             &col_pair.title,
                             &col_pair.edb.constraint,
+                            idx,
                         ));
+                        idx += 1;
                     }
                     None => panic!(
                         "Could not find '{name}' column in '{tablename}' table in '{}'",
@@ -368,15 +373,16 @@ impl FieldReader for SqlReader {
         let code_col_dict: CodeColDict = CodeColDict::from_iter(
             columns
                 .into_iter()
-                .filter(|pair| {
+                .enumerate()
+                .filter(|(_, pair)| {
                     let ok = !pair.sql.name.is_empty();
                     debug!("{pair:?} -> {ok}");
                     ok
                 })
-                .map(|pair| {
+                .map(|(no, pair)| {
                     (
                         pair.sql.name.clone(),
-                        ConstrainedField::new(&pair.title, &pair.sql.constraint),
+                        ConstrainedField::new(&pair.title, &pair.sql.constraint, no),
                     )
                 }),
         );
@@ -507,6 +513,7 @@ use csv::Writer;
 use report::{Report, ReportJson};
 use simple_error::SimpleError;
 use std::path::Path;
+//use std::process::id;
 //use crate::ColumnType::String;
 
 struct ReportCsv {
@@ -603,20 +610,24 @@ pub fn do_report(
         title: String,
         kind: ColumnType,
         constraint: String,
+        idx: usize,
     }
     let mut columns = Vec::<Column>::with_capacity(used_cols.len());
 
-    used_cols.iter().for_each(|c| {
-        let title = &c.name;
+    used_cols.iter().for_each(|fld| {
+        let title = &fld.name;
         let kind = cfg.columns.iter().find(|c| c.title == *title).unwrap().kind;
 
         columns.push(Column {
             title: title.clone(),
             kind,
-            constraint: c.constraint.clone(),
+            constraint: fld.constraint.clone(),
+            idx: fld.idx,
         });
-        reporter.set_field(title);
     });
+
+    columns.sort_by_key(|fld| fld.idx);
+    columns.iter().for_each(|fld| reporter.set_field(&fld.title));
 
     while reader.next() {
         reporter.new_record();
