@@ -1,14 +1,14 @@
 #![allow(non_upper_case_globals)]
-#[allow(non_camel_case_types)]
-pub mod utils;
 #[warn(non_camel_case_types)]
 pub mod report;
+#[allow(non_camel_case_types)]
+pub mod utils;
 
 use ::function_name::named;
+use evalexpr;
 use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, string::String};
-use evalexpr;
 
 macro_rules! function_path {
     () => {
@@ -73,7 +73,7 @@ pub struct ConstrainedField {
 
 impl ConstrainedField {
     fn new(name: &str, constraint: &str) -> Self {
-        Self{
+        Self {
             name: name.to_string(),
             constraint: constraint.to_string(),
         }
@@ -94,7 +94,7 @@ use ese_parser_lib::vartime::{get_date_time_from_filetime, VariantTimeToSystemTi
 use ese_parser_lib::{ese_parser::EseParser, ese_trait::*};
 use num;
 use std::{fs::File, io::BufReader, str};
-use utils::{from_utf16, find_guid};
+use utils::{find_guid, from_utf16};
 
 const CACHE_SIZE_ENTRIES: usize = 10;
 
@@ -178,7 +178,10 @@ impl FieldReader for EseReader {
                             col_pair.title.clone(),
                             (col_info.id, field_size(col_info.typ, col_info.cbmax)),
                         );
-                        used_cols.push(ConstrainedField::new(&col_pair.title, &col_pair.edb.constraint) );
+                        used_cols.push(ConstrainedField::new(
+                            &col_pair.title,
+                            &col_pair.edb.constraint,
+                        ));
                     }
                     None => panic!(
                         "Could not find '{name}' column in '{tablename}' table in '{}'",
@@ -275,10 +278,10 @@ impl FieldReader for EseReader {
 }
 
 //--------------------------------------------------------------------
+use multimap::MultiMap;
 use ouroboros::self_referencing;
 use sqlite::State;
-use multimap::MultiMap;
-use std::{ rc::Rc, cell::RefCell };
+use std::{cell::RefCell, rc::Rc};
 
 type ColCode = String;
 type ColName = String;
@@ -312,10 +315,19 @@ impl SqlReader {
     }
 
     fn next_row(&mut self) -> bool {
-        self.with_statement_mut(|st| if let Ok(State::Row) = st.next() {true} else {false})
+        self.with_statement_mut(|st| {
+            if let Ok(State::Row) = st.next() {
+                true
+            } else {
+                false
+            }
+        })
     }
 
-    fn read<T: sqlite::ReadableWithIndex, U: sqlite::ColumnIndex>(&self, index: U) -> sqlite::Result<T> {
+    fn read<T: sqlite::ReadableWithIndex, U: sqlite::ColumnIndex>(
+        &self,
+        index: U,
+    ) -> sqlite::Result<T> {
         self.with_statement(|st| st.read(index))
     }
 
@@ -323,8 +335,7 @@ impl SqlReader {
         let code_col = self.with_code_col_dict(|dict| dict);
 
         if code_col.contains_key(code) {
-            let value = match self.read::<sqlite::Value, _>("Value")
-            {
+            let value = match self.read::<sqlite::Value, _>("Value") {
                 Ok(x) => x,
                 Err(e) => panic!("{}", e),
             };
@@ -332,7 +343,9 @@ impl SqlReader {
             for cc in code_col.get_vec(code).unwrap() {
                 let col_name = &cc.name;
                 debug!("{col_name} => {value:?}");
-                self.with_row_values(|row| row.borrow_mut().insert(col_name.to_string(), value.clone()));
+                self.with_row_values(|row| {
+                    row.borrow_mut().insert(col_name.to_string(), value.clone())
+                });
             }
         } else {
             //debug!("skip code {code}");
@@ -345,7 +358,6 @@ impl SqlReader {
         }
         None
     }
-
 }
 
 impl FieldReader for SqlReader {
@@ -362,7 +374,10 @@ impl FieldReader for SqlReader {
                     ok
                 })
                 .map(|pair| {
-                    (pair.sql.name.clone(), ConstrainedField::new(&pair.title, &pair.sql.constraint))
+                    (
+                        pair.sql.name.clone(),
+                        ConstrainedField::new(&pair.title, &pair.sql.constraint),
+                    )
                 }),
         );
 
@@ -400,7 +415,10 @@ impl FieldReader for SqlReader {
                     self.with_last_work_id_mut(|id| *id = 0_u64);
                     break;
                 }
-                self.with_row_values(|row| row.borrow_mut().insert("WorkId".to_string(), sqlite::Value::Integer(work_id)));
+                self.with_row_values(|row| {
+                    row.borrow_mut()
+                        .insert("WorkId".to_string(), sqlite::Value::Integer(work_id))
+                });
                 self.with_last_work_id_mut(|id| *id = wi as u64);
             } else {
                 if wi != work_id {
@@ -416,7 +434,11 @@ impl FieldReader for SqlReader {
             self.store_value(&code);
         }
 
-        debug!("{}: work_id {work_id} => {:?}", function_path!(), self.with_row_values(|row| row));
+        debug!(
+            "{}: work_id {work_id} => {:?}",
+            function_path!(),
+            self.with_row_values(|row| row)
+        );
 
         !self.with_row_values(|row| row.borrow_mut().is_empty())
     }
@@ -430,7 +452,7 @@ impl FieldReader for SqlReader {
             return match v {
                 sqlite::Value::Binary(vec) => {
                     Some(get_date_time_from_filetime(u64::from_bytes(&vec)))
-                },
+                }
                 sqlite::Value::Null => None,
                 _ => panic!("unexpected {v:?} for {id}"),
             };
@@ -481,10 +503,10 @@ impl FieldReader for SqlReader {
 }
 
 //--------------------------------------------------------------------
-use std::path::Path;
-use simple_error::SimpleError;
-use report::{Report, ReportJson};
 use csv::Writer;
+use report::{Report, ReportJson};
+use simple_error::SimpleError;
+use std::path::Path;
 //use crate::ColumnType::String;
 
 struct ReportCsv {
@@ -494,7 +516,8 @@ struct ReportCsv {
 impl ReportCsv {
     pub fn new(report_path: &Path) -> Result<Self, SimpleError> {
         let writer = Writer::from_path(report_path.to_str().unwrap());
-        let writer = writer.expect(format!("Could not create '{}'", report_path.display()).as_str());
+        let writer =
+            writer.expect(format!("Could not create '{}'", report_path.display()).as_str());
 
         Ok(ReportCsv {
             writer: RefCell::new(writer),
@@ -576,31 +599,24 @@ pub fn do_report(
     //println!("FileReport: {}", cfg.title);
     let used_cols = reader.init(&cfg.columns);
 
-    struct Column{
+    struct Column {
         title: String,
         kind: ColumnType,
         constraint: String,
     }
     let mut columns = Vec::<Column>::with_capacity(used_cols.len());
 
-    used_cols
-        .iter()
-        .for_each(|c| {
-            let title = &c.name;
-            let kind = cfg
-                .columns
-                .iter()
-                .find(|c| c.title == *title )
-                .unwrap()
-                .kind;
+    used_cols.iter().for_each(|c| {
+        let title = &c.name;
+        let kind = cfg.columns.iter().find(|c| c.title == *title).unwrap().kind;
 
-            columns.push(Column{
-                title: title.clone(),
-                kind,
-                constraint: c.constraint.clone(),
-            });
-            reporter.set_field(title);
+        columns.push(Column {
+            title: title.clone(),
+            kind,
+            constraint: c.constraint.clone(),
         });
+        reporter.set_field(title);
+    });
 
     while reader.next() {
         reporter.new_record();
@@ -614,14 +630,14 @@ pub fn do_report(
                     let expr = col.constraint.replace("{Value}", &value);
 
                     match evalexpr::eval_boolean(&expr) {
-                        Ok(ok) =>
+                        Ok(ok) => {
                             if !ok {
                                 debug!("skip {col_id}='{value}' due constraint '{expr}'");
                                 reporter.str_val(col.title.as_str(), "".to_string());
                                 continue;
                             }
-                        Err(e) =>
-                            panic!("Eval constraint failed: {e}"),
+                        }
+                        Err(e) => panic!("Eval constraint failed: {e}"),
                     };
                 }
             }
@@ -644,10 +660,7 @@ pub fn do_report(
                 }
                 ColumnType::DateTime => {
                     if let Some(dt) = reader.get_datetime(col_id) {
-                        reporter.str_val(
-                            col.title.as_str(),
-                            utils::format_date_time(dt),
-                        );
+                        reporter.str_val(col.title.as_str(), utils::format_date_time(dt));
                     } else {
                         reporter.str_val(col.title.as_str(), "".to_string());
                     }
