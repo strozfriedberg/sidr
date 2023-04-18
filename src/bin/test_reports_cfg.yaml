@@ -9,23 +9,18 @@ reports:
         kind: Integer
         edb:
           name: "WorkID"
-          constraint:
         sql:
           name: WorkId
-          constraint:
       - title: System_ItemName
         kind: String
         edb:
           name: "4442-System_ItemName"
-          constraint:
         sql:
           name: 318
-          constraint:
       - title: System_ItemUrl
         kind: String
         edb:
           name: "33-System_ItemUrl"
-          constraint:
         sql:
           name: 39
           constraint: 'str::regex_matches("{Value}", "^(iehistory://|winrt://).+(/LS/Desktop/Microsoft Edge/stable/Default/)")'
@@ -33,219 +28,165 @@ reports:
         kind: DateTime
         edb:
           name: "4438-System_ItemDate"
-          constraint:
         sql:
           name: 308
-          constraint:
       - title: System_Title
         kind: String
         edb:
           name: "4682-System_Title"
-          constraint:
         sql:
           name: 424
-          constraint:
       - title: System_Link_DateVisited
         kind: DateTime
         edb:
           name: "4462-System_Link_DateVisited"
-          constraint:
         sql:
           name: 378
-          constraint:
       - title: System_ItemFolderNameDisplay
         kind: String
         edb:
           name: ""
-          constraint:
         sql:
           name: 414
-          constraint:
   - title: Activity History Report
     columns:
       - title: WorkId
         kind: Integer
         edb:
           name: "WorkID"
-          constraint:
         sql:
           name: WorkId
-          constraint:
       - title: System_ItemType
         kind: String
         edb:
           name: "4450-System_ItemType"
-          constraint:
         sql:
           name: 567
-          constraint:
       - title: System_ItemNameDisplay
         kind: String
         edb:
           name: "4443-System_ItemNameDisplay"
-          constraint:
         sql:
           name: 432
-          constraint:
       - title: System_ActivityHistory_StartTime
         kind: DateTime
         edb:
           name: "4139-System_ActivityHistory_StartTime"
-          constraint:
         sql:
           name: 346
-          constraint:
       - title: System_ActivityHistory_EndTime
         kind: DateTime
         edb:
           name: "4130-System_ActivityHistory_EndTime"
-          constraint:
         sql:
           name: 341
-          constraint:
       - title: System_Activity_AppDisplayName
         kind: String
         edb:
           name: "4105-System_Activity_AppDisplayName"
-          constraint:
         sql:
           name: 297
-          constraint:
       - title: System_ActivityHistory_AppId
         kind: String
         edb:
           name: "4123-System_ActivityHistory_AppId"
-          constraint:
         sql:
           name: 331
-          constraint:
       - title: System_Activity_DisplayText
         kind: String
         edb:
           name: "4115-System_Activity_DisplayText"
-          constraint:
         sql:
           name: 315
-          constraint:
       - title: System_Activity_ContentUri
         kind: String
         edb:
           name: "4112-System_Activity_ContentUri"
-          constraint:
         sql:
           name: 311
-          constraint:
       - title: System_ItemPathDisplay
         kind: String
         edb:
           name: ""
-          constraint:
         sql:
           name: 39
-          constraint:
       - title: VolumeId
         kind: GUID
         edb:
           name: ""
-          constraint:
         sql:
           name: 311
-          constraint:
       - title: ObjectId
         kind: GUID
         edb:
           name: ""
-          constraint:
         sql:
           name: 311
-          constraint:
   - title: File Report
     columns:
       - title: WorkId
         kind: Integer
         edb:
           name: "WorkID"
-          constraint:
         sql:
           name: WorkId
-          constraint:
       - title: System_ComputerName
         kind: String
         edb:
           name: "4184-System_ComputerName"
-          constraint:
         sql:
           name: 557
-          constraint:
       - title: System_ItemPathDisplay
         kind: String
         edb:
           name: "4447-System_ItemPathDisplay"
-          constraint:
         sql:
           name: 39
-          constraint:
       - title: System_DateModified
         kind: DateTime
         edb:
           name: "15F-System_DateModified"
-          constraint:
         sql:
           name: 441
-          constraint:
       - title: System_DateCreated
         kind: DateTime
         edb:
           name: "16F-System_DateCreated"
-          constraint:
         sql:
           name: 445
-          constraint:
       - title: System_DateAccessed
         kind: DateTime
         edb:
           name: "17F-System_DateAccessed"
-          constraint:
         sql:
           name: 449
-          constraint:
       - title: System_Size
         kind: Integer
         edb:
           name: "13F-System_Size"
-          constraint:
         sql:
           name: 436
-          constraint:
       - title: System_FileOwner
         kind: String
         edb:
           name: "4396-System_FileOwner"
-          constraint:
         sql:
           name: 93
-          constraint:
       - title: System_Search_AutoSummary
         kind: String
         edb:
           name: "4625-System_Search_AutoSummary"
-          constraint:
         sql:
           name: 303
-          constraint:
       - title: System_Search_GatherTime
         kind: DateTime
         edb:
           name: "4631F-System_Search_GatherTime"
-          constraint:
         sql:
           name: 26
-          constraint:
       - title: System_ItemType
         kind: String
         edb:
           name: "4450-System_ItemType"
-          constraint:
         sql:
           name: 567
-          constraint:

@@ -8,7 +8,7 @@ use ::function_name::named;
 use evalexpr;
 use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, string::String};
+use std::{collections::HashMap, str, string::String};
 
 macro_rules! function_path {
     () => {
@@ -28,7 +28,7 @@ pub enum ColumnType {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Column {
     pub name: String,
-    pub constraint: String,
+    pub constraint: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -68,15 +68,19 @@ type FldId = String;
 #[derive(PartialEq, Debug, Clone)]
 pub struct ConstrainedField {
     name: String,
-    constraint: String,
+    constraint: Option<String>,
     idx: usize,
 }
 
 impl ConstrainedField {
-    fn new(name: &str, constraint: &str, idx: usize) -> Self {
+    fn new(name: &str, constraint: &Option<String>, idx: usize) -> Self {
         Self {
             name: name.to_string(),
-            constraint: constraint.to_string(),
+            constraint: if let Some(s) = constraint {
+                Some(s.to_string())
+            } else {
+                None
+            },
             idx,
         }
     }
@@ -95,7 +99,7 @@ pub trait FieldReader {
 use ese_parser_lib::vartime::{get_date_time_from_filetime, VariantTimeToSystemTime, SYSTEMTIME};
 use ese_parser_lib::{ese_parser::EseParser, ese_trait::*};
 use num;
-use std::{fs::File, io::BufReader, str};
+use std::{fs::File, io::BufReader};
 use utils::{find_guid, from_utf16};
 
 const CACHE_SIZE_ENTRIES: usize = 10;
@@ -609,7 +613,7 @@ pub fn do_report(
     struct Column {
         title: String,
         kind: ColumnType,
-        constraint: String,
+        constraint: Option<String>,
         idx: usize,
     }
     let mut columns = Vec::<Column>::with_capacity(used_cols.len());
@@ -627,7 +631,9 @@ pub fn do_report(
     });
 
     columns.sort_by_key(|fld| fld.idx);
-    columns.iter().for_each(|fld| reporter.set_field(&fld.title));
+    columns
+        .iter()
+        .for_each(|fld| reporter.set_field(&fld.title));
 
     while reader.next() {
         reporter.new_record();
@@ -636,9 +642,9 @@ pub fn do_report(
             let col_id = &col.title;
 
             //debug!("{col_id} constraint {:?}", col.constraint);
-            if !col.constraint.is_empty() {
+            if let Some(constraint) = &col.constraint {
                 if let Some(value) = reader.get_str(col_id) {
-                    let expr = col.constraint.replace("{Value}", &value);
+                    let expr = constraint.replace("{Value}", &value);
 
                     match evalexpr::eval_boolean(&expr) {
                         Ok(ok) => {
