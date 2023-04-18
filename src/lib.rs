@@ -87,7 +87,8 @@ impl ConstrainedField {
 }
 
 pub trait FieldReader {
-    fn init(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField>;
+    fn get_used_columns(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField>;
+    fn init(&mut self) -> bool;
     fn next(&mut self) -> bool;
     fn get_int(&mut self, id: &FldId) -> Option<i64>;
     fn get_str(&mut self, id: &FldId) -> Option<String>;
@@ -131,7 +132,6 @@ pub struct EseReader {
     table: u64,
     tablename: String,
     col_infos: HashMap<String, (u32, u32)>,
-    rec_no: u64,
 }
 
 fn get_column<T: FromBytes + num::NumCast>(
@@ -161,14 +161,13 @@ impl EseReader {
             tablename: tablename.to_string(),
             filename: filename.to_string(),
             col_infos: HashMap::<String, (u32, u32)>::new(),
-            rec_no: 0,
         }
     }
 }
 
 impl FieldReader for EseReader {
     #[named]
-    fn init(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField> {
+    fn get_used_columns(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField> {
         trace!("{}", function_path!());
         let mut used_cols = Vec::<ConstrainedField>::with_capacity(columns.len());
         let tablename = &self.tablename;
@@ -200,22 +199,20 @@ impl FieldReader for EseReader {
             }
         }
 
-        self.rec_no = 0;
         info!("{}: {used_cols:?}", function_path!());
         used_cols
+    }
+
+    #[named]
+    fn init(&mut self) -> bool {
+        trace!("{}", function_path!());
+        self.jdb.move_row(self.table, ESE_MoveFirst).unwrap()
     }
 
     //#[named]
     fn next(&mut self) -> bool {
         //trace!("{}", function_path!());
-        let ok = if self.rec_no == 0 {
-            self.jdb.move_row(self.table, ESE_MoveFirst).unwrap()
-        } else {
-            self.jdb.move_row(self.table, ESE_MoveNext).unwrap()
-        };
-
-        self.rec_no += 1;
-        ok
+        self.jdb.move_row(self.table, ESE_MoveNext).unwrap()
     }
 
     fn get_datetime(&mut self, id: &FldId) -> Option<DateTime<Utc>> {
@@ -302,6 +299,7 @@ pub struct SqlReader {
     last_work_id: u64,
     code_col_dict: CodeColDict,
     row_values: RefCell<SqlRow>,
+    sql: &'static str,
     connection: Rc<sqlite::Connection>,
     #[borrows(mut connection)]
     #[not_covariant]
@@ -311,16 +309,21 @@ pub struct SqlReader {
 impl SqlReader {
     pub fn new_(db_path: &str) -> Self {
         let connection = Rc::new(sqlite::Connection::open(db_path).unwrap());
-        let select = "select WorkId, * from SystemIndex_1_PropertyStore order by WorkId";
+        let sql = "select WorkId, * from SystemIndex_1_PropertyStore order by WorkId";
         let sql_reader = SqlReaderBuilder {
-            connection: connection,
-            statement_builder: |connection| connection.prepare(select).unwrap(),
+            connection,
+            sql,
+            statement_builder: |connection| connection.prepare(sql).unwrap(),
             row_values: RefCell::new(SqlRow::new()),
             code_col_dict: CodeColDict::new(),
             last_work_id: 0,
         }
         .build();
         sql_reader
+    }
+
+    fn first_row(&mut self) -> bool {
+        self.with_statement_mut(|st| st.reset().is_ok())
     }
 
     fn next_row(&mut self) -> bool {
@@ -371,7 +374,7 @@ impl SqlReader {
 
 impl FieldReader for SqlReader {
     #[named]
-    fn init(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField> {
+    fn get_used_columns(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField> {
         trace!("{}", function_path!());
 
         let code_col_dict: CodeColDict = CodeColDict::from_iter(
@@ -407,6 +410,12 @@ impl FieldReader for SqlReader {
         );
 
         used_cols
+    }
+
+    #[named]
+    fn init(&mut self) -> bool {
+        trace!("{}", function_path!());
+        self.first_row()
     }
 
     #[named]
@@ -608,8 +617,9 @@ pub fn do_report(
         }
     };
     //println!("FileReport: {}", cfg.title);
-    let used_cols = reader.init(&cfg.columns);
+    let used_cols = reader.get_used_columns(&cfg.columns);
 
+    #[derive(Debug)]
     struct Column {
         title: String,
         kind: ColumnType,
@@ -635,6 +645,53 @@ pub fn do_report(
         .iter()
         .for_each(|fld| reporter.set_field(&fld.title));
 
+    const CONSTR_AUTO_FILL: &str = "auto_fill";
+    const CONSTR_1_NOT_EMPTY: &str = "first_not_empty";
+    const KNOWN_CONSTRS: [&str; 2] = [CONSTR_AUTO_FILL, CONSTR_1_NOT_EMPTY];
+
+    let constrained_columns: HashMap<String, String> = columns
+        .iter()
+        .filter_map(|fld| {
+            if fld.constraint.is_some() {
+                Some((fld.title.clone(), fld.constraint.as_ref().unwrap().to_string()))
+            } else {
+                None
+            }
+        })
+        .filter(|(fld, constraint)| {
+            KNOWN_CONSTRS
+                .into_iter()
+                .any(|constr| constraint.contains(constr))
+        })
+        .collect();
+
+    let mut found_1_value =
+        HashMap::<String, String>::with_capacity(constrained_columns.iter().count());
+    constrained_columns.iter().for_each(|(col_id, _)| {
+        reader.init();
+        while reader.next() {
+            if let Some(ref str) = reader.get_str(col_id) {
+                if !str.is_empty() {
+                    info!("first not empty {col_id} -> '{str}'");
+                    found_1_value.insert(col_id.to_string(), str.clone());
+                    break;
+                }
+            }
+        }
+    });
+
+    info!("constrained_columns: {constrained_columns:?}");
+    let mut auto_filled =
+        HashMap::<String, String>::with_capacity(constrained_columns.iter().count());
+    constrained_columns.iter().for_each(|(fld, value)| {
+        if value.contains(CONSTR_AUTO_FILL) {
+            info!("fld: '{fld}' -> {}", found_1_value[fld.as_str()]);
+            auto_filled.insert(fld.to_string(), found_1_value[fld.as_str()].to_string());
+        }
+    });
+
+    reader.init();
+
     while reader.next() {
         reporter.new_record();
 
@@ -643,19 +700,24 @@ pub fn do_report(
 
             //debug!("{col_id} constraint {:?}", col.constraint);
             if let Some(constraint) = &col.constraint {
-                if let Some(value) = reader.get_str(col_id) {
-                    let expr = constraint.replace("{Value}", &value);
+                if !KNOWN_CONSTRS
+                    .into_iter()
+                    .any(|constr| constraint.contains(constr))
+                {
+                    if let Some(value) = reader.get_str(col_id) {
+                        let expr = constraint.replace("{Value}", &value);
 
-                    match evalexpr::eval_boolean(&expr) {
-                        Ok(ok) => {
-                            if !ok {
-                                debug!("skip {col_id}='{value}' due constraint '{expr}'");
-                                reporter.str_val(col.title.as_str(), "".to_string());
-                                continue;
+                        match evalexpr::eval_boolean(&expr) {
+                            Ok(ok) => {
+                                if !ok {
+                                    debug!("skip {col_id}='{value}' due constraint '{expr}'");
+                                    reporter.str_val(col.title.as_str(), "".to_string());
+                                    continue;
+                                }
                             }
-                        }
-                        Err(e) => panic!("Eval constraint failed: {e}"),
-                    };
+                            Err(e) => panic!("Eval constraint failed: {e}"),
+                        };
+                    }
                 }
             }
 
@@ -664,7 +726,11 @@ pub fn do_report(
                     let s = if let Some(str) = reader.get_str(col_id) {
                         str
                     } else {
-                        "".to_string()
+                        if auto_filled.contains_key(col_id) {
+                            auto_filled[col_id].clone()
+                        } else {
+                            "".to_string()
+                        }
                     };
                     reporter.str_val(col.title.as_str(), s);
                 }
