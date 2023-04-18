@@ -11,6 +11,14 @@ reports:
           name: "WorkID"
         sql:
           name: WorkId
+      - title: System_ComputerName
+        kind: String
+        edb:
+          name: "4184-System_ComputerName"
+          constraint: auto_fill,first_not_empty
+        sql:
+          name: 557
+          constraint: auto_fill,first_not_empty
       - title: System_ItemName
         kind: String
         edb:
@@ -56,6 +64,14 @@ reports:
           name: "WorkID"
         sql:
           name: WorkId
+      - title: System_ComputerName
+        kind: String
+        edb:
+          name: "4184-System_ComputerName"
+          constraint: auto_fill,first_not_empty
+        sql:
+          name: 557
+          constraint: auto_fill,first_not_empty
       - title: System_ItemType
         kind: String
         edb:
@@ -134,8 +150,10 @@ reports:
         kind: String
         edb:
           name: "4184-System_ComputerName"
+          constraint: auto_fill,first_not_empty
         sql:
           name: 557
+          constraint: auto_fill,first_not_empty
       - title: System_ItemPathDisplay
         kind: String
         edb:
