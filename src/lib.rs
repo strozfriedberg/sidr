@@ -86,9 +86,9 @@ impl ConstrainedField {
     }
 }
 
-pub trait FieldReader {
+pub trait FieldReader<'a, 'b: 'a> {
     fn get_used_columns(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField>;
-    fn init(&mut self) -> bool;
+    fn init(&'b mut self) -> bool;
     fn next(&mut self) -> bool;
     fn get_int(&mut self, id: &FldId) -> Option<i64>;
     fn get_str(&mut self, id: &FldId) -> Option<String>;
@@ -165,7 +165,7 @@ impl EseReader {
     }
 }
 
-impl FieldReader for EseReader {
+impl<'a, 'b: 'a> FieldReader<'a, 'b> for EseReader {
     #[named]
     fn get_used_columns(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField> {
         trace!("{}", function_path!());
@@ -204,7 +204,7 @@ impl FieldReader for EseReader {
     }
 
     #[named]
-    fn init(&mut self) -> bool {
+    fn init(&'b mut self) -> bool {
         trace!("{}", function_path!());
         self.jdb.move_row(self.table, ESE_MoveFirst).unwrap()
     }
@@ -284,67 +284,62 @@ impl FieldReader for EseReader {
 }
 
 //--------------------------------------------------------------------
+extern crate sqlite3_sys as ffi;
 use multimap::MultiMap;
-use ouroboros::self_referencing;
-use sqlite::State;
-use std::{cell::RefCell, rc::Rc};
+use owning_ref::OwningHandle;
+use sqlite::{Connection, OpenFlags, State, Statement};
+use std::cell::RefCell;
 
 type ColCode = String;
 type ColName = String;
 type CodeColDict = MultiMap<ColCode, ConstrainedField>;
 type SqlRow = HashMap<ColName, sqlite::Value>;
+type Session<'connection> = OwningHandle<Box<Connection>, Box<Statement<'connection>>>;
 
-#[self_referencing]
-pub struct SqlReader {
+pub struct SqlReader<'a> {
     last_work_id: u64,
     code_col_dict: CodeColDict,
     row_values: RefCell<SqlRow>,
-    sql: &'static str,
-    connection: Rc<sqlite::Connection>,
-    #[borrows(mut connection)]
-    #[not_covariant]
-    statement: sqlite::Statement<'this>,
+    session: Session<'a>,
 }
 
-impl SqlReader {
+impl<'a> SqlReader<'a> {
     pub fn new_(db_path: &str) -> Self {
-        let connection = Rc::new(sqlite::Connection::open(db_path).unwrap());
+        let conn = Connection::open_with_flags(db_path, OpenFlags::new().set_read_only()).unwrap();
         let sql = "select WorkId, * from SystemIndex_1_PropertyStore order by WorkId";
-        let sql_reader = SqlReaderBuilder {
-            connection,
-            sql,
-            statement_builder: |connection| connection.prepare(sql).unwrap(),
+        let mut session = Session::new_with_fn(Box::new(conn), unsafe {
+            |x| Box::new((*x).prepare(sql).unwrap())
+        });
+
+        SqlReader {
+            session,
             row_values: RefCell::new(SqlRow::new()),
             code_col_dict: CodeColDict::new(),
             last_work_id: 0,
         }
-        .build();
-        sql_reader
     }
 
-    fn first_row(&mut self) -> bool {
-        self.with_statement_mut(|st| st.reset().is_ok())
+    fn first_row(&'a mut self) -> bool {
+        self.session.reset().is_ok()
     }
 
     fn next_row(&mut self) -> bool {
-        self.with_statement_mut(|st| {
-            if let Ok(State::Row) = st.next() {
-                true
-            } else {
-                false
-            }
-        })
+        if let Ok(result) = self.session.next() {
+            result == State::Row
+        } else {
+            false
+        }
     }
 
     fn read<T: sqlite::ReadableWithIndex, U: sqlite::ColumnIndex>(
         &self,
         index: U,
     ) -> sqlite::Result<T> {
-        self.with_statement(|st| st.read(index))
+        self.session.read(index)
     }
 
     fn store_value(&mut self, code: &ColCode) {
-        let code_col = self.with_code_col_dict(|dict| dict);
+        let code_col = &self.code_col_dict;
 
         if code_col.contains_key(code) {
             let value = match self.read::<sqlite::Value, _>("Value") {
@@ -355,9 +350,9 @@ impl SqlReader {
             for cc in code_col.get_vec(code).unwrap() {
                 let col_name = &cc.name;
                 debug!("{col_name} => {value:?}");
-                self.with_row_values(|row| {
-                    row.borrow_mut().insert(col_name.to_string(), value.clone())
-                });
+                self.row_values
+                    .borrow_mut()
+                    .insert(col_name.to_string(), value.clone());
             }
         } else {
             //debug!("skip code {code}");
@@ -365,14 +360,14 @@ impl SqlReader {
     }
 
     fn get_value(&self, col_name: &ColName) -> Option<sqlite::Value> {
-        if let Some(x) = self.with_row_values(|row| row.borrow().get(col_name).cloned()) {
+        if let Some(x) = self.row_values.borrow().get(col_name).cloned() {
             return Some(x);
         }
         None
     }
 }
 
-impl FieldReader for SqlReader {
+impl<'a, 'b: 'a> FieldReader<'a, 'b> for SqlReader<'a> {
     #[named]
     fn get_used_columns(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField> {
         trace!("{}", function_path!());
@@ -401,19 +396,15 @@ impl FieldReader for SqlReader {
             }
         }
 
-        self.with_code_col_dict_mut(|x| *x = code_col_dict);
+        self.code_col_dict = code_col_dict;
 
-        info!(
-            "{}: used_cols {:?}",
-            function_path!(),
-            self.with_code_col_dict(|x| x)
-        );
+        info!("{}: used_cols {:?}", function_path!(), self.code_col_dict);
 
         used_cols
     }
 
     #[named]
-    fn init(&mut self) -> bool {
+    fn init(&'b mut self) -> bool {
         trace!("{}", function_path!());
         self.first_row()
     }
@@ -422,7 +413,7 @@ impl FieldReader for SqlReader {
     fn next(&mut self) -> bool {
         let mut work_id = 0;
 
-        self.with_row_values(|row| row.borrow_mut().clear());
+        self.row_values.borrow_mut().clear();
         while self.next_row() {
             let wi = match self.read::<i64, _>("WorkId") {
                 Ok(x) => x,
@@ -430,15 +421,14 @@ impl FieldReader for SqlReader {
             };
             if work_id == 0 {
                 work_id = wi;
-                if work_id < self.with_last_work_id(|id| *id as i64) {
-                    self.with_last_work_id_mut(|id| *id = 0_u64);
+                if work_id < self.last_work_id as i64 {
+                    self.last_work_id = 0_u64;
                     break;
                 }
-                self.with_row_values(|row| {
-                    row.borrow_mut()
-                        .insert("WorkId".to_string(), sqlite::Value::Integer(work_id))
-                });
-                self.with_last_work_id_mut(|id| *id = wi as u64);
+                self.row_values
+                    .borrow_mut()
+                    .insert("WorkId".to_string(), sqlite::Value::Integer(work_id));
+                self.last_work_id = wi as u64;
             } else {
                 if wi != work_id {
                     break;
@@ -456,13 +446,13 @@ impl FieldReader for SqlReader {
         debug!(
             "{}: work_id {work_id} => {:?}",
             function_path!(),
-            self.with_row_values(|row| row)
+            self.row_values
         );
 
-        !self.with_row_values(|row| row.borrow_mut().is_empty())
+        !self.row_values.borrow_mut().is_empty()
     }
 
-    fn get_datetime(self: &mut SqlReader, id: &FldId) -> Option<DateTime<Utc>> {
+    fn get_datetime(self: &mut SqlReader<'a>, id: &FldId) -> Option<DateTime<Utc>> {
         if id.is_empty() {
             return None;
         }
@@ -592,7 +582,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
 }
 
 #[named]
-pub fn do_report(
+pub fn do_report<'a, 'b: 'a>(
     cfg: &ReportCfg,
     reader: &mut dyn FieldReader,
     output_dir: &str,
@@ -653,12 +643,15 @@ pub fn do_report(
         .iter()
         .filter_map(|fld| {
             if fld.constraint.is_some() {
-                Some((fld.title.clone(), fld.constraint.as_ref().unwrap().to_string()))
+                Some((
+                    fld.title.clone(),
+                    fld.constraint.as_ref().unwrap().to_string(),
+                ))
             } else {
                 None
             }
         })
-        .filter(|(fld, constraint)| {
+        .filter(|(_, constraint)| {
             KNOWN_CONSTRS
                 .into_iter()
                 .any(|constr| constraint.contains(constr))
@@ -667,6 +660,7 @@ pub fn do_report(
 
     let mut found_1_value =
         HashMap::<String, String>::with_capacity(constrained_columns.iter().count());
+
     constrained_columns.iter().for_each(|(col_id, _)| {
         reader.init();
         while reader.next() {
