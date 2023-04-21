@@ -3,12 +3,6 @@
 version = 3
 
 [[package]]
-name = "Inflector"
-version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
-
-[[package]]
 name = "aho-corasick"
 version = "0.7.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16,12 +10,6 @@ checksum = "cc936419f96fa211c1b9166887b38e5e40b19958e5b895be7c1f93adec7071ac"
 dependencies = [
  "memchr",
 ]
-
-[[package]]
-name = "aliasable"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "250f629c0161ad8107cf89319e990051fae62832fd343083bea452d93e2205fd"
 
 [[package]]
 name = "android_system_properties"
@@ -146,9 +134,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chrono"
-version = "0.4.23"
+version = "0.4.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16b0a3d9ed01224b22057780a37bb8c5dbfe1be8ba48678e7bf57ec4b385411f"
+checksum = "4e3c5919066adf22df73762e50cffcde3a758f2a848b113b586d1f86728b673b"
 dependencies = [
  "iana-time-zone",
  "js-sys",
@@ -404,7 +392,7 @@ dependencies = [
 [[package]]
 name = "ese_parser_lib"
 version = "0.1.0"
-source = "git+ssh://git@stash.strozfriedberg.com/asdf/ese_parser.git#b9f612e6061e9346f2b524853c82e4481bdb8740"
+source = "git+https://github.com/strozfriedberg/ese_parser.git?tag=v0.1.0#5bcd12160667f0c470128225c0be3f4e42118e24"
 dependencies = [
  "bindgen",
  "bitfield",
@@ -826,26 +814,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b7820b9daea5457c9f21c69448905d723fbd21136ccf521748f23fd49e723ee"
 
 [[package]]
-name = "ouroboros"
-version = "0.15.6"
+name = "owning_ref"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1358bd1558bd2a083fed428ffeda486fbfb323e698cdda7794259d592ca72db"
+checksum = "6ff55baddef9e4ad00f88b6c743a2a8062d4c6ade126c2a528644b8e444d52ce"
 dependencies = [
- "aliasable",
- "ouroboros_macro",
-]
-
-[[package]]
-name = "ouroboros_macro"
-version = "0.15.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f7d21ccd03305a674437ee1248f3ab5d4b1db095cf1caf49f1713ddf61956b7"
-dependencies = [
- "Inflector",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn",
+ "stable_deref_trait",
 ]
 
 [[package]]
@@ -1055,6 +1029,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
 
 [[package]]
+name = "sidr"
+version = "0.8.0"
+dependencies = [
+ "bitflags",
+ "chrono",
+ "clap 4.1.8",
+ "csv",
+ "env_logger",
+ "ese_parser_lib",
+ "evalexpr",
+ "function_name",
+ "glob",
+ "json",
+ "log",
+ "multimap",
+ "num",
+ "once_cell",
+ "owning_ref",
+ "serde",
+ "serde_yaml",
+ "simple-error",
+ "sqlite",
+ "sqlite3-sys",
+ "tempdir",
+]
+
+[[package]]
 name = "simple-error"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1089,6 +1090,12 @@ dependencies = [
  "libc",
  "sqlite3-src",
 ]
+
+[[package]]
+name = "stable_deref_trait"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "strsim"
@@ -1357,33 +1364,6 @@ name = "windows_i686_msvc"
 version = "0.42.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf4d1122317eddd6ff351aa852118a2418ad4214e6613a50e0191f7004372605"
-
-[[package]]
-name = "windows_search_artifact"
-version = "0.1.0"
-dependencies = [
- "bitflags",
- "chrono",
- "clap 4.1.8",
- "csv",
- "env_logger",
- "ese_parser_lib",
- "evalexpr",
- "function_name",
- "glob",
- "json",
- "log",
- "multimap",
- "num",
- "once_cell",
- "ouroboros",
- "serde",
- "serde_yaml",
- "simple-error",
- "sqlite",
- "sqlite3-sys",
- "tempdir",
-]
 
 [[package]]
 name = "windows_x86_64_gnu"

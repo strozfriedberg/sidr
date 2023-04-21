@@ -1,28 +1,35 @@
 [package]
-name = "windows_search_artifact"
-version = "0.1.0"
+name = "sidr"
+license = "Apache-2.0"
+readme = "README.md"
+
+version = "0.8.0"
 authors = ["Aon"]
 edition = "2021"
-default-run = "windows_search_artifact"
+default-run = "sidr"
 
 [lib]
 name = "wsa_lib"
 path = "src/lib.rs"
 
 [[bin]]
+name = "sidr"
+path = "src/main.rs"
+
+[[bin]]
 name = "external_cfg"
 path = "src/bin/external_cfg.rs"
 
 [dependencies]
-ese_parser_lib = { git = "ssh://git@stash.strozfriedberg.com/asdf/ese_parser.git", features = ["nt_comparison"]}
+ese_parser_lib = { git = "https://github.com/strozfriedberg/ese_parser.git", tag="v0.1.0"}
 sqlite = "0.30.4"
 serde = { version = "*", features = ["derive"] }
 serde_yaml = "0.9.17"
-ouroboros = "0.15.6"
+owning_ref = "0.4.1"
 num = "0.4.0"
 
 simple-error = "0.3.0"
-chrono = "0.4"
+chrono = "^0.4"
 bitflags = "1.2.1"
 clap = { version = "4.1.7", features = ["derive"] }
 log = "0.4"
