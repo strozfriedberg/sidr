@@ -517,8 +517,6 @@ use csv::Writer;
 use report::{Report, ReportJson};
 use simple_error::SimpleError;
 use std::path::Path;
-//use std::process::id;
-//use crate::ColumnType::String;
 
 struct ReportCsv {
     writer: RefCell<Writer<File>>,
@@ -576,70 +574,181 @@ impl Drop for ReportCsv {
     }
 }
 
-pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
-    for report in &cfg.reports {
-        do_report(report, reader, cfg.output_dir.as_str(), &cfg.output_format);
-    }
+#[derive(Debug)]
+struct ReportColumn {
+    title: String,
+    kind: ColumnType,
+    constraint: Option<String>,
+    idx: usize,
 }
 
 #[named]
-pub fn do_report(
-    cfg: &ReportCfg,
-    reader: &mut dyn FieldReader,
-    output_dir: &str,
-    output_format: &OutputFormat,
-) {
-    let mut out_path = std::path::PathBuf::from(output_dir);
-    out_path.push(cfg.title.clone().replace(|c| "\\/ ".contains(c), "_"));
+pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
+    let output_dir = &cfg.output_dir;
+    let output_format = &cfg.output_format;
 
-    info!(
-        "{}: out_path: {out_path:?}, {output_format:?}",
-        function_path!()
-    );
-
-    let reporter: Box<dyn Report> = match output_format {
-        OutputFormat::Csv => {
-            out_path.set_extension("csv");
-            Box::new(ReportCsv::new(&out_path).unwrap())
-        }
-        OutputFormat::Json => {
-            out_path.set_extension("json");
-            Box::new(ReportJson::new(&out_path).unwrap())
-        }
-    };
     //println!("FileReport: {}", cfg.title);
-    let used_cols = reader.get_used_columns(&cfg.columns);
-
-    #[derive(Debug)]
-    struct Column {
-        title: String,
-        kind: ColumnType,
-        constraint: Option<String>,
-        idx: usize,
+    struct ReportDef {
+        reporter: Box<dyn Report>,
+        columns: Vec<ReportColumn>,
+        constrained_columns: HashMap<String, String>,
+        found_1_value: HashMap<String, String>,
+        auto_filled: HashMap<String, String>,
     }
-    let mut columns = Vec::<Column>::with_capacity(used_cols.len());
 
-    used_cols.iter().for_each(|fld| {
-        let title = &fld.name;
-        let kind = cfg.columns.iter().find(|c| c.title == *title).unwrap().kind;
+    let mut reports: Vec<ReportDef> = Vec::new();
 
-        columns.push(Column {
-            title: title.clone(),
-            kind,
-            constraint: fld.constraint.clone(),
-            idx: fld.idx,
+    for report in &cfg.reports {
+        let mut out_path = std::path::PathBuf::from(output_dir);
+        out_path.push(report.title.clone().replace(|c| "\\/ ".contains(c), "_"));
+
+        info!(
+            "{}: out_path: {out_path:?}, {output_format:?}",
+            function_path!()
+        );
+
+        let reporter: Box<dyn Report> = match output_format {
+            OutputFormat::Csv => {
+                out_path.set_extension("csv");
+                Box::new(ReportCsv::new(&out_path).unwrap())
+            }
+            OutputFormat::Json => {
+                out_path.set_extension("json");
+                Box::new(ReportJson::new(&out_path).unwrap())
+            }
+        };
+
+        let columns = get_used_columns(&report, reader, &reporter);
+        let constrained_columns = get_constrained_cols(&columns);
+        info!("constrained_columns: {constrained_columns:?}");
+        let found_1_value = get_first_not_empty_cols(reader, &constrained_columns);
+        let auto_filled = get_autofilled_cols(&constrained_columns, &found_1_value);
+
+        reports.push(ReportDef {
+            reporter,
+            columns,
+            constrained_columns,
+            found_1_value,
+            auto_filled,
         });
+    }
+
+    assert!(reader.init());
+
+    while reader.next() {
+        for report in &reports {
+            report.reporter.new_record();
+
+            for col in &report.columns {
+                let col_id = &col.title;
+
+                //debug!("{col_id} constraint {:?}", col.constraint);
+                if let Some(constraint) = &col.constraint {
+                    if !KNOWN_CONSTRS
+                        .into_iter()
+                        .any(|constr| constraint.contains(constr))
+                    {
+                        if let Some(value) = reader.get_str(col_id) {
+                            let expr = constraint.replace("{Value}", &value);
+
+                            match evalexpr::eval_boolean(&expr) {
+                                Ok(ok) => {
+                                    if !ok {
+                                        debug!("skip {col_id}='{value}' due constraint '{expr}'");
+                                        report.reporter.str_val(col.title.as_str(), "".to_string());
+                                        continue;
+                                    }
+                                }
+                                Err(e) => panic!("Eval constraint failed: {e}"),
+                            };
+                        }
+                    }
+                }
+
+                match col.kind {
+                    ColumnType::String => {
+                        let s = if let Some(str) = reader.get_str(col_id) {
+                            str
+                        } else {
+                            if report.auto_filled.contains_key(col_id) {
+                                report.auto_filled[col_id].clone()
+                            } else {
+                                "".to_string()
+                            }
+                        };
+                        report.reporter.str_val(col.title.as_str(), s);
+                    }
+                    ColumnType::Integer => {
+                        if let Some(v) = reader.get_int(col_id) {
+                            report.reporter.int_val(col.title.as_str(), v as u64);
+                        } else {
+                            report.reporter.str_val(col.title.as_str(), "".to_string());
+                        }
+                    }
+                    ColumnType::DateTime => {
+                        if let Some(dt) = reader.get_datetime(col_id) {
+                            report.reporter.str_val(col.title.as_str(), utils::format_date_time(dt));
+                        } else {
+                            report.reporter.str_val(col.title.as_str(), "".to_string());
+                        }
+                    }
+                    ColumnType::GUID => {
+                        if let Some(guid) = reader.get_guid(col_id) {
+                            report.reporter.str_val(col.title.as_str(), guid);
+                        } else {
+                            report.reporter.str_val(col.title.as_str(), "".to_string());
+                        }
+                    }
+                }
+            }
+
+            report.reporter.footer();
+        }
+    }
+}
+
+fn get_autofilled_cols(
+    constrained_columns: &HashMap<String, String>,
+    found_1_value: &HashMap<String, String>,
+) -> HashMap<String, String> {
+    let mut auto_filled =
+        HashMap::<String, String>::with_capacity(constrained_columns.iter().count());
+    constrained_columns.iter().for_each(|(fld, value)| {
+        if value.contains(CONSTR_AUTO_FILL) {
+            info!("fld: '{fld}' -> {}", found_1_value[fld.as_str()]);
+            auto_filled.insert(fld.to_string(), found_1_value[fld.as_str()].to_string());
+        }
     });
+    auto_filled
+}
 
-    columns.sort_by_key(|fld| fld.idx);
-    columns
-        .iter()
-        .for_each(|fld| reporter.set_field(&fld.title));
+fn get_first_not_empty_cols(
+    reader: &mut dyn FieldReader,
+    constrained_columns: &HashMap<String, String>,
+) -> HashMap<String, String> {
+    let mut found_1_value =
+        HashMap::<String, String>::with_capacity(constrained_columns.iter().count());
 
-    const CONSTR_AUTO_FILL: &str = "auto_fill";
-    const CONSTR_1_NOT_EMPTY: &str = "first_not_empty";
-    const KNOWN_CONSTRS: [&str; 2] = [CONSTR_AUTO_FILL, CONSTR_1_NOT_EMPTY];
+    constrained_columns.iter().for_each(|(col_id, _)| {
+        assert!(reader.init());
+        while reader.next() {
+            if let Some(ref str) = reader.get_str(col_id) {
+                if !str.is_empty() {
+                    info!("first not empty {col_id} -> '{str}'");
+                    found_1_value.insert(col_id.to_string(), str.clone());
+                    break;
+                }
+            }
+        }
+    });
+    found_1_value
+}
 
+const CONSTR_AUTO_FILL: &str = "auto_fill";
+const CONSTR_1_NOT_EMPTY: &str = "first_not_empty";
+const KNOWN_CONSTRS: [&str; 2] = [CONSTR_AUTO_FILL, CONSTR_1_NOT_EMPTY];
+
+fn get_constrained_cols(columns: &Vec<ReportColumn>) -> HashMap<String, String> {
     let constrained_columns: HashMap<String, String> = columns
         .iter()
         .filter_map(|fld| {
@@ -658,32 +767,52 @@ pub fn do_report(
                 .any(|constr| constraint.contains(constr))
         })
         .collect();
+    constrained_columns
+}
 
-    let mut found_1_value =
-        HashMap::<String, String>::with_capacity(constrained_columns.iter().count());
+fn get_used_columns(
+    cfg: &&ReportCfg,
+    reader: &mut dyn FieldReader,
+    reporter: &Box<dyn Report>,
+) -> Vec<ReportColumn> {
+    let used_cols = reader.get_used_columns(&cfg.columns);
 
-    constrained_columns.iter().for_each(|(col_id, _)| {
-        assert!(reader.init());
-        while reader.next() {
-            if let Some(ref str) = reader.get_str(col_id) {
-                if !str.is_empty() {
-                    info!("first not empty {col_id} -> '{str}'");
-                    found_1_value.insert(col_id.to_string(), str.clone());
-                    break;
-                }
-            }
-        }
+    let mut columns = Vec::<ReportColumn>::with_capacity(used_cols.len());
+
+    used_cols.iter().for_each(|fld| {
+        let title = &fld.name;
+        let kind = cfg.columns.iter().find(|c| c.title == *title).unwrap().kind;
+
+        columns.push(ReportColumn {
+            title: title.clone(),
+            kind,
+            constraint: fld.constraint.clone(),
+            idx: fld.idx,
+        });
     });
 
+    columns.sort_by_key(|fld| fld.idx);
+    columns
+        .iter()
+        .for_each(|fld| reporter.set_field(&fld.title));
+    columns
+}
+
+/*
+#[named]
+pub fn do_report(
+    cfg: &ReportCfg,
+    reader: &mut dyn FieldReader,
+    output_dir: &str,
+    output_format: &OutputFormat,
+) {
+
+    let columns = get_used_columns(&cfg, reader, &reporter);
+    let constrained_columns = get_constrained_cols(&columns);
     info!("constrained_columns: {constrained_columns:?}");
-    let mut auto_filled =
-        HashMap::<String, String>::with_capacity(constrained_columns.iter().count());
-    constrained_columns.iter().for_each(|(fld, value)| {
-        if value.contains(CONSTR_AUTO_FILL) {
-            info!("fld: '{fld}' -> {}", found_1_value[fld.as_str()]);
-            auto_filled.insert(fld.to_string(), found_1_value[fld.as_str()].to_string());
-        }
-    });
+
+    let found_1_value = get_first_not_empty_cols(reader, &constrained_columns);
+    let auto_filled = get_autofilled_cols(constrained_columns, found_1_value);
 
     assert!(reader.init());
 
@@ -756,3 +885,4 @@ pub fn do_report(
 
     reporter.footer();
 }
+*/
