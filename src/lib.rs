@@ -86,9 +86,9 @@ impl ConstrainedField {
     }
 }
 
-pub trait FieldReader<'a, 'b: 'a> {
+pub trait FieldReader {
     fn get_used_columns(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField>;
-    fn init(&'b mut self) -> bool;
+    fn init(&mut self) -> bool;
     fn next(&mut self) -> bool;
     fn get_int(&mut self, id: &FldId) -> Option<i64>;
     fn get_str(&mut self, id: &FldId) -> Option<String>;
@@ -165,7 +165,7 @@ impl EseReader {
     }
 }
 
-impl<'a, 'b: 'a> FieldReader<'a, 'b> for EseReader {
+impl FieldReader for EseReader {
     #[named]
     fn get_used_columns(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField> {
         trace!("{}", function_path!());
@@ -204,7 +204,7 @@ impl<'a, 'b: 'a> FieldReader<'a, 'b> for EseReader {
     }
 
     #[named]
-    fn init(&'b mut self) -> bool {
+    fn init(&mut self) -> bool {
         trace!("{}", function_path!());
         self.jdb.move_row(self.table, ESE_MoveFirst).unwrap()
     }
@@ -303,7 +303,7 @@ pub struct SqlReader<'a> {
     session: Session<'a>,
 }
 
-impl<'a> SqlReader<'a> {
+impl SqlReader<'_> {
     pub fn new_(db_path: &str) -> Self {
         let conn = Connection::open_with_flags(db_path, OpenFlags::new().set_read_only()).unwrap();
         let sql = "select WorkId, * from SystemIndex_1_PropertyStore order by WorkId";
@@ -319,7 +319,8 @@ impl<'a> SqlReader<'a> {
         }
     }
 
-    fn first_row(&'a mut self) -> bool {
+    fn first_row(&mut self) -> bool {
+        self.last_work_id = 0;
         self.session.reset().is_ok()
     }
 
@@ -367,7 +368,7 @@ impl<'a> SqlReader<'a> {
     }
 }
 
-impl<'a, 'b: 'a> FieldReader<'a, 'b> for SqlReader<'a> {
+impl<'a> FieldReader for SqlReader<'a> {
     #[named]
     fn get_used_columns(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField> {
         trace!("{}", function_path!());
@@ -404,7 +405,7 @@ impl<'a, 'b: 'a> FieldReader<'a, 'b> for SqlReader<'a> {
     }
 
     #[named]
-    fn init(&'b mut self) -> bool {
+    fn init(&mut self) -> bool {
         trace!("{}", function_path!());
         self.first_row()
     }
@@ -582,7 +583,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
 }
 
 #[named]
-pub fn do_report<'a, 'b: 'a>(
+pub fn do_report(
     cfg: &ReportCfg,
     reader: &mut dyn FieldReader,
     output_dir: &str,
@@ -662,7 +663,7 @@ pub fn do_report<'a, 'b: 'a>(
         HashMap::<String, String>::with_capacity(constrained_columns.iter().count());
 
     constrained_columns.iter().for_each(|(col_id, _)| {
-        reader.init();
+        assert!(reader.init());
         while reader.next() {
             if let Some(ref str) = reader.get_str(col_id) {
                 if !str.is_empty() {
@@ -684,7 +685,7 @@ pub fn do_report<'a, 'b: 'a>(
         }
     });
 
-    reader.init();
+    assert!(reader.init());
 
     while reader.next() {
         reporter.new_record();
