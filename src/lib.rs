@@ -25,13 +25,13 @@ pub enum ColumnType {
     GUID,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Column {
     pub name: String,
     pub constraint: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColumnPair {
     pub title: String,
     pub kind: ColumnType,
@@ -48,6 +48,7 @@ pub enum OutputFormat {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ReportCfg {
     pub title: String,
+    pub output_filename: String,
     pub columns: Vec<ColumnPair>,
 }
 
@@ -513,6 +514,7 @@ impl<'a> FieldReader for SqlReader<'a> {
 }
 
 //--------------------------------------------------------------------
+use crate::report::{ReportFormat, ReportProducer};
 use csv::Writer;
 use report::{Report, ReportJson};
 use simple_error::SimpleError;
@@ -584,51 +586,65 @@ struct ReportColumn {
 
 #[named]
 pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
-    let output_dir = &cfg.output_dir;
-    let output_format = &cfg.output_format;
-
     //println!("FileReport: {}", cfg.title);
     struct ReportDef {
         reporter: Box<dyn Report>,
         columns: Vec<ReportColumn>,
         constrained_columns: HashMap<String, String>,
-        found_1_value: HashMap<String, String>,
         auto_filled: HashMap<String, String>,
     }
-
     let mut reports: Vec<ReportDef> = Vec::new();
 
+    let report_format = match cfg.output_format {
+        OutputFormat::Csv => ReportFormat::Csv,
+        OutputFormat::Json => ReportFormat::Json,
+    };
+    let rep_factory = ReportProducer::new(cfg.output_dir.as_ref(), report_format);
+
     for report in &cfg.reports {
-        let mut out_path = std::path::PathBuf::from(output_dir);
-        out_path.push(report.title.clone().replace(|c| "\\/ ".contains(c), "_"));
+        let output_filename_title = &report.output_filename;
+        let col_for_filename = report
+            .columns
+            .iter()
+            .find(|col| col.title == *output_filename_title)
+            .expect(&format!(
+                "No column for output_filename '{}'",
+                output_filename_title
+            ));
+        let columns = reader.get_used_columns(&vec![(*col_for_filename).clone()]);
+        let mut output_filename = "".to_string();
 
-        info!(
-            "{}: out_path: {out_path:?}, {output_format:?}",
-            function_path!()
-        );
+        assert!(reader.init());
 
-        let reporter: Box<dyn Report> = match output_format {
-            OutputFormat::Csv => {
-                out_path.set_extension("csv");
-                Box::new(ReportCsv::new(&out_path).unwrap())
+        while reader.next() {
+            if let Some(ref str) = reader.get_str(output_filename_title) {
+                if !str.is_empty() {
+                    output_filename = str.clone();
+                    info!("output_filename '{output_filename_title}' -> '{output_filename}'");
+                    break;
+                }
             }
-            OutputFormat::Json => {
-                out_path.set_extension("json");
-                Box::new(ReportJson::new(&out_path).unwrap())
-            }
-        };
+        }
+
+        let (out_path, reporter) = rep_factory
+            .new_report(&Path::new(""), &output_filename, &report.title)
+            .unwrap();
 
         let columns = get_used_columns(&report, reader, &reporter);
         let constrained_columns = get_constrained_cols(&columns);
         info!("constrained_columns: {constrained_columns:?}");
-        let found_1_value = get_first_not_empty_cols(reader, &constrained_columns);
-        let auto_filled = get_autofilled_cols(&constrained_columns, &found_1_value);
+        let auto_filled = get_autofilled_cols(
+            &constrained_columns,
+            &HashMap::from([(
+                output_filename_title.to_string(),
+                output_filename.to_string(),
+            )]),
+        );
 
         reports.push(ReportDef {
             reporter,
             columns,
             constrained_columns,
-            found_1_value,
             auto_filled,
         });
     }
@@ -687,7 +703,9 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
                     }
                     ColumnType::DateTime => {
                         if let Some(dt) = reader.get_datetime(col_id) {
-                            report.reporter.str_val(col.title.as_str(), utils::format_date_time(dt));
+                            report
+                                .reporter
+                                .str_val(col.title.as_str(), utils::format_date_time(dt));
                         } else {
                             report.reporter.str_val(col.title.as_str(), "".to_string());
                         }
@@ -722,31 +740,8 @@ fn get_autofilled_cols(
     auto_filled
 }
 
-fn get_first_not_empty_cols(
-    reader: &mut dyn FieldReader,
-    constrained_columns: &HashMap<String, String>,
-) -> HashMap<String, String> {
-    let mut found_1_value =
-        HashMap::<String, String>::with_capacity(constrained_columns.iter().count());
-
-    constrained_columns.iter().for_each(|(col_id, _)| {
-        assert!(reader.init());
-        while reader.next() {
-            if let Some(ref str) = reader.get_str(col_id) {
-                if !str.is_empty() {
-                    info!("first not empty {col_id} -> '{str}'");
-                    found_1_value.insert(col_id.to_string(), str.clone());
-                    break;
-                }
-            }
-        }
-    });
-    found_1_value
-}
-
 const CONSTR_AUTO_FILL: &str = "auto_fill";
-const CONSTR_1_NOT_EMPTY: &str = "first_not_empty";
-const KNOWN_CONSTRS: [&str; 2] = [CONSTR_AUTO_FILL, CONSTR_1_NOT_EMPTY];
+const KNOWN_CONSTRS: [&str; 1] = [CONSTR_AUTO_FILL];
 
 fn get_constrained_cols(columns: &Vec<ReportColumn>) -> HashMap<String, String> {
     let constrained_columns: HashMap<String, String> = columns
@@ -771,7 +766,7 @@ fn get_constrained_cols(columns: &Vec<ReportColumn>) -> HashMap<String, String> 
 }
 
 fn get_used_columns(
-    cfg: &&ReportCfg,
+    cfg: &ReportCfg,
     reader: &mut dyn FieldReader,
     reporter: &Box<dyn Report>,
 ) -> Vec<ReportColumn> {
