@@ -3,7 +3,8 @@ table_sql: SystemIndex_1_PropertyStore
 output_format: Csv
 output_dir: "./report"
 reports:
-  - title: IE/Edge History Report
+  - title: Internet_History_Report
+    output_filename: System_ComputerName
     columns:
       - title: WorkId
         kind: Integer
@@ -56,7 +57,8 @@ reports:
           name: ""
         sql:
           name: 414
-  - title: Activity History Report
+  - title: Activity_History_Report
+    output_filename: System_ComputerName
     columns:
       - title: WorkId
         kind: Integer
@@ -138,7 +140,8 @@ reports:
           name: ""
         sql:
           name: 311
-  - title: File Report
+  - title: File_Report
+    output_filename: System_ComputerName
     columns:
       - title: WorkId
         kind: Integer
