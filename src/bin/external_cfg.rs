@@ -1,24 +1,27 @@
 use clap::Parser;
 use std::path::PathBuf;
+use walkdir::WalkDir;
 use env_logger::{self, Target};
 use serde_yaml;
 use wsa_lib::{ReportsCfg, do_reports};
+use wsa_lib::report::ReportFormat;
 
 #[derive(Parser)]
 struct Cli {
     /// Path to <config.yaml>
     #[arg(short, long)]
     cfg_path: String,
-    /// Path to the directory where reports will be created (will be created if not present).
-    /// Default is the current directory.
-    #[arg(short, long)]
-    outdir: Option<String>,
-    /// json (default) or csv.
-    #[arg(short, long)]
-    format: Option<String>,
-    /// Path to SQL/EDB database
-    #[arg(short, long)]
-    db_path: PathBuf,
+
+    /// Path to input directory (which will be recursively scanned for Windows.edb and Windows.db).
+    input: String,
+
+    /// Output format: json (default) or csv
+    #[arg(short, long, value_enum, default_value_t = ReportFormat::Json)]
+    format: ReportFormat,
+
+    /// Path to the directory where reports will be created (will be created if not present). Default is the current directory.
+    #[arg(short, long, value_name = "OUTPUT DIRECTORY")]
+    outdir: Option<PathBuf>,
 }
 
 fn do_sql_report(db_path: &str, cfg: &ReportsCfg) {
@@ -43,23 +46,31 @@ fn main() {
     let cli = Cli::parse();
     let s = std::fs::read_to_string(&cli.cfg_path).unwrap();
     let mut cfg: ReportsCfg = serde_yaml::from_str(s.as_str()).unwrap();
-    let db_path = cli.db_path.display().to_string();
 
     if let Some(output_dir) = &cli.outdir {
-        cfg.output_dir = output_dir.clone();
+        cfg.output_dir = output_dir.to_str().unwrap().to_string();
     }
 
-    if let Some(output_format) = &cli.format {
-        cfg.output_format = match output_format.to_lowercase().as_str() {
-            "json" => wsa_lib::OutputFormat::Json,
-            "csv" => wsa_lib::OutputFormat::Csv,
-            _ => panic!("Unknow output format '{output_format}'"),
+    cfg.output_format = match cli.format {
+        ReportFormat::Json => wsa_lib::OutputFormat::Json,
+        ReportFormat::Csv => wsa_lib::OutputFormat::Csv,
+    };
+
+    static DB_NAMES: [&'static str; 2] = ["Windows.edb", "Windows.db"];
+
+    for entry in WalkDir::new(&cli.input).into_iter().filter_entry(|e| e.file_type().is_dir() || DB_NAMES.contains(&e.file_name().to_str().unwrap())) {
+        if let Ok(ref e) = entry {
+            if !e.file_type().is_dir() {
+                let db_path = e.path().to_str().unwrap().to_string();
+
+                println!("{db_path}");
+                if db_path.ends_with(".edb") {
+                    do_edb_report(&db_path, &cfg);
+                } else if db_path.ends_with(".db") {
+                    do_sql_report(&db_path, &cfg);
+                }
+            }
         }
     }
 
-    if db_path.ends_with("Windows.edb") {
-        do_edb_report(db_path.as_str(), &cfg);
-    } else if db_path.ends_with("Windows.db") {
-        do_sql_report(db_path.as_str(), &cfg);
-    }
 }
