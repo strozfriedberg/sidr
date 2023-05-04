@@ -28,7 +28,7 @@ pub enum ColumnType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Column {
     pub name: String,
-    pub constraint: Option<String>,
+    pub constraint: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,18 +70,29 @@ type FldId = String;
 pub struct ConstrainedField {
     name: String,
     constraint: Option<String>,
+    hidden: bool,
     idx: usize,
 }
 
 impl ConstrainedField {
-    fn new(name: &str, constraint: &Option<String>, idx: usize) -> Self {
+    fn new(name: &str, constraints: &Option<Vec<String>>, idx: usize) -> Self {
+        let mut hidden = false;
+        let mut constraint = None;
+
+        if let Some(constraints) = constraints {
+            for s in constraints {
+                if s == CONSTR_HIDDEN {
+                    hidden = false
+                } else {
+                    constraint = Some(s.clone())
+                }
+            }
+        }
+
         Self {
             name: name.to_string(),
-            constraint: if let Some(s) = constraint {
-                Some(s.to_string())
-            } else {
-                None
-            },
+            constraint,
+            hidden,
             idx,
         }
     }
@@ -174,9 +185,9 @@ impl FieldReader for EseReader {
         let tablename = &self.tablename;
         let cols = self.jdb.get_columns(tablename).unwrap();
         let col_infos = &mut self.col_infos;
+        let mut idx = 0_usize;
         for col_pair in columns {
             let name = col_pair.edb.name.clone();
-            let mut idx = 0_usize;
 
             if !name.is_empty() {
                 match cols.iter().find(|col| col.name == name) {
@@ -308,7 +319,7 @@ impl SqlReader<'_> {
     pub fn new_(db_path: &str) -> Self {
         let conn = Connection::open_with_flags(db_path, OpenFlags::new().set_read_only()).unwrap();
         let sql = "select WorkId, * from SystemIndex_1_PropertyStore order by WorkId";
-        let mut session = Session::new_with_fn(Box::new(conn), unsafe {
+        let session = Session::new_with_fn(Box::new(conn), unsafe {
             |x| Box::new((*x).prepare(sql).unwrap())
         });
 
@@ -516,7 +527,7 @@ impl<'a> FieldReader for SqlReader<'a> {
 //--------------------------------------------------------------------
 use crate::report::{ReportFormat, ReportProducer};
 use csv::Writer;
-use report::{Report, ReportJson};
+use report::Report;
 use simple_error::SimpleError;
 use std::path::Path;
 
@@ -584,7 +595,7 @@ struct ReportColumn {
     idx: usize,
 }
 
-#[named]
+//#[named]
 pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     //println!("FileReport: {}", cfg.title);
     struct ReportDef {
@@ -600,33 +611,41 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
         OutputFormat::Json => ReportFormat::Json,
     };
     let rep_factory = ReportProducer::new(cfg.output_dir.as_ref(), report_format);
+    let mut cached = HashMap::<String, String>::new();
 
     for report in &cfg.reports {
         let output_filename_title = &report.output_filename;
-        let col_for_filename = report
-            .columns
-            .iter()
-            .find(|col| col.title == *output_filename_title)
-            .expect(&format!(
-                "No column for output_filename '{}'",
-                output_filename_title
-            ));
-        let columns = reader.get_used_columns(&vec![(*col_for_filename).clone()]);
         let mut output_filename = "".to_string();
 
-        assert!(reader.init());
+        if cached.contains_key(output_filename_title) {
+            output_filename = cached[output_filename_title].clone();
+        } else {
+            let col_for_filename = report
+                .columns
+                .iter()
+                .find(|col| col.title == *output_filename_title)
+                .expect(&format!(
+                    "No column for output_filename '{}'",
+                    output_filename_title
+                ));
+            let _columns = reader.get_used_columns(&vec![(*col_for_filename).clone()]);
 
-        while reader.next() {
-            if let Some(ref str) = reader.get_str(output_filename_title) {
-                if !str.is_empty() {
-                    output_filename = str.clone();
-                    info!("output_filename '{output_filename_title}' -> '{output_filename}'");
-                    break;
+            assert!(reader.init());
+
+            while reader.next() {
+                if let Some(ref str) = reader.get_str(output_filename_title) {
+                    if !str.is_empty() {
+                        output_filename = str.clone();
+                        info!("output_filename '{output_filename_title}' -> '{output_filename}'");
+                        break;
+                    }
                 }
             }
+
+            cached.insert(output_filename_title.to_string(), output_filename.to_string());
         }
 
-        let (out_path, reporter) = rep_factory
+        let (_out_path, reporter) = rep_factory
             .new_report(&Path::new(""), &output_filename, &report.title)
             .unwrap();
 
@@ -652,31 +671,42 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     assert!(reader.init());
 
     while reader.next() {
+        'report:
         for report in &reports {
             report.reporter.new_record();
 
             for col in &report.columns {
                 let col_id = &col.title;
 
-                //debug!("{col_id} constraint {:?}", col.constraint);
+                if col.constraint.is_some() {
+                    debug!("{col_id} constraint {:?}", col.constraint);
+                }
+
                 if let Some(constraint) = &col.constraint {
                     if !KNOWN_CONSTRS
                         .into_iter()
                         .any(|constr| constraint.contains(constr))
                     {
                         if let Some(value) = reader.get_str(col_id) {
+                            if value.is_empty() {
+                                debug!("skip empty '{col_id}' with constraint");
+                                continue 'report;
+                            }
+
                             let expr = constraint.replace("{Value}", &value);
 
                             match evalexpr::eval_boolean(&expr) {
                                 Ok(ok) => {
                                     if !ok {
                                         debug!("skip {col_id}='{value}' due constraint '{expr}'");
-                                        report.reporter.str_val(col.title.as_str(), "".to_string());
-                                        continue;
+                                        continue 'report;
                                     }
                                 }
                                 Err(e) => panic!("Eval constraint failed: {e}"),
                             };
+                        } else {
+                            debug!("skip None '{col_id}' with constraint");
+                            continue 'report;
                         }
                     }
                 }
@@ -741,7 +771,8 @@ fn get_autofilled_cols(
 }
 
 const CONSTR_AUTO_FILL: &str = "auto_fill";
-const KNOWN_CONSTRS: [&str; 1] = [CONSTR_AUTO_FILL];
+const CONSTR_HIDDEN: &str = "hidden";
+const KNOWN_CONSTRS: [&str; 2] = [CONSTR_AUTO_FILL, CONSTR_HIDDEN];
 
 fn get_constrained_cols(columns: &Vec<ReportColumn>) -> HashMap<String, String> {
     let constrained_columns: HashMap<String, String> = columns
