@@ -45,7 +45,10 @@ fn main() {
     // }
     let cli = Cli::parse();
     let s = std::fs::read_to_string(&cli.cfg_path).unwrap();
-    let mut cfg: ReportsCfg = serde_yaml::from_str(s.as_str()).unwrap();
+    let mut cfg: ReportsCfg = match serde_yaml::from_str(s.as_str()) {
+        Ok(cfg) => cfg,
+        Err(e) => panic!("Bad config '{}': {e}", cli.cfg_path),
+    };
 
     if let Some(output_dir) = &cli.outdir {
         cfg.output_dir = output_dir.to_str().unwrap().to_string();
