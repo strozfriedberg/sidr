@@ -16,10 +16,10 @@ reports:
         kind: String
         edb:
           name: "4184-System_ComputerName"
-          constraint: auto_fill,first_not_empty
+          constraint: [auto_fill]
         sql:
           name: 557
-          constraint: auto_fill,first_not_empty
+          constraint: [auto_fill]
       - title: System_ItemName
         kind: String
         edb:
@@ -30,9 +30,10 @@ reports:
         kind: String
         edb:
           name: "33-System_ItemUrl"
+          constraint: ['str::regex_matches("{Value}", "^(iehistory://|winrt://).+(/LS/Desktop/Microsoft Edge/stable/Default/)")']
         sql:
           name: 39
-          constraint: 'str::regex_matches("{Value}", "^(iehistory://|winrt://).+(/LS/Desktop/Microsoft Edge/stable/Default/)")'
+          constraint: ['str::regex_matches("{Value}", "^(iehistory://|winrt://).+(/LS/Desktop/Microsoft Edge/stable/Default/)")']
       - title: System_ItemDate
         kind: DateTime
         edb:
@@ -70,16 +71,18 @@ reports:
         kind: String
         edb:
           name: "4184-System_ComputerName"
-          constraint: auto_fill,first_not_empty
+          constraint: [auto_fill]
         sql:
           name: 557
-          constraint: auto_fill,first_not_empty
+          constraint: [auto_fill]
       - title: System_ItemType
         kind: String
         edb:
           name: "4450-System_ItemType"
+          constraint: ['str::regex_matches("{Value}", "^ActivityHistoryItem$")',hidden]
         sql:
           name: 567
+          constraint: ['str::regex_matches("{Value}", "^ActivityHistoryItem$")',hidden]
       - title: System_ItemNameDisplay
         kind: String
         edb:
@@ -153,10 +156,10 @@ reports:
         kind: String
         edb:
           name: "4184-System_ComputerName"
-          constraint: auto_fill,first_not_empty
+          constraint: [auto_fill]
         sql:
           name: 557
-          constraint: auto_fill,first_not_empty
+          constraint: [auto_fill]
       - title: System_ItemPathDisplay
         kind: String
         edb:
