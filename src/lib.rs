@@ -673,43 +673,40 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     while reader.next() {
         'report:
         for report in &reports {
+            for (col_id, constraint) in &report.constrained_columns {
+                debug!("{col_id} constraint {constraint:?}");
+                if VALIDATED_CONSTRS
+                    .into_iter()
+                    .any(|constr| constraint.starts_with(constr))
+                {
+                    if let Some(value) = reader.get_str(col_id) {
+                        if value.is_empty() {
+                            debug!("skip empty '{col_id}' with constraint");
+                            continue 'report;
+                        }
+
+                        let expr = constraint.replace("{Value}", &value);
+
+                        match evalexpr::eval_boolean(&expr) {
+                            Ok(ok) => {
+                                if !ok {
+                                    debug!("skip {col_id}='{value}' due constraint '{expr}'");
+                                    continue 'report;
+                                }
+                            }
+                            Err(e) => panic!("Eval constraint failed: {e}"),
+                        };
+                    } else {
+                        debug!("skip None '{col_id}' with constraint");
+                        continue 'report;
+                    }
+                }
+            }
+
             report.reporter.new_record();
 
             for col in &report.columns {
                 let col_id = &col.title;
-
-                if col.constraint.is_some() {
-                    debug!("{col_id} constraint {:?}", col.constraint);
-                }
-
-                if let Some(constraint) = &col.constraint {
-                    if !KNOWN_CONSTRS
-                        .into_iter()
-                        .any(|constr| constraint.contains(constr))
-                    {
-                        if let Some(value) = reader.get_str(col_id) {
-                            if value.is_empty() {
-                                debug!("skip empty '{col_id}' with constraint");
-                                continue 'report;
-                            }
-
-                            let expr = constraint.replace("{Value}", &value);
-
-                            match evalexpr::eval_boolean(&expr) {
-                                Ok(ok) => {
-                                    if !ok {
-                                        debug!("skip {col_id}='{value}' due constraint '{expr}'");
-                                        continue 'report;
-                                    }
-                                }
-                                Err(e) => panic!("Eval constraint failed: {e}"),
-                            };
-                        } else {
-                            debug!("skip None '{col_id}' with constraint");
-                            continue 'report;
-                        }
-                    }
-                }
 
                 match col.kind {
                     ColumnType::String => {
@@ -772,7 +769,9 @@ fn get_autofilled_cols(
 
 const CONSTR_AUTO_FILL: &str = "auto_fill";
 const CONSTR_HIDDEN: &str = "hidden";
-const KNOWN_CONSTRS: [&str; 2] = [CONSTR_AUTO_FILL, CONSTR_HIDDEN];
+const CONSTR_REGEX: &str = "str::regex_matches";
+const KNOWN_CONSTRS: [&str; 3] = [CONSTR_AUTO_FILL, CONSTR_HIDDEN, CONSTR_REGEX];
+const VALIDATED_CONSTRS: [&str; 2] = [CONSTR_HIDDEN, CONSTR_REGEX];
 
 fn get_constrained_cols(columns: &Vec<ReportColumn>) -> HashMap<String, String> {
     let constrained_columns: HashMap<String, String> = columns
