@@ -6,7 +6,7 @@ pub mod utils;
 
 use ::function_name::named;
 use evalexpr;
-use log::{debug, info, trace};
+use log::{debug, error, info, trace};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str, string::String};
 
@@ -595,6 +595,14 @@ struct ReportColumn {
     idx: usize,
 }
 
+impl ReportColumn {
+    fn is_visible(&self) -> bool {
+        match &self.constraint {
+            Some(constraint) => constraint != CONSTR_HIDDEN,
+            _ => true
+        }
+    }
+}
 //#[named]
 pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     //println!("FileReport: {}", cfg.title);
@@ -674,27 +682,30 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
         'report:
         for report in &reports {
             for (col_id, constraint) in &report.constrained_columns {
-                debug!("{col_id} constraint {constraint:?}");
                 if VALIDATED_CONSTRS
                     .into_iter()
-                    .any(|constr| constraint.starts_with(constr))
+                    .any(|constr| constraint.contains(constr))
                 {
+                    //debug!("{col_id} constraint {constraint:?}");
+
                     if let Some(value) = reader.get_str(col_id) {
                         if value.is_empty() {
                             debug!("skip empty '{col_id}' with constraint");
                             continue 'report;
                         }
 
+                        let value = value.as_bytes().escape_ascii().to_string();
                         let expr = constraint.replace("{Value}", &value);
+                        debug!("{col_id} testing {expr:?}");
 
                         match evalexpr::eval_boolean(&expr) {
                             Ok(ok) => {
-                                if !ok {
+                                if ok {
                                     debug!("skip {col_id}='{value}' due constraint '{expr}'");
                                     continue 'report;
                                 }
                             }
-                            Err(e) => panic!("Eval constraint failed: {e}"),
+                            Err(e) => error!("Eval constraint '{expr}' failed: {e}"),
                         };
                     } else {
                         debug!("skip None '{col_id}' with constraint");
@@ -706,6 +717,10 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
             report.reporter.new_record();
 
             for col in &report.columns {
+                if !col.is_visible() {
+                    continue
+                }
+
                 let col_id = &col.title;
 
                 match col.kind {
@@ -769,9 +784,9 @@ fn get_autofilled_cols(
 
 const CONSTR_AUTO_FILL: &str = "auto_fill";
 const CONSTR_HIDDEN: &str = "hidden";
-const CONSTR_REGEX: &str = "str::regex_matches";
+const CONSTR_REGEX: &str = "regex_matches";
 const KNOWN_CONSTRS: [&str; 3] = [CONSTR_AUTO_FILL, CONSTR_HIDDEN, CONSTR_REGEX];
-const VALIDATED_CONSTRS: [&str; 2] = [CONSTR_HIDDEN, CONSTR_REGEX];
+const VALIDATED_CONSTRS: [&str; 1] = [CONSTR_REGEX];
 
 fn get_constrained_cols(columns: &Vec<ReportColumn>) -> HashMap<String, String> {
     let constrained_columns: HashMap<String, String> = columns
