@@ -30,10 +30,10 @@ reports:
         kind: String
         edb:
           name: "33-System_ItemUrl"
-          constraint: ['str::regex_matches("{Value}", "^(iehistory://|winrt://).+(/LS/Desktop/Microsoft Edge/stable/Default/)")']
+          constraint: ['!str::regex_matches("{Value}", "^(iehistory://|winrt://).+(/LS/Desktop/Microsoft Edge/stable/Default/)")']
         sql:
           name: 39
-          constraint: ['str::regex_matches("{Value}", "^(iehistory://|winrt://).+(/LS/Desktop/Microsoft Edge/stable/Default/)")']
+          constraint: ['!str::regex_matches("{Value}", "^(iehistory://|winrt://).+(/LS/Desktop/Microsoft Edge/stable/Default/)")']
       - title: System_ItemDate
         kind: DateTime
         edb:
@@ -164,8 +164,10 @@ reports:
         kind: String
         edb:
           name: "4447-System_ItemPathDisplay"
+          constraint: ['str::regex_matches("{Value}", "^(iehistory://|winrt://).+(/LS/Desktop/Microsoft Edge/stable/Default/)")']
         sql:
           name: 39
+          constraint: ['str::regex_matches("{Value}", "^(iehistory://|winrt://).+(/LS/Desktop/Microsoft Edge/stable/Default/)")']
       - title: System_DateModified
         kind: DateTime
         edb:
@@ -212,5 +214,7 @@ reports:
         kind: String
         edb:
           name: "4450-System_ItemType"
+          constraint: ['str::regex_matches("{Value}", "^ActivityHistoryItem$")',hidden]
         sql:
           name: 567
+          constraint: ['str::regex_matches("{Value}", "^ActivityHistoryItem$")',hidden]
