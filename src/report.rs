@@ -47,7 +47,7 @@ impl ReportProducer {
             "{}_{}_{}.{}",
             recovered_hostname,
             report_suffix,
-            date_time_now.format("%Y%m%d_%H%M%S"),
+            date_time_now.format("%Y%m%d_%H%M%S%.f"),
             ext
         ));
         let rep: Box<dyn Report> = match self.format {
