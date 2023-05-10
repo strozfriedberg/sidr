@@ -1,20 +1,17 @@
-
 #[cfg(test)]
 use std::{
-    env,
-    fs,
+    env, fs,
     process::{Command, Stdio},
 };
 
 use ::function_name::named;
+use std::path::Path as StdPath;
 use camino::Utf8PathBuf as PathBuf;
 use env_logger::{self, Target};
-use glob::glob;
 use log::info;
 use tempdir::TempDir;
-
-use wsa_lib::utils::{format_date_time, from_utf16, get_date_time_from_filetime};
-use wsa_lib::{utils, ColumnType, ReportsCfg};
+use walkdir::{DirEntry, Error, WalkDir};
+use csv::Reader;
 
 macro_rules! function_path {
     () => {
@@ -22,39 +19,26 @@ macro_rules! function_path {
     };
 }
 
-fn glob_vec_path(pattern: &str) -> Vec<PathBuf> {
-    glob(pattern)
-        .unwrap()
-        .map(|p| p.unwrap())
-        .map(|p| PathBuf::from_path_buf(p).unwrap())
-        .collect()
-}
+fn get_dir<P: AsRef<StdPath>>(path: P, ext: &str) -> Vec<PathBuf> {
+    fn get_filename(f: &Result<DirEntry, Error>) -> &str {
+        f.as_ref().unwrap().file_name().to_str().unwrap()
+    }
 
-fn glob_vec_string(pattern: &str) -> Vec<String> {
-    glob_vec_path(pattern)
+    WalkDir::new(path)
+        .same_file_system(true)
         .into_iter()
-        .map(|p| p.as_str().to_string())
-        .collect()
-}
-
-fn glob_vec_names(pattern: &str) -> Vec<String> {
-    glob_vec_path(pattern)
-        .into_iter()
-        .map(|p| p.file_name().unwrap().to_string())
+        .filter_map(|ref f| {
+            if get_filename(f).ends_with(ext) {
+                Some(PathBuf::from(get_filename(f)))
+            } else {
+                None
+            }
+        })
         .collect()
 }
 
 fn get_env(var: &str) -> String {
     env::var(var).expect(format!("Error getting environment variable '{var}'").as_str())
-}
-
-#[named]
-fn remove_files(pattern: &str) {
-    info!("{}", function_path!());
-    let paths = glob_vec_path(pattern);
-    paths
-        .iter()
-        .for_each(|p| fs::remove_file(p).expect(&format!("remove '{}' failed", p)));
 }
 
 #[named]
@@ -102,13 +86,60 @@ fn generate_reports(reporter_bin: &str, db_path: &str, common_args: &Vec<&str>) 
 }
 
 fn do_generate(reporter_bin: &str, db_path: &str, rep_dir: &str, specific_args: &Vec<&str>) {
-    remove_files(format!("{}/*.csv", rep_dir).as_str());
-    remove_files(format!("{}/*.json", rep_dir).as_str());
-
     let mut common_args = vec!["--outdir", rep_dir];
     common_args.extend(specific_args);
     common_args.push("--format");
     generate_reports(&reporter_bin, &db_path, &common_args);
+}
+
+fn do_compare_csv(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let dir_sidr = get_dir(sidr_path, ".csv");
+    let dir_ext_cfg = get_dir(ext_cfg_path, ".csv");
+    // let pairs: Vec<_> = dir_sidr.iter().zip(dir_ext_cfg.iter()).collect();
+    // println!("{pairs:?}");
+
+    for (sidr, ext_cfg) in dir_sidr.iter().zip(dir_ext_cfg.iter()) {
+        println!("{sidr} <-> {ext_cfg}");
+
+        let sidr = PathBuf::from_iter([sidr_path, sidr.as_str()].iter());
+        let mut sidr_reader = Reader::from_path(sidr)?;
+        let ext_cfg = PathBuf::from_iter([ext_cfg_path, ext_cfg.as_str()].iter());
+        let mut ext_cfg_reader = Reader::from_path(ext_cfg)?;
+
+        if ! itertools::equal(sidr_reader.headers()?, ext_cfg_reader.headers()?) {
+            let mut i = 0;
+            for (s, e) in sidr_reader.headers()?.iter().zip(ext_cfg_reader.headers()?) {
+                i += 1;
+                if s != e {
+                    println!("{i}. '{s}' != '{e}'")
+                }
+            }
+            panic!("headers are not equal");
+        }
+
+        let mut sidr_reader = sidr_reader.into_records();
+        let mut ext_cfg_reader = ext_cfg_reader.into_records();
+
+        loop {
+            match (sidr_reader.next(), ext_cfg_reader.next()) {
+                (Some(sid_rec), Some(ext_rec)) => {
+                    let sid_rec = sid_rec?;
+                    let sid_fld = sid_rec.iter();
+                    let ext_rec = ext_rec?;
+                    let ext_fld = ext_rec.iter();
+                    assert!(itertools::equal(sid_fld, ext_fld));
+                },
+                (None, None) => break,
+                (_, _) => panic!("mismach lengths"),
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn do_compare(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    do_compare_csv(sidr_path, ext_cfg_path)
 }
 
 #[test]
@@ -143,6 +174,16 @@ fn compare_generated_reports() {
     fs::create_dir(&sidr_dir).expect(&format!("could not create '{}'", sidr_dir));
     fs::create_dir(&ext_cfg_dir).expect(&format!("could not create '{}'", ext_cfg_dir));
 
-    do_generate(sidr_bin.as_str(), db_path.as_str(), sidr_dir.as_str(), &vec![]);
-    do_generate(ext_cfg_bin.as_str(), db_path.as_str(), ext_cfg_dir.as_str(), &vec!["--cfg-path", &cfg_path]);
+    do_generate(
+        sidr_bin.as_str(),
+        db_path.as_str(),
+        sidr_dir.as_str(),
+        &vec![],
+    );
+    do_generate(
+        ext_cfg_bin.as_str(),
+        db_path.as_str(),
+        ext_cfg_dir.as_str(),
+        &vec!["--cfg-path", &cfg_path],
+    );
 }
