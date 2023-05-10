@@ -82,7 +82,7 @@ impl ConstrainedField {
         if let Some(constraints) = constraints {
             for s in constraints {
                 if s == CONSTR_HIDDEN {
-                    hidden = false
+                    hidden = true
                 } else {
                     constraint = Some(s.clone())
                 }
@@ -211,7 +211,6 @@ impl FieldReader for EseReader {
             }
         }
 
-        info!("{}: {used_cols:?}", function_path!());
         used_cols
     }
 
@@ -368,7 +367,7 @@ impl SqlReader<'_> {
                     .insert(col_name.to_string(), value.clone());
             }
         } else {
-            //debug!("skip code {code}");
+            debug!("store_value: skip code '{code}'");
         }
     }
 
@@ -402,6 +401,7 @@ impl<'a> FieldReader for SqlReader<'a> {
                 }),
         );
 
+        println!("code_col_dict.keys(): {:?}", code_col_dict.keys());
         let mut used_cols = Vec::<ConstrainedField>::with_capacity(code_col_dict.iter().count());
         for (_, values) in code_col_dict.iter_all() {
             for field in values {
@@ -409,9 +409,11 @@ impl<'a> FieldReader for SqlReader<'a> {
             }
         }
 
-        self.code_col_dict = code_col_dict;
-
-        info!("{}: used_cols {:?}", function_path!(), self.code_col_dict);
+        println!("used_cols: {used_cols:?}");
+        code_col_dict
+            .iter()
+            .for_each(|(k, v)| self.code_col_dict.insert(k.clone(), v.clone()));
+        println!("self.code_col_dict.keys(): {:?}", self.code_col_dict.keys());
 
         used_cols
     }
@@ -526,83 +528,18 @@ impl<'a> FieldReader for SqlReader<'a> {
 
 //--------------------------------------------------------------------
 use crate::report::{ReportFormat, ReportProducer};
-use csv::Writer;
 use report::Report;
-use simple_error::SimpleError;
 use std::path::Path;
-
-struct ReportCsv {
-    writer: RefCell<Writer<File>>,
-}
-
-impl ReportCsv {
-    pub fn new(report_path: &Path) -> Result<Self, SimpleError> {
-        let writer = Writer::from_path(report_path.to_str().unwrap());
-        let writer =
-            writer.expect(format!("Could not create '{}'", report_path.display()).as_str());
-
-        Ok(ReportCsv {
-            writer: RefCell::new(writer),
-        })
-    }
-}
-
-impl Report for ReportCsv {
-    #[named]
-    fn set_field(&self, fld: &str) {
-        trace!("{} {fld}", function_path!());
-        let mut writer = self.writer.borrow_mut();
-        writer.write_field(fld).unwrap();
-    }
-
-    #[named]
-    fn new_record(&self) {
-        trace!("{}", function_path!());
-        let mut writer = self.writer.borrow_mut();
-        writer.write_record(None::<&[u8]>).unwrap();
-    }
-
-    #[named]
-    fn str_val(&self, _f: &str, s: String) {
-        trace!("{} {_f}={s}", function_path!());
-        let mut writer = self.writer.borrow_mut();
-        writer.write_field(s.as_str()).unwrap();
-    }
-
-    #[named]
-    fn int_val(&self, _f: &str, n: u64) {
-        trace!("{} {_f}={n}", function_path!());
-        let mut writer = self.writer.borrow_mut();
-        writer.write_field(format!("{n}").as_str()).unwrap();
-    }
-
-    fn is_some_val_in_record(&self) -> bool {
-        todo!()
-    }
-}
-
-impl Drop for ReportCsv {
-    fn drop(&mut self) {
-        self.new_record();
-    }
-}
 
 #[derive(Debug)]
 struct ReportColumn {
     title: String,
     kind: ColumnType,
     constraint: Option<String>,
+    hidden: bool,
     idx: usize,
 }
 
-impl ReportColumn {
-    fn is_visible(&self) -> bool {
-        match &self.constraint {
-            Some(constraint) => constraint != CONSTR_HIDDEN,
-            _ => true
-        }
-    }
-}
 //#[named]
 pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     //println!("FileReport: {}", cfg.title);
@@ -650,7 +587,10 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
                 }
             }
 
-            cached.insert(output_filename_title.to_string(), output_filename.to_string());
+            cached.insert(
+                output_filename_title.to_string(),
+                output_filename.to_string(),
+            );
         }
 
         let (_out_path, reporter) = rep_factory
@@ -658,6 +598,8 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
             .unwrap();
 
         let columns = get_used_columns(&report, reader, &reporter);
+        info!("{} columns: {columns:?}", report.title);
+
         let constrained_columns = get_constrained_cols(&columns);
         info!("constrained_columns: {constrained_columns:?}");
         let auto_filled = get_autofilled_cols(
@@ -679,8 +621,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     assert!(reader.init());
 
     while reader.next() {
-        'report:
-        for report in &reports {
+        'report: for report in &reports {
             for (col_id, constraint) in &report.constrained_columns {
                 if VALIDATED_CONSTRS
                     .into_iter()
@@ -700,7 +641,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
 
                         match evalexpr::eval_boolean(&expr) {
                             Ok(ok) => {
-                                if ok {
+                                if !ok {
                                     debug!("skip {col_id}='{value}' due constraint '{expr}'");
                                     continue 'report;
                                 }
@@ -717,8 +658,8 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
             report.reporter.new_record();
 
             for col in &report.columns {
-                if !col.is_visible() {
-                    continue
+                if col.hidden {
+                    continue;
                 }
 
                 let col_id = &col.title;
@@ -827,102 +768,16 @@ fn get_used_columns(
             title: title.clone(),
             kind,
             constraint: fld.constraint.clone(),
+            hidden: fld.hidden,
             idx: fld.idx,
         });
     });
 
     columns.sort_by_key(|fld| fld.idx);
-    columns
-        .iter()
-        .for_each(|fld| reporter.set_field(&fld.title));
-    columns
-}
-
-/*
-#[named]
-pub fn do_report(
-    cfg: &ReportCfg,
-    reader: &mut dyn FieldReader,
-    output_dir: &str,
-    output_format: &OutputFormat,
-) {
-
-    let columns = get_used_columns(&cfg, reader, &reporter);
-    let constrained_columns = get_constrained_cols(&columns);
-    info!("constrained_columns: {constrained_columns:?}");
-
-    let found_1_value = get_first_not_empty_cols(reader, &constrained_columns);
-    let auto_filled = get_autofilled_cols(constrained_columns, found_1_value);
-
-    assert!(reader.init());
-
-    while reader.next() {
-        reporter.new_record();
-
-        for col in &columns {
-            let col_id = &col.title;
-
-            //debug!("{col_id} constraint {:?}", col.constraint);
-            if let Some(constraint) = &col.constraint {
-                if !KNOWN_CONSTRS
-                    .into_iter()
-                    .any(|constr| constraint.contains(constr))
-                {
-                    if let Some(value) = reader.get_str(col_id) {
-                        let expr = constraint.replace("{Value}", &value);
-
-                        match evalexpr::eval_boolean(&expr) {
-                            Ok(ok) => {
-                                if !ok {
-                                    debug!("skip {col_id}='{value}' due constraint '{expr}'");
-                                    reporter.str_val(col.title.as_str(), "".to_string());
-                                    continue;
-                                }
-                            }
-                            Err(e) => panic!("Eval constraint failed: {e}"),
-                        };
-                    }
-                }
-            }
-
-            match col.kind {
-                ColumnType::String => {
-                    let s = if let Some(str) = reader.get_str(col_id) {
-                        str
-                    } else {
-                        if auto_filled.contains_key(col_id) {
-                            auto_filled[col_id].clone()
-                        } else {
-                            "".to_string()
-                        }
-                    };
-                    reporter.str_val(col.title.as_str(), s);
-                }
-                ColumnType::Integer => {
-                    if let Some(v) = reader.get_int(col_id) {
-                        reporter.int_val(col.title.as_str(), v as u64);
-                    } else {
-                        reporter.str_val(col.title.as_str(), "".to_string());
-                    }
-                }
-                ColumnType::DateTime => {
-                    if let Some(dt) = reader.get_datetime(col_id) {
-                        reporter.str_val(col.title.as_str(), utils::format_date_time(dt));
-                    } else {
-                        reporter.str_val(col.title.as_str(), "".to_string());
-                    }
-                }
-                ColumnType::GUID => {
-                    if let Some(guid) = reader.get_guid(col_id) {
-                        reporter.str_val(col.title.as_str(), guid);
-                    } else {
-                        reporter.str_val(col.title.as_str(), "".to_string());
-                    }
-                }
-            }
+    columns.iter().for_each(|fld| {
+        if !fld.hidden {
+            reporter.set_field(&fld.title)
         }
-    }
-
-    reporter.footer();
+    });
+    columns
 }
-*/
