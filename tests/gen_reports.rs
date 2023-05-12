@@ -5,13 +5,13 @@ use std::{
 };
 
 use ::function_name::named;
-use std::path::Path as StdPath;
 use camino::Utf8PathBuf as PathBuf;
+use csv::Reader;
 use env_logger::{self, Target};
 use log::info;
+use std::path::Path as StdPath;
 use tempdir::TempDir;
 use walkdir::{DirEntry, Error, WalkDir};
-use csv::Reader;
 
 macro_rules! function_path {
     () => {
@@ -106,7 +106,7 @@ fn do_compare_csv(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std
         let ext_cfg = PathBuf::from_iter([ext_cfg_path, ext_cfg.as_str()].iter());
         let mut ext_cfg_reader = Reader::from_path(ext_cfg)?;
 
-        if ! itertools::equal(sidr_reader.headers()?, ext_cfg_reader.headers()?) {
+        if !itertools::equal(sidr_reader.headers()?, ext_cfg_reader.headers()?) {
             let mut i = 0;
             for (s, e) in sidr_reader.headers()?.iter().zip(ext_cfg_reader.headers()?) {
                 i += 1;
@@ -128,7 +128,7 @@ fn do_compare_csv(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std
                     let ext_rec = ext_rec?;
                     let ext_fld = ext_rec.iter();
                     assert!(itertools::equal(sid_fld, ext_fld));
-                },
+                }
                 (None, None) => break,
                 (_, _) => panic!("mismach lengths"),
             }
@@ -186,4 +186,6 @@ fn compare_generated_reports() {
         ext_cfg_dir.as_str(),
         &vec!["--cfg-path", &cfg_path],
     );
+
+    do_compare(sidr_dir.as_str(), ext_cfg_dir.as_str()).expect("compare failed");
 }
