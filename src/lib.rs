@@ -71,20 +71,22 @@ pub struct ConstrainedField {
     name: String,
     constraint: Option<String>,
     hidden: bool,
+    optional: bool,
     idx: usize,
 }
 
 impl ConstrainedField {
     fn new(name: &str, constraints: &Option<Vec<String>>, idx: usize) -> Self {
         let mut hidden = false;
+        let mut optional = false;
         let mut constraint = None;
 
         if let Some(constraints) = constraints {
             for s in constraints {
-                if s == CONSTR_HIDDEN {
-                    hidden = true
-                } else {
-                    constraint = Some(s.clone())
+                match s.as_str() {
+                    CONSTR_HIDDEN => hidden = true,
+                    CONSTR_OPTIONAL => optional = true,
+                    _ => constraint = Some(s.clone()),
                 }
             }
         }
@@ -93,6 +95,7 @@ impl ConstrainedField {
             name: name.to_string(),
             constraint,
             hidden,
+            optional,
             idx,
         }
     }
@@ -534,6 +537,7 @@ struct ReportColumn {
     kind: ColumnType,
     constraint: Option<String>,
     hidden: bool,
+    optional: bool,
     idx: usize,
 }
 
@@ -646,8 +650,11 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
                             Err(e) => error!("Eval constraint '{expr}' failed: {e}"),
                         };
                     } else {
-                        debug!("skip None '{col_id}' with constraint");
-                        continue 'report;
+                        let col = report.columns.iter().find(|c| c.title == *col_id).unwrap();
+                        if !col.optional{
+                            debug!("skip None '{col_id}' with constraint");
+                            continue 'report;
+                        }
                     }
                 }
             }
@@ -732,8 +739,9 @@ fn get_autofilled_cols(
 
 const CONSTR_AUTO_FILL: &str = "auto_fill";
 const CONSTR_HIDDEN: &str = "hidden";
+const CONSTR_OPTIONAL: &str = "optional";
 const CONSTR_REGEX: &str = "regex_matches";
-const KNOWN_CONSTRS: [&str; 3] = [CONSTR_AUTO_FILL, CONSTR_HIDDEN, CONSTR_REGEX];
+const KNOWN_CONSTRS: [&str; 4] = [CONSTR_AUTO_FILL, CONSTR_HIDDEN, CONSTR_REGEX, CONSTR_OPTIONAL];
 const VALIDATED_CONSTRS: [&str; 1] = [CONSTR_REGEX];
 
 fn get_constrained_cols(columns: &Vec<ReportColumn>) -> HashMap<String, String> {
@@ -776,6 +784,7 @@ fn get_used_columns(
             kind,
             constraint: fld.constraint.clone(),
             hidden: fld.hidden,
+            optional: fld.optional,
             idx: fld.idx,
         });
     });

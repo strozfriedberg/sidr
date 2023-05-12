@@ -214,7 +214,7 @@ reports:
         kind: String
         edb:
           name: "4450-System_ItemType"
-          constraint: ['!str::regex_matches("{Value}", "^ActivityHistoryItem$")']
+          constraint: ['!str::regex_matches("{Value}", "^ActivityHistoryItem$")',optional]
         sql:
           name: 567
-          constraint: ['!str::regex_matches("{Value}", "^ActivityHistoryItem$")']
+          constraint: ['!str::regex_matches("{Value}", "^ActivityHistoryItem$")',optional]
