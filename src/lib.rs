@@ -367,7 +367,7 @@ impl SqlReader<'_> {
                     .insert(col_name.to_string(), value.clone());
             }
         } else {
-            debug!("store_value: skip code '{code}'");
+            //debug!("store_value: skip code '{code}'");
         }
     }
 
@@ -401,7 +401,6 @@ impl<'a> FieldReader for SqlReader<'a> {
                 }),
         );
 
-        println!("code_col_dict.keys(): {:?}", code_col_dict.keys());
         let mut used_cols = Vec::<ConstrainedField>::with_capacity(code_col_dict.iter().count());
         for (_, values) in code_col_dict.iter_all() {
             for field in values {
@@ -409,11 +408,9 @@ impl<'a> FieldReader for SqlReader<'a> {
             }
         }
 
-        println!("used_cols: {used_cols:?}");
         code_col_dict
-            .iter()
+            .flat_iter()
             .for_each(|(k, v)| self.code_col_dict.insert(k.clone(), v.clone()));
-        println!("self.code_col_dict.keys(): {:?}", self.code_col_dict.keys());
 
         used_cols
     }
@@ -666,11 +663,21 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
 
                 match col.kind {
                     ColumnType::String => {
-                        let s = if let Some(str) = reader.get_str(col_id) {
-                            str
+                        // let s = if let Some(str) = reader.get_str(col_id) {
+                        //     str
+                        // } else {
+                        //     if report.auto_filled.contains_key(col_id) {
+                        //         report.auto_filled[col_id].clone()
+                        //     } else {
+                        //         "".to_string()
+                        //     }
+                        // };
+
+                        let s = if report.auto_filled.contains_key(col_id) {
+                            report.auto_filled[col_id].clone()
                         } else {
-                            if report.auto_filled.contains_key(col_id) {
-                                report.auto_filled[col_id].clone()
+                            if let Some(str) = reader.get_str(col_id) {
+                                str
                             } else {
                                 "".to_string()
                             }
