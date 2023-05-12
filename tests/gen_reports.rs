@@ -1,3 +1,4 @@
+#![feature(let_chains)]
 #[cfg(test)]
 use std::{
     env, fs,
@@ -6,7 +7,7 @@ use std::{
 
 use ::function_name::named;
 use camino::Utf8PathBuf as PathBuf;
-use csv::Reader;
+use csv::{Reader, StringRecordIter};
 use env_logger::{self, Target};
 use log::info;
 use std::path::Path as StdPath;
@@ -92,6 +93,19 @@ fn do_generate(reporter_bin: &str, db_path: &str, rep_dir: &str, specific_args: 
     generate_reports(&reporter_bin, &db_path, &common_args);
 }
 
+fn compare_iters(sidr_iter: &mut StringRecordIter, ext_iter: &mut StringRecordIter, msg: &str) {
+    if !itertools::equal(sidr_iter.clone(), ext_iter.clone()) {
+        let mut i = 0;
+        for (s, e) in sidr_iter.zip(ext_iter) {
+            i += 1;
+            if s != e {
+                println!("{i}. '{s}' != '{e}'")
+            }
+        }
+        panic!("{}", msg);
+    }
+}
+
 fn do_compare_csv(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let dir_sidr = get_dir(sidr_path, ".csv");
     let dir_ext_cfg = get_dir(ext_cfg_path, ".csv");
@@ -101,37 +115,27 @@ fn do_compare_csv(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std
     for (sidr, ext_cfg) in dir_sidr.iter().zip(dir_ext_cfg.iter()) {
         println!("{sidr} <-> {ext_cfg}");
 
-        let sidr = PathBuf::from_iter([sidr_path, sidr.as_str()].iter());
+        let sidr = PathBuf::from_iter([sidr_path.clone(), sidr.as_str()].iter());
         let mut sidr_reader = Reader::from_path(sidr)?;
-        let ext_cfg = PathBuf::from_iter([ext_cfg_path, ext_cfg.as_str()].iter());
+        let ext_cfg = PathBuf::from_iter([ext_cfg_path.clone(), ext_cfg.as_str()].iter());
         let mut ext_cfg_reader = Reader::from_path(ext_cfg)?;
+        let mut sidr_iter = sidr_reader.headers()?.iter();
+        let mut ext_iter = ext_cfg_reader.headers()?.iter();
 
-        if !itertools::equal(sidr_reader.headers()?, ext_cfg_reader.headers()?) {
-            let mut i = 0;
-            for (s, e) in sidr_reader.headers()?.iter().zip(ext_cfg_reader.headers()?) {
-                i += 1;
-                if s != e {
-                    println!("{i}. '{s}' != '{e}'")
-                }
-            }
-            panic!("headers are not equal");
-        }
+        compare_iters(&mut sidr_iter, &mut ext_iter, "headers are not equal");
 
         let mut sidr_reader = sidr_reader.into_records();
         let mut ext_cfg_reader = ext_cfg_reader.into_records();
+        let mut rec_no = 0;
 
-        loop {
-            match (sidr_reader.next(), ext_cfg_reader.next()) {
-                (Some(sid_rec), Some(ext_rec)) => {
-                    let sid_rec = sid_rec?;
-                    let sid_fld = sid_rec.iter();
-                    let ext_rec = ext_rec?;
-                    let ext_fld = ext_rec.iter();
-                    assert!(itertools::equal(sid_fld, ext_fld));
-                }
-                (None, None) => break,
-                (_, _) => panic!("mismach lengths"),
-            }
+        while let Some(sid_rec) = sidr_reader.next() && let Some(ext_rec) = ext_cfg_reader.next() {
+            let sid_rec = sid_rec?;
+            let mut sid_fld = sid_rec.iter();
+            let ext_rec = ext_rec?;
+            let mut ext_fld = ext_rec.iter();
+
+            rec_no += 1;
+            compare_iters(&mut sid_fld, &mut ext_fld, &format!("data differs at {rec_no}"));
         }
     }
 
