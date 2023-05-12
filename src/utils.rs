@@ -65,6 +65,7 @@ pub fn from_utf16(val: &[u8]) -> String {
 }
 
 bitflags! {
+    #[derive(Debug)]
     struct file_attributes_flag: u32 {
         const FILE_ATTRIBUTE_READONLY              = 0x00000001;
         const FILE_ATTRIBUTE_HIDDEN                = 0x00000002;
@@ -100,7 +101,7 @@ pub fn file_attributes_to_string(bytes: &Vec<u8>) -> String {
     } else {
         return format!("{:?}", bytes);
     };
-    let f = unsafe { file_attributes_flag::from_bits_unchecked(at) };
+    let f = file_attributes_flag::from_bits_retain(at);
     format!("{:?}", f)
 }
 
