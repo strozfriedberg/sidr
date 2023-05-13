@@ -24,8 +24,10 @@ reports:
         kind: String
         edb:
           name: "4442-System_ItemName"
+          constraint: ['str::regex_matches("{Value}", "^(http://|https://)")']
         sql:
           name: 318
+          constraint: ['str::regex_matches("{Value}", "^(http://|https://)")']
       - title: System_ItemUrl
         kind: String
         edb:
@@ -218,3 +220,11 @@ reports:
         sql:
           name: 567
           constraint: ['!str::regex_matches("{Value}", "^ActivityHistoryItem$")',optional]
+      - title: System_ItemName
+        kind: String
+        edb:
+          name: "4442-System_ItemName"
+          constraint: ['!str::regex_matches("{Value}", "^(http://|https://)")',optional,hidden]
+        sql:
+          name: 318
+          constraint: ['!str::regex_matches("{Value}", "^(http://|https://)")',optional,hidden]
