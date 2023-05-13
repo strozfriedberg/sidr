@@ -49,6 +49,7 @@ pub enum OutputFormat {
 pub struct ReportCfg {
     pub title: String,
     pub output_filename: String,
+    pub constraint: Option<String>,
     pub columns: Vec<ColumnPair>,
 }
 
@@ -528,6 +529,7 @@ impl<'a> FieldReader for SqlReader<'a> {
 
 //--------------------------------------------------------------------
 use crate::report::{ReportFormat, ReportProducer};
+use evalexpr::{Context, ContextWithMutableVariables, IterateVariablesContext, Value};
 use report::Report;
 use std::path::Path;
 
@@ -545,8 +547,10 @@ struct ReportColumn {
 pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     //println!("FileReport: {}", cfg.title);
     struct ReportDef {
+        title: String,
         reporter: Box<dyn Report>,
         columns: Vec<ReportColumn>,
+        constrain: Option<evalexpr::Node>,
         constrained_columns: HashMap<String, String>,
         auto_filled: HashMap<String, String>,
     }
@@ -616,13 +620,53 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
             columns,
             constrained_columns,
             auto_filled,
+            title: report.title.clone(),
+            constrain: if let Some(ref expr) = report.constraint {
+                match evalexpr::build_operator_tree(expr) {
+                    Ok(node) => Some(node),
+                    Err(e) => panic!("failed parsing of '{}': {e}", expr),
+                }
+            } else {
+                None
+            },
         });
     }
 
+    let mut context = evalexpr::HashMapContext::new();
     assert!(reader.init());
 
     while reader.next() {
+        reports.iter().for_each(|r| {
+            debug!("flag {} -> false", r.title);
+            context
+                .set_value(r.title.clone().into(), evalexpr::Value::Boolean(false))
+                .unwrap()
+        });
+
         'report: for report in &reports {
+            if let Some(ref constr) = report.constrain {
+                match constr.eval_with_context_mut(&mut context) {
+                    Ok(ok) => {
+                        if let Value::Boolean(ok) = ok {
+                            if !ok {
+                                debug!(
+                                    "skip report '{}' due constraint '{}'",
+                                    report.title, constr
+                                );
+                                context.iter_variable_names().for_each(|nm| {
+                                    debug!("  {}: {:?}", nm, context.get_value(&nm))
+                                });
+                                continue 'report;
+                            };
+                        }
+                    }
+                    Err(e) => panic!(
+                        "failed evaluation of '{}' for report {}: {e}",
+                        constr, report.title
+                    ),
+                }
+            }
+
             for (col_id, constraint) in &report.constrained_columns {
                 if VALIDATED_CONSTRS
                     .into_iter()
@@ -632,7 +676,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
 
                     if let Some(value) = reader.get_str(col_id) {
                         if value.is_empty() {
-                            debug!("skip empty '{col_id}' with constraint");
+                            debug!("skip empty '{col_id}' with constraint in {}", report.title);
                             continue 'report;
                         }
 
@@ -643,7 +687,10 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
                         match evalexpr::eval_boolean(&expr) {
                             Ok(ok) => {
                                 if !ok {
-                                    debug!("skip {col_id}='{value}' due constraint '{expr}'");
+                                    debug!(
+                                        "skip {col_id}='{value}' due constraint '{expr}' in {}",
+                                        report.title
+                                    );
                                     continue 'report;
                                 }
                             }
@@ -651,8 +698,8 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
                         };
                     } else {
                         let col = report.columns.iter().find(|c| c.title == *col_id).unwrap();
-                        if !col.optional{
-                            debug!("skip None '{col_id}' with constraint");
+                        if !col.optional {
+                            debug!("skip None '{col_id}' with constraint in {}", report.title);
                             continue 'report;
                         }
                     }
@@ -660,6 +707,10 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
             }
 
             report.reporter.new_record();
+            debug!("flag {} -> true", report.title);
+            context
+                .set_value(report.title.clone().into(), evalexpr::Value::Boolean(true))
+                .unwrap();
 
             for col in &report.columns {
                 if col.hidden {
@@ -741,7 +792,12 @@ const CONSTR_AUTO_FILL: &str = "auto_fill";
 const CONSTR_HIDDEN: &str = "hidden";
 const CONSTR_OPTIONAL: &str = "optional";
 const CONSTR_REGEX: &str = "regex_matches";
-const KNOWN_CONSTRS: [&str; 4] = [CONSTR_AUTO_FILL, CONSTR_HIDDEN, CONSTR_REGEX, CONSTR_OPTIONAL];
+const KNOWN_CONSTRS: [&str; 4] = [
+    CONSTR_AUTO_FILL,
+    CONSTR_HIDDEN,
+    CONSTR_REGEX,
+    CONSTR_OPTIONAL,
+];
 const VALIDATED_CONSTRS: [&str; 1] = [CONSTR_REGEX];
 
 fn get_constrained_cols(columns: &Vec<ReportColumn>) -> HashMap<String, String> {
@@ -792,7 +848,8 @@ fn get_used_columns(
     columns.sort_by_key(|fld| fld.idx);
     columns.iter().for_each(|fld| {
         if !fld.hidden {
-            reporter.set_field(&fld.title)
+            reporter.set_field(&fld.title);
+            debug!("set header '{}' for '{}' ", fld.title, cfg.title);
         }
     });
     columns
