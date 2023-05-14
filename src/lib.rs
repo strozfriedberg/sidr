@@ -148,6 +148,7 @@ pub struct EseReader {
     table: u64,
     tablename: String,
     col_infos: HashMap<String, (u32, u32)>,
+    rec_no: u64,
 }
 
 fn get_column<T: FromBytes + num::NumCast>(
@@ -177,6 +178,7 @@ impl EseReader {
             tablename: tablename.to_string(),
             filename: filename.to_string(),
             col_infos: HashMap::<String, (u32, u32)>::new(),
+            rec_no: 0,
         }
     }
 }
@@ -221,13 +223,20 @@ impl FieldReader for EseReader {
     #[named]
     fn init(&mut self) -> bool {
         trace!("{}", function_path!());
+        self.rec_no = 0;
         self.jdb.move_row(self.table, ESE_MoveFirst).unwrap()
     }
 
     //#[named]
     fn next(&mut self) -> bool {
         //trace!("{}", function_path!());
-        self.jdb.move_row(self.table, ESE_MoveNext).unwrap()
+        let ok = if self.rec_no > 0 {
+            self.jdb.move_row(self.table, ESE_MoveNext).unwrap()
+        } else {
+            true
+        };
+        self.rec_no += 1;
+        ok
     }
 
     fn get_datetime(&mut self, id: &FldId) -> Option<DateTime<Utc>> {
@@ -293,8 +302,11 @@ impl FieldReader for EseReader {
         }
     }
 
-    fn get_guid(&mut self, _id: &FldId) -> Option<String> {
-        todo!()
+    fn get_guid(&mut self, id: &FldId) -> Option<String> {
+        if let Some(s) = self.get_str(id) {
+            return Some(find_guid(s.as_str(), (id.to_owned() + "=").as_str()));
+        }
+        None
     }
 }
 
@@ -848,8 +860,8 @@ fn get_used_columns(
     columns.sort_by_key(|fld| fld.idx);
     columns.iter().for_each(|fld| {
         if !fld.hidden {
-            reporter.set_field(&fld.title);
             debug!("set header '{}' for '{}' ", fld.title, cfg.title);
+            reporter.set_field(&fld.title);
         }
     });
     columns
