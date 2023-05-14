@@ -142,13 +142,13 @@ reports:
       - title: VolumeId
         kind: GUID
         edb:
-          name: ""
+          name: "4112-System_Activity_ContentUri"
         sql:
           name: 311
       - title: ObjectId
         kind: GUID
         edb:
-          name: ""
+          name: "4112-System_Activity_ContentUri"
         sql:
           name: 311
       - title: System_Activity_ContentUri
