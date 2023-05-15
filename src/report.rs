@@ -260,7 +260,7 @@ impl Drop for ReportCsv {
 pub fn test_report_csv() {
     let p = Path::new("test.csv");
     {
-        let r = ReportCsv::new(&p).unwrap();
+        let r = ReportCsv::new(p).unwrap();
         r.set_field("int_field");
         r.set_field("str_field");
         r.int_val("int_field", 0);
@@ -274,7 +274,7 @@ pub fn test_report_csv() {
             }
         }
     }
-    let data = std::fs::read_to_string(&p).unwrap();
+    let data = std::fs::read_to_string(p).unwrap();
     let expected = r#"int_field,str_field
 0,"string0"
 1,
@@ -287,14 +287,14 @@ pub fn test_report_csv() {
 ,"string8"
 9,"#;
     assert_eq!(data, expected);
-    std::fs::remove_file(&p).unwrap();
+    std::fs::remove_file(p).unwrap();
 }
 
 #[test]
 pub fn test_report_jsonl() {
     let p = Path::new("test.json");
     {
-        let r = ReportJson::new(&p).unwrap();
+        let r = ReportJson::new(p).unwrap();
         r.int_val("int_field", 0);
         r.str_val("str_field", "string0_with_escapes_here1\"here2\\".into());
         for i in 1..10 {
@@ -306,7 +306,7 @@ pub fn test_report_jsonl() {
             }
         }
     }
-    let data = std::fs::read_to_string(&p).unwrap();
+    let data = std::fs::read_to_string(p).unwrap();
     let expected = r#"{"int_field":0,"str_field":"string0_with_escapes_here1\"here2\\"}
 {"int_field":1}
 {"str_field":"string2"}
@@ -318,5 +318,5 @@ pub fn test_report_jsonl() {
 {"str_field":"string8"}
 {"int_field":9}"#;
     assert_eq!(data, expected);
-    std::fs::remove_file(&p).unwrap();
+    std::fs::remove_file(p).unwrap();
 }

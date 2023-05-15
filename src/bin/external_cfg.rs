@@ -1,6 +1,6 @@
 use clap::Parser;
 use env_logger::{self, Target};
-use serde_yaml;
+
 use std::path::PathBuf;
 use walkdir::WalkDir;
 use wsa_lib::report::ReportFormat;
@@ -47,7 +47,7 @@ fn main() {
     let s = std::fs::read_to_string(&cli.cfg_path).unwrap();
     let mut cfg: ReportsCfg = match serde_yaml::from_str(s.as_str()) {
         Ok(cfg) => cfg,
-        Err(e) => panic!("Bad config '{}': {e}", cli.cfg_path),
+        Err(_e) => panic!("Bad config '{}': {_e}", cli.cfg_path),
     };
 
     if let Some(output_dir) = &cli.outdir {
@@ -59,21 +59,23 @@ fn main() {
         ReportFormat::Csv => wsa_lib::OutputFormat::Csv,
     };
 
-    static DB_NAMES: [&'static str; 2] = ["Windows.edb", "Windows.db"];
+    static DB_NAMES: [&str; 2] = ["Windows.edb", "Windows.db"];
 
-    for entry in WalkDir::new(&cli.input).into_iter().filter_entry(|e| {
-        e.file_type().is_dir() || DB_NAMES.contains(&e.file_name().to_str().unwrap())
-    }) {
-        if let Ok(ref e) = entry {
-            if !e.file_type().is_dir() {
-                let db_path = e.path().to_str().unwrap().to_string();
+    for entry in WalkDir::new(&cli.input)
+        .into_iter()
+        .filter_entry(|e| {
+            e.file_type().is_dir() || DB_NAMES.contains(&e.file_name().to_str().unwrap())
+        })
+        .flatten()
+    {
+        if !entry.file_type().is_dir() {
+            let db_path = entry.path().to_str().unwrap().to_string();
 
-                println!("{db_path}");
-                if db_path.ends_with(".edb") {
-                    do_edb_report(&db_path, &cfg);
-                } else if db_path.ends_with(".db") {
-                    do_sql_report(&db_path, &cfg);
-                }
+            println!("{db_path}");
+            if db_path.ends_with(".edb") {
+                do_edb_report(&db_path, &cfg);
+            } else if db_path.ends_with(".db") {
+                do_sql_report(&db_path, &cfg);
             }
         }
     }

@@ -5,7 +5,7 @@ pub mod report;
 pub mod utils;
 
 use ::function_name::named;
-use evalexpr;
+
 use log::{debug, error, info, trace};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str, string::String};
@@ -103,7 +103,7 @@ impl ConstrainedField {
 }
 
 pub trait FieldReader {
-    fn get_used_columns(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField>;
+    fn get_used_columns(&mut self, columns: &[ColumnPair]) -> Vec<ConstrainedField>;
     fn init(&mut self) -> bool;
     fn next(&mut self) -> bool;
     fn get_int(&mut self, id: &FldId) -> Option<i64>;
@@ -115,7 +115,7 @@ pub trait FieldReader {
 //--------------------------------------------------------------------
 use ese_parser_lib::vartime::{get_date_time_from_filetime, VariantTimeToSystemTime, SYSTEMTIME};
 use ese_parser_lib::{ese_parser::EseParser, ese_trait::*};
-use num;
+
 use std::{fs::File, io::BufReader};
 use utils::{find_guid, from_utf16};
 
@@ -161,7 +161,7 @@ fn get_column<T: FromBytes + num::NumCast>(
             Some(v) => num::cast::<_, i64>(T::from_bytes(&v)),
             None => None,
         },
-        Err(e) => panic!("Error: {e}"),
+        Err(_e) => panic!("Error: {_e}"),
     }
 }
 
@@ -185,7 +185,7 @@ impl EseReader {
 
 impl FieldReader for EseReader {
     #[named]
-    fn get_used_columns(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField> {
+    fn get_used_columns(&mut self, columns: &[ColumnPair]) -> Vec<ConstrainedField> {
         trace!("{}", function_path!());
         let mut used_cols = Vec::<ConstrainedField>::with_capacity(columns.len());
         let tablename = &self.tablename;
@@ -294,11 +294,8 @@ impl FieldReader for EseReader {
             return None;
         }
         match self.jdb.get_column(self.table, self.col_infos[id].0) {
-            Ok(r) => match r {
-                Some(v) => Some(from_utf16(v.as_slice())),
-                None => None,
-            },
-            Err(e) => panic!("{id} - error: {e}"),
+            Ok(r) => r.map(|v| from_utf16(v.as_slice())),
+            Err(_e) => panic!("{id} - error: {_e}"),
         }
     }
 
@@ -397,12 +394,12 @@ impl SqlReader<'_> {
 
 impl<'a> FieldReader for SqlReader<'a> {
     #[named]
-    fn get_used_columns(&mut self, columns: &Vec<ColumnPair>) -> Vec<ConstrainedField> {
+    fn get_used_columns(&mut self, columns: &[ColumnPair]) -> Vec<ConstrainedField> {
         trace!("{}", function_path!());
 
         let code_col_dict: CodeColDict = CodeColDict::from_iter(
             columns
-                .into_iter()
+                .iter()
                 .enumerate()
                 .filter(|(_, pair)| {
                     let ok = !pair.sql.name.is_empty();
@@ -457,10 +454,8 @@ impl<'a> FieldReader for SqlReader<'a> {
                     .borrow_mut()
                     .insert("WorkId".to_string(), sqlite::Value::Integer(work_id));
                 self.last_work_id = wi as u64;
-            } else {
-                if wi != work_id {
-                    break;
-                }
+            } else if wi != work_id {
+                break;
             }
 
             let code = match self.read::<ColName, _>("ColumnId") {
@@ -555,6 +550,24 @@ struct ReportColumn {
     idx: usize,
 }
 
+impl<R: Report + ?Sized> Report for Box<R> {
+    fn new_record(&self) {
+        (**self).new_record()
+    }
+
+    fn str_val(&self, f: &str, s: String) {
+        (**self).str_val(f, s)
+    }
+
+    fn int_val(&self, f: &str, n: u64) {
+        (**self).int_val(f, n)
+    }
+
+    fn is_some_val_in_record(&self) -> bool {
+        (**self).is_some_val_in_record()
+    }
+}
+
 //#[named]
 pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     //println!("FileReport: {}", cfg.title);
@@ -586,11 +599,10 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
                 .columns
                 .iter()
                 .find(|col| col.title == *output_filename_title)
-                .expect(&format!(
-                    "No column for output_filename '{}'",
-                    output_filename_title
-                ));
-            let _columns = reader.get_used_columns(&vec![(*col_for_filename).clone()]);
+                .unwrap_or_else(|| {
+                    panic!("No column for output_filename '{}'", output_filename_title)
+                });
+            let _columns = reader.get_used_columns(&[(*col_for_filename).clone()]);
 
             assert!(reader.init());
 
@@ -611,10 +623,10 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
         }
 
         let (_out_path, reporter) = rep_factory
-            .new_report(&Path::new(""), &output_filename, &report.title)
+            .new_report(Path::new(""), &output_filename, &report.title)
             .unwrap();
 
-        let columns = get_used_columns(&report, reader, &reporter);
+        let columns = get_used_columns(report, reader, &reporter);
         info!("{} columns: {columns:?}", report.title);
 
         let constrained_columns = get_constrained_cols(&columns);
@@ -651,7 +663,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
         reports.iter().for_each(|r| {
             debug!("flag {} -> false", r.title);
             context
-                .set_value(r.title.clone().into(), evalexpr::Value::Boolean(false))
+                .set_value(r.title.clone(), Value::Boolean(false))
                 .unwrap()
         });
 
@@ -721,7 +733,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
             report.reporter.new_record();
             debug!("flag {} -> true", report.title);
             context
-                .set_value(report.title.clone().into(), evalexpr::Value::Boolean(true))
+                .set_value(report.title.clone(), Value::Boolean(true))
                 .unwrap();
 
             for col in &report.columns {
@@ -745,12 +757,10 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
 
                         let s = if report.auto_filled.contains_key(col_id) {
                             report.auto_filled[col_id].clone()
+                        } else if let Some(str) = reader.get_str(col_id) {
+                            str
                         } else {
-                            if let Some(str) = reader.get_str(col_id) {
-                                str
-                            } else {
-                                "".to_string()
-                            }
+                            "".to_string()
                         };
                         report.reporter.str_val(col.title.as_str(), s);
                     }
@@ -812,7 +822,7 @@ const KNOWN_CONSTRS: [&str; 4] = [
 ];
 const VALIDATED_CONSTRS: [&str; 1] = [CONSTR_REGEX];
 
-fn get_constrained_cols(columns: &Vec<ReportColumn>) -> HashMap<String, String> {
+fn get_constrained_cols(columns: &[ReportColumn]) -> HashMap<String, String> {
     let constrained_columns: HashMap<String, String> = columns
         .iter()
         .filter_map(|fld| {
@@ -837,7 +847,7 @@ fn get_constrained_cols(columns: &Vec<ReportColumn>) -> HashMap<String, String> 
 fn get_used_columns(
     cfg: &ReportCfg,
     reader: &mut dyn FieldReader,
-    reporter: &Box<dyn Report>,
+    reporter: &dyn Report,
 ) -> Vec<ReportColumn> {
     let used_cols = reader.get_used_columns(&cfg.columns);
 
