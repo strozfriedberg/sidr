@@ -39,17 +39,13 @@ fn get_dir<P: AsRef<StdPath>>(path: P, ext: &str) -> Vec<PathBuf> {
 }
 
 fn get_env(var: &str) -> String {
-    env::var(var).expect(format!("Error getting environment variable '{var}'").as_str())
+    env::var(var).unwrap_or_else(|_| panic!("Error getting environment variable '{var}'"))
 }
 
 #[named]
 fn do_invoke(cmd: &mut Command) {
     info!("{}", function_path!());
-    let args: Vec<&str> = cmd
-        .get_args()
-        .into_iter()
-        .map(|a| a.to_str().unwrap())
-        .collect();
+    let args: Vec<&str> = cmd.get_args().map(|a| a.to_str().unwrap()).collect();
     info!(
         "cmd '{} {}'",
         cmd.get_program().to_str().unwrap(),
@@ -62,7 +58,7 @@ fn do_invoke(cmd: &mut Command) {
     let mut child = cmd
         .stderr(Stdio::inherit())
         .spawn()
-        .expect(format!("'{cmd:?}' command failed to start").as_str());
+        .unwrap_or_else(|_| panic!("'{cmd:?}' command failed to start"));
 
     if !child.wait().unwrap().success() {
         if let Some(stderr) = child.stderr {
@@ -75,13 +71,13 @@ fn do_invoke(cmd: &mut Command) {
 #[named]
 fn generate_reports(reporter_bin: &str, db_path: &str, common_args: &Vec<&str>) {
     info!("{}", function_path!());
-    let mut cmd = Command::new(&reporter_bin);
-    let cmd = cmd.args(&*common_args).args(["csv", db_path]);
+    let mut cmd = Command::new(reporter_bin);
+    let cmd = cmd.args(common_args).args(["csv", db_path]);
 
     do_invoke(cmd);
 
-    let mut cmd = Command::new(&reporter_bin);
-    let cmd = cmd.args(&*common_args).args(["json", db_path]);
+    let mut cmd = Command::new(reporter_bin);
+    let cmd = cmd.args(common_args).args(["json", db_path]);
 
     do_invoke(cmd);
 }
@@ -90,7 +86,7 @@ fn do_generate(reporter_bin: &str, db_path: &str, rep_dir: &str, specific_args: 
     let mut common_args = vec!["--outdir", rep_dir];
     common_args.extend(specific_args);
     common_args.push("--format");
-    generate_reports(&reporter_bin, &db_path, &common_args);
+    generate_reports(reporter_bin, db_path, &common_args);
 }
 
 fn compare_iters(sidr_iter: &mut StringRecordIter, ext_iter: &mut StringRecordIter, msg: &str) {
@@ -153,9 +149,13 @@ fn compare_generated_reports() {
 
     info!("{}", function_path!());
 
-    let bin_dir: PathBuf = ["target", "debug"].iter().collect();
-    let sidr_bin = bin_dir.join("sidr");
-    let ext_cfg_bin = bin_dir.join("external_cfg");
+    let bin_root = PathBuf::from("target");
+    let sidr_bin = bin_root.join("release").join("sidr");
+    #[cfg(not(debug_assertions))]
+    let mut ext_cfg_bin = bin_root.join("release");
+    #[cfg(debug_assertions)]
+    let mut ext_cfg_bin = bin_root.join("debug");
+    ext_cfg_bin = ext_cfg_bin.join("external_cfg");
     let db_path = get_env("WSA_TEST_DB_PATH");
     let cfg_path = get_env("WSA_TEST_CONFIGURATION_PATH");
     let work_dir_name = format!("{}_testing", ext_cfg_bin.file_name().unwrap());
@@ -175,8 +175,8 @@ fn compare_generated_reports() {
     info!("sidr_dir: {sidr_dir}");
     info!("ext_cfg_dir: {ext_cfg_dir}");
 
-    fs::create_dir(&sidr_dir).expect(&format!("could not create '{}'", sidr_dir));
-    fs::create_dir(&ext_cfg_dir).expect(&format!("could not create '{}'", ext_cfg_dir));
+    fs::create_dir(&sidr_dir).unwrap_or_else(|_| panic!("could not create '{}'", sidr_dir));
+    fs::create_dir(&ext_cfg_dir).unwrap_or_else(|_| panic!("could not create '{}'", ext_cfg_dir));
 
     do_generate(
         sidr_bin.as_str(),
