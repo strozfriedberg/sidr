@@ -1,10 +1,10 @@
 use clap::Parser;
-use std::path::PathBuf;
-use walkdir::WalkDir;
 use env_logger::{self, Target};
 use serde_yaml;
-use wsa_lib::{ReportsCfg, do_reports};
+use std::path::PathBuf;
+use walkdir::WalkDir;
 use wsa_lib::report::ReportFormat;
+use wsa_lib::{do_reports, ReportsCfg};
 
 #[derive(Parser)]
 struct Cli {
@@ -61,7 +61,9 @@ fn main() {
 
     static DB_NAMES: [&'static str; 2] = ["Windows.edb", "Windows.db"];
 
-    for entry in WalkDir::new(&cli.input).into_iter().filter_entry(|e| e.file_type().is_dir() || DB_NAMES.contains(&e.file_name().to_str().unwrap())) {
+    for entry in WalkDir::new(&cli.input).into_iter().filter_entry(|e| {
+        e.file_type().is_dir() || DB_NAMES.contains(&e.file_name().to_str().unwrap())
+    }) {
         if let Ok(ref e) = entry {
             if !e.file_type().is_dir() {
                 let db_path = e.path().to_str().unwrap().to_string();
@@ -75,5 +77,4 @@ fn main() {
             }
         }
     }
-
 }
