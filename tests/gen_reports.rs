@@ -1,4 +1,7 @@
 #![feature(let_chains)]
+use std::fs::File;
+use std::io;
+use std::io::{BufRead, BufReader};
 #[cfg(test)]
 use std::{
     env, fs,
@@ -40,6 +43,10 @@ fn get_dir<P: AsRef<StdPath>>(path: P, ext: &str) -> Vec<PathBuf> {
 
 fn get_env(var: &str) -> String {
     env::var(var).unwrap_or_else(|_| panic!("Error getting environment variable '{var}'"))
+}
+
+fn full_path(path: &str, file: &str) -> PathBuf {
+    PathBuf::from_iter([path, file].iter())
 }
 
 #[named]
@@ -89,32 +96,28 @@ fn do_generate(reporter_bin: &str, db_path: &str, rep_dir: &str, specific_args: 
     generate_reports(reporter_bin, db_path, &common_args);
 }
 
-fn compare_iters(sidr_iter: &mut StringRecordIter, ext_iter: &mut StringRecordIter, msg: &str) {
-    if !itertools::equal(sidr_iter.clone(), ext_iter.clone()) {
-        let mut i = 0;
-        for (s, e) in sidr_iter.zip(ext_iter) {
-            i += 1;
-            if s != e {
-                println!("{i}. '{s}' != '{e}'")
-            }
-        }
-        panic!("{}", msg);
-    }
-}
-
 fn do_compare_csv(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    fn compare_iters(sidr_iter: &mut StringRecordIter, ext_iter: &mut StringRecordIter, msg: &str) {
+        if !itertools::equal(sidr_iter.clone(), ext_iter.clone()) {
+            let mut i = 0;
+            for (s, e) in sidr_iter.zip(ext_iter) {
+                i += 1;
+                if s != e {
+                    println!("{i}. '{s}' != '{e}'")
+                }
+            }
+            panic!("{}", msg);
+        }
+    }
+
     let dir_sidr = get_dir(sidr_path, ".csv");
     let dir_ext_cfg = get_dir(ext_cfg_path, ".csv");
-    // let pairs: Vec<_> = dir_sidr.iter().zip(dir_ext_cfg.iter()).collect();
-    // println!("{pairs:?}");
 
-    for (sidr, ext_cfg) in dir_sidr.iter().zip(dir_ext_cfg.iter()) {
+    for (sidr, ext_cfg) in itertools::zip_eq(dir_sidr.iter(), dir_ext_cfg.iter()) {
         println!("{sidr} <-> {ext_cfg}");
 
-        let sidr = PathBuf::from_iter([sidr_path.clone(), sidr.as_str()].iter());
-        let mut sidr_reader = Reader::from_path(sidr)?;
-        let ext_cfg = PathBuf::from_iter([ext_cfg_path.clone(), ext_cfg.as_str()].iter());
-        let mut ext_cfg_reader = Reader::from_path(ext_cfg)?;
+        let mut sidr_reader = Reader::from_path(full_path(sidr_path, sidr.as_str()))?;
+        let mut ext_cfg_reader = Reader::from_path(full_path(ext_cfg_path, ext_cfg.as_str()))?;
         let mut sidr_iter = sidr_reader.headers()?.iter();
         let mut ext_iter = ext_cfg_reader.headers()?.iter();
 
@@ -138,8 +141,31 @@ fn do_compare_csv(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std
     Ok(())
 }
 
+fn do_compare_json(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    fn read_lines(filename: &str) -> io::Lines<BufReader<File>> {
+        let file = File::open(filename).unwrap();
+        BufReader::new(file).lines()
+    }
+
+    let dir_sidr = get_dir(sidr_path, ".json");
+    let dir_ext_cfg = get_dir(ext_cfg_path, ".json");
+    for (sidr, ext_cfg) in itertools::zip_eq(dir_sidr.iter(), dir_ext_cfg.iter()) {
+        println!("{sidr} <-> {ext_cfg}");
+        let sidr_lines = read_lines(full_path(sidr_path, sidr.as_str()).as_str());
+        let ext_lines = read_lines(full_path(ext_cfg_path, ext_cfg.as_str()).as_str());
+        itertools::zip_eq(sidr_lines, ext_lines).for_each(|(s_l, e_l)| {
+            let s_o = json::parse(&s_l.unwrap());
+            let e_o = json::parse(&e_l.unwrap());
+            assert!(itertools::equal(s_o.unwrap().entries(), e_o.unwrap().entries()))
+        });
+    }
+
+    Ok(())
+}
+
 fn do_compare(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    do_compare_csv(sidr_path, ext_cfg_path)
+    do_compare_csv(sidr_path, ext_cfg_path)?;
+    do_compare_json(sidr_path, ext_cfg_path)
 }
 
 #[test]
