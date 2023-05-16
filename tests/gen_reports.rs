@@ -14,6 +14,7 @@ use csv::{Reader, StringRecordIter};
 use env_logger::{self, Target};
 use log::info;
 use std::path::Path as StdPath;
+use simple_error::SimpleError;
 use tempdir::TempDir;
 use walkdir::{DirEntry, Error, WalkDir};
 
@@ -96,49 +97,8 @@ fn do_generate(reporter_bin: &str, db_path: &str, rep_dir: &str, specific_args: 
     generate_reports(reporter_bin, db_path, &common_args);
 }
 
-fn do_compare_csv(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    fn compare_iters(sidr_iter: &mut StringRecordIter, ext_iter: &mut StringRecordIter, msg: &str) {
-        if !itertools::equal(sidr_iter.clone(), ext_iter.clone()) {
-            let mut i = 0;
-            for (s, e) in sidr_iter.zip(ext_iter) {
-                i += 1;
-                if s != e {
-                    println!("{i}. '{s}' != '{e}'")
-                }
-            }
-            panic!("{}", msg);
-        }
-    }
-
-    let dir_sidr = get_dir(sidr_path, ".csv");
-    let dir_ext_cfg = get_dir(ext_cfg_path, ".csv");
-
-    for (sidr, ext_cfg) in itertools::zip_eq(dir_sidr.iter(), dir_ext_cfg.iter()) {
-        println!("{sidr} <-> {ext_cfg}");
-
-        let mut sidr_reader = Reader::from_path(full_path(sidr_path, sidr.as_str()))?;
-        let mut ext_cfg_reader = Reader::from_path(full_path(ext_cfg_path, ext_cfg.as_str()))?;
-        let mut sidr_iter = sidr_reader.headers()?.iter();
-        let mut ext_iter = ext_cfg_reader.headers()?.iter();
-
-        compare_iters(&mut sidr_iter, &mut ext_iter, "headers are not equal");
-
-        let mut sidr_reader = sidr_reader.into_records();
-        let mut ext_cfg_reader = ext_cfg_reader.into_records();
-        let mut rec_no = 0;
-
-        while let Some(sid_rec) = sidr_reader.next() && let Some(ext_rec) = ext_cfg_reader.next() {
-            let sid_rec = sid_rec?;
-            let mut sid_fld = sid_rec.iter();
-            let ext_rec = ext_rec?;
-            let mut ext_fld = ext_rec.iter();
-
-            rec_no += 1;
-            compare_iters(&mut sid_fld, &mut ext_fld, &format!("data differs at {rec_no}"));
-        }
-    }
-
-    Ok(())
+fn error(msg: &str) -> Box<dyn std::error::Error> {
+    Box::new(SimpleError::new(msg))
 }
 
 fn do_compare_json(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -151,21 +111,134 @@ fn do_compare_json(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn st
     let dir_ext_cfg = get_dir(ext_cfg_path, ".json");
     for (sidr, ext_cfg) in itertools::zip_eq(dir_sidr.iter(), dir_ext_cfg.iter()) {
         println!("{sidr} <-> {ext_cfg}");
+
+        let sidr_lines = read_lines(full_path(sidr_path, sidr.as_str()).as_str()).count();
+        let ext_lines = read_lines(full_path(ext_cfg_path, ext_cfg.as_str()).as_str()).count();
+
+        if sidr_lines != ext_lines {
+            return Err(error(&format!(
+                "{sidr} sidr_lines {} != ext_lines {} {ext_cfg}",
+                sidr_lines, ext_lines
+            )));
+        }
+
+        let mut errors = "".to_string();
         let sidr_lines = read_lines(full_path(sidr_path, sidr.as_str()).as_str());
         let ext_lines = read_lines(full_path(ext_cfg_path, ext_cfg.as_str()).as_str());
+
         itertools::zip_eq(sidr_lines, ext_lines).for_each(|(s_l, e_l)| {
-            let s_o = json::parse(&s_l.unwrap());
-            let e_o = json::parse(&e_l.unwrap());
-            assert!(itertools::equal(s_o.unwrap().entries(), e_o.unwrap().entries()))
+            let s_i = json::parse(s_l.unwrap().as_str());
+            let e_i = json::parse(e_l.unwrap().as_str());
+
+            s_i.unwrap().entries().for_each(|(s_k, s_v)| {
+                if let Some((e_k, e_v)) = e_i.as_ref().unwrap().entries().find(|(k, _)| *k == s_k) {
+                    if s_v != e_v {
+                        errors.push_str(&format!("{}={} not equal to {}={}\n", s_k, s_v, e_k, e_v));
+                    }
+                } else {
+                    errors.push_str(&format!("could not find {}\n", s_k));
+                }
+            });
         });
+
+        if !errors.is_empty() {
+            return Err(error(&format!("{sidr} <-> {ext_cfg}:\n {}", errors)));
+        }
     }
 
     Ok(())
 }
 
-fn do_compare(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    do_compare_csv(sidr_path, ext_cfg_path)?;
-    do_compare_json(sidr_path, ext_cfg_path)
+fn do_compare_csv(
+    sidr_path: &str,
+    ext_cfg_path: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let dir_sidr = get_dir(&sidr_path, ".csv");
+    let dir_ext_cfg = get_dir(&ext_cfg_path, ".csv");
+
+    for (sidr, ext_cfg) in dir_sidr.iter().zip(dir_ext_cfg.iter()) {
+        println!("{sidr} <-> {ext_cfg}");
+
+        let sidr = PathBuf::from_iter([sidr_path.clone(), sidr.as_str()].iter());
+        let mut sidr_reader = Reader::from_path(sidr)?;
+        let ext_cfg = PathBuf::from_iter([ext_cfg_path.clone(), ext_cfg.as_str()].iter());
+        let mut ext_cfg_reader = Reader::from_path(ext_cfg)?;
+        let mut sidr_iter = sidr_reader.headers()?.iter();
+        let mut ext_iter = ext_cfg_reader.headers()?.iter();
+
+        compare_iters(&mut sidr_iter, &mut ext_iter, "headers are not equal");
+
+        let mut sidr_reader = sidr_reader.into_records();
+        let mut ext_cfg_reader = ext_cfg_reader.into_records();
+        let mut rec_no = 0;
+
+        loop {
+            match (sidr_reader.next(), ext_cfg_reader.next()) {
+                (None, None) => break,
+                (Some(sid_rec), Some(ext_rec)) => {
+                    let sid_rec = sid_rec?;
+                    let mut sid_fld = sid_rec.iter();
+                    let ext_rec = ext_rec?;
+                    let mut ext_fld = ext_rec.iter();
+
+                    rec_no += 1;
+                    compare_iters(
+                        &mut sid_fld,
+                        &mut ext_fld,
+                        &format!("data differs at {rec_no}"),
+                    );
+                }
+                (Some(sid_rec), None) => {
+                    let mut errors = format!("sidr has more records:\n{:?}", sid_rec);
+                    return Err(error(&errors));
+                }
+                (None, Some(ext_rec)) => {
+                    let mut errors = format!("ext_cfg has more records:\n{:?}", ext_rec);
+                    return Err(error(&errors));
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn compare_iters(
+    sidr_iter: &mut StringRecordIter,
+    ext_iter: &mut StringRecordIter,
+    msg: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if !itertools::equal(sidr_iter.clone(), ext_iter.clone()) {
+        let mut errors = format!("{msg}:\n");
+        let mut i = 0;
+        for (s, e) in sidr_iter.zip(ext_iter) {
+            i += 1;
+            if s != e {
+                errors.push_str(&format!("{i}. '{s}' != '{e}'"));
+            }
+        }
+        return Err(error(&errors));
+    }
+
+    Ok(())
+}
+
+fn do_compare(sidr_path: &str, ext_cfg_path: &str) {
+    let mut errors = Vec::<Box<dyn std::error::Error>>::new();
+
+    if let Err(e) = do_compare_csv(sidr_path, ext_cfg_path) {
+        errors.push(e);
+    }
+    if let Err(e) = do_compare_json(sidr_path, ext_cfg_path) {
+        errors.push(e);
+    }
+
+    if !errors.is_empty() {
+        for e in errors {
+            println!("{e}");
+        }
+        panic!("failed");
+    }
 }
 
 #[test]
@@ -217,5 +290,5 @@ fn compare_generated_reports() {
         &vec!["--cfg-path", &cfg_path],
     );
 
-    do_compare(sidr_dir.as_str(), ext_cfg_dir.as_str()).expect("compare failed");
+    do_compare(sidr_dir.as_str(), ext_cfg_dir.as_str());
 }
