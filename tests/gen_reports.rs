@@ -13,8 +13,8 @@ use camino::Utf8PathBuf as PathBuf;
 use csv::{Reader, StringRecordIter};
 use env_logger::{self, Target};
 use log::info;
-use std::path::Path as StdPath;
 use simple_error::SimpleError;
+use std::path::Path as StdPath;
 use tempdir::TempDir;
 use walkdir::{DirEntry, Error, WalkDir};
 
@@ -97,8 +97,12 @@ fn do_generate(reporter_bin: &str, db_path: &str, rep_dir: &str, specific_args: 
     generate_reports(reporter_bin, db_path, &common_args);
 }
 
-fn error(msg: &str) -> Box<dyn std::error::Error> {
-    Box::new(SimpleError::new(msg))
+fn error(filename: &PathBuf, msg: &str) -> Box<dyn std::error::Error> {
+    let a = filename.as_str().replace(".csv", "").replace(".json", "");
+    let i = a.rfind(|c: char| c.is_alphabetic()).unwrap();
+    let s = &a[..(i + 1)];
+
+    Box::new(SimpleError::new(format!("{s}: {msg}")))
 }
 
 fn do_compare_json(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -116,10 +120,10 @@ fn do_compare_json(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn st
         let ext_lines = read_lines(full_path(ext_cfg_path, ext_cfg.as_str()).as_str()).count();
 
         if sidr_lines != ext_lines {
-            return Err(error(&format!(
-                "{sidr} sidr_lines {} != ext_lines {} {ext_cfg}",
-                sidr_lines, ext_lines
-            )));
+            return Err(error(
+                sidr,
+                &format!("sidr_lines {} != ext_lines {}", sidr_lines, ext_lines),
+            ));
         }
 
         let mut errors = "".to_string();
@@ -142,35 +146,31 @@ fn do_compare_json(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn st
         });
 
         if !errors.is_empty() {
-            return Err(error(&format!("{sidr} <-> {ext_cfg}:\n {}", errors)));
+            return Err(error(sidr, &format!("\n{}", errors)));
         }
     }
 
     Ok(())
 }
 
-fn do_compare_csv(
-    sidr_path: &str,
-    ext_cfg_path: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let dir_sidr = get_dir(&sidr_path, ".csv");
-    let dir_ext_cfg = get_dir(&ext_cfg_path, ".csv");
+fn do_compare_csv(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let dir_sidr = get_dir(sidr_path, ".csv");
+    let dir_ext_cfg = get_dir(ext_cfg_path, ".csv");
 
     for (sidr, ext_cfg) in dir_sidr.iter().zip(dir_ext_cfg.iter()) {
         println!("{sidr} <-> {ext_cfg}");
 
-        let sidr = PathBuf::from_iter([sidr_path.clone(), sidr.as_str()].iter());
-        let mut sidr_reader = Reader::from_path(sidr)?;
-        let ext_cfg = PathBuf::from_iter([ext_cfg_path.clone(), ext_cfg.as_str()].iter());
+        let sidr = PathBuf::from_iter([sidr_path, sidr.as_str()].iter());
+        let mut sidr_reader = Reader::from_path(&sidr)?;
+        let ext_cfg = PathBuf::from_iter([ext_cfg_path, ext_cfg.as_str()].iter());
         let mut ext_cfg_reader = Reader::from_path(ext_cfg)?;
         let mut sidr_iter = sidr_reader.headers()?.iter();
         let mut ext_iter = ext_cfg_reader.headers()?.iter();
 
-        compare_iters(&mut sidr_iter, &mut ext_iter, "headers are not equal");
+        compare_iters(&mut sidr_iter, &mut ext_iter, &sidr)?;
 
         let mut sidr_reader = sidr_reader.into_records();
         let mut ext_cfg_reader = ext_cfg_reader.into_records();
-        let mut rec_no = 0;
 
         loop {
             match (sidr_reader.next(), ext_cfg_reader.next()) {
@@ -181,20 +181,15 @@ fn do_compare_csv(
                     let ext_rec = ext_rec?;
                     let mut ext_fld = ext_rec.iter();
 
-                    rec_no += 1;
-                    compare_iters(
-                        &mut sid_fld,
-                        &mut ext_fld,
-                        &format!("data differs at {rec_no}"),
-                    );
+                    compare_iters(&mut sid_fld, &mut ext_fld, &sidr)?
                 }
                 (Some(sid_rec), None) => {
-                    let mut errors = format!("sidr has more records:\n{:?}", sid_rec);
-                    return Err(error(&errors));
+                    let errors = format!("sidr has more records:\n{:?}", sid_rec);
+                    return Err(error(&sidr, &errors));
                 }
                 (None, Some(ext_rec)) => {
-                    let mut errors = format!("ext_cfg has more records:\n{:?}", ext_rec);
-                    return Err(error(&errors));
+                    let errors = format!("ext_cfg has more records:\n{:?}", ext_rec);
+                    return Err(error(&sidr, &errors));
                 }
             }
         }
@@ -206,10 +201,10 @@ fn do_compare_csv(
 fn compare_iters(
     sidr_iter: &mut StringRecordIter,
     ext_iter: &mut StringRecordIter,
-    msg: &str,
+    filename: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if !itertools::equal(sidr_iter.clone(), ext_iter.clone()) {
-        let mut errors = format!("{msg}:\n");
+        let mut errors= "".to_string();
         let mut i = 0;
         for (s, e) in sidr_iter.zip(ext_iter) {
             i += 1;
@@ -217,7 +212,7 @@ fn compare_iters(
                 errors.push_str(&format!("{i}. '{s}' != '{e}'"));
             }
         }
-        return Err(error(&errors));
+        return Err(error(filename, &errors));
     }
 
     Ok(())
@@ -248,13 +243,13 @@ fn compare_generated_reports() {
 
     info!("{}", function_path!());
 
-    let bin_root = PathBuf::from("target");
-    let sidr_bin = bin_root.join("release").join("sidr");
-    #[cfg(not(debug_assertions))]
-    let mut ext_cfg_bin = bin_root.join("release");
-    #[cfg(debug_assertions)]
-    let mut ext_cfg_bin = bin_root.join("debug");
-    ext_cfg_bin = ext_cfg_bin.join("external_cfg");
+    let bin_root = PathBuf::from("target").join(if cfg!(debug_assertions) {
+        "debug"
+    } else {
+        "release"
+    });
+    let sidr_bin = bin_root.join("sidr");
+    let ext_cfg_bin = bin_root.join("external_cfg");
     let db_path = get_env("WSA_TEST_DB_PATH");
     let cfg_path = get_env("WSA_TEST_CONFIGURATION_PATH");
     let work_dir_name = format!("{}_testing", ext_cfg_bin.file_name().unwrap());
