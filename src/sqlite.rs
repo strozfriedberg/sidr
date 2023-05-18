@@ -97,11 +97,11 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
     let handler = |workId: u32, h: &mut HashMap<String, Vec<u8>>| {
         // new WorkId, handle all collected fields
         if !h.is_empty() {
-            let ie_history = sqlite_IE_history_record(&*ie_rep, workId, &h);
+            let ie_history = sqlite_IE_history_record(&*ie_rep, workId, h);
             if ie_history && ie_rep.is_some_val_in_record() {
                 ie_rep.str_val("System_ComputerName", recovered_hostname.clone());
             }
-            let act_history = sqlite_activity_history_record(&*act_rep, workId, &h);
+            let act_history = sqlite_activity_history_record(&*act_rep, workId, h);
             if act_history && act_rep.is_some_val_in_record() {
                 act_rep.str_val("System_ComputerName", recovered_hostname.clone());
             }
@@ -113,7 +113,7 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
                 //         h.insert(k.into(), v.clone());
                 //     }
                 // }
-                sqlite_dump_file_record(&*file_rep, workId, &h);
+                sqlite_dump_file_record(&*file_rep, workId, h);
                 if file_rep.is_some_val_in_record() {
                     file_rep.str_val("System_ComputerName", recovered_hostname.clone());
                 }
