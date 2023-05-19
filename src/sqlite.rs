@@ -94,41 +94,49 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
 
     let (file_rep, ie_rep, act_rep) = init_reports(f, report_prod, &recovered_hostname)?;
 
+    let handler = |workId: u32, h: &mut HashMap<String, Vec<u8>>| {
+        // new WorkId, handle all collected fields
+        if !h.is_empty() {
+            let ie_history = sqlite_IE_history_record(&*ie_rep, workId, h);
+            if ie_history && ie_rep.is_some_val_in_record() {
+                ie_rep.str_val("System_ComputerName", recovered_hostname.clone());
+            }
+            let act_history = sqlite_activity_history_record(&*act_rep, workId, h);
+            if act_history && act_rep.is_some_val_in_record() {
+                act_rep.str_val("System_ComputerName", recovered_hostname.clone());
+            }
+            if !ie_history && !act_history {
+                // only for File Report
+                // Join WorkID within SystemIndex_1_PropertyStore with DocumentID in SystemIndex_Gthr
+                // if let Some(gh) = gather_table_fields.get(&workId) {
+                //     for (k, v) in gh {
+                //         h.insert(k.into(), v.clone());
+                //     }
+                // }
+                sqlite_dump_file_record(&*file_rep, workId, h);
+                if file_rep.is_some_val_in_record() {
+                    file_rep.str_val("System_ComputerName", recovered_hostname.clone());
+                }
+            }
+            h.clear();
+        }
+    };
+
     let mut h = HashMap::new();
     let mut workId_current = 0;
     while let Ok(State::Row) = s.next() {
         let workId = map_err!(s.read::<i64, _>("WorkId"))? as u32;
         if workId_current != workId {
-            // new WorkId, handle all collected fields
-            if !h.is_empty() {
-                let ie_history = sqlite_IE_history_record(&*ie_rep, workId_current, &h);
-                if ie_history && ie_rep.is_some_val_in_record() {
-                    ie_rep.str_val("System_ComputerName", recovered_hostname.clone());
-                }
-                let act_history = sqlite_activity_history_record(&*act_rep, workId_current, &h);
-                if act_history && act_rep.is_some_val_in_record() {
-                    act_rep.str_val("System_ComputerName", recovered_hostname.clone());
-                }
-                if !ie_history && !act_history {
-                    // only for File Report
-                    // Join WorkID within SystemIndex_1_PropertyStore with DocumentID in SystemIndex_Gthr
-                    // if let Some(gh) = gather_table_fields.get(&workId_current) {
-                    //     for (k, v) in gh {
-                    //         h.insert(k.into(), v.clone());
-                    //     }
-                    // }
-                    sqlite_dump_file_record(&*file_rep, workId_current, &h);
-                    if file_rep.is_some_val_in_record() {
-                        file_rep.str_val("System_ComputerName", recovered_hostname.clone());
-                    }
-                }
-                h.clear();
-            }
+            handler(workId_current, &mut h);
             workId_current = workId;
         }
         let columnId = map_err!(s.read::<i64, _>("ColumnId"))?;
         let value = map_err!(s.read::<Vec<u8>, _>("Value"))?;
         h.insert(columnId.to_string(), value);
+    }
+    // handle last element
+    if !h.is_empty() {
+        handler(workId_current, &mut h);
     }
     Ok(())
 }

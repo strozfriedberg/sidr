@@ -1,5 +1,6 @@
 use chrono::prelude::*;
 
+use bitflags::bitflags;
 use std::convert::TryInto;
 
 /// Converts a u64 filetime to a DateTime<Utc>
@@ -10,7 +11,7 @@ pub fn get_date_time_from_filetime(filetime: u64) -> DateTime<Utc> {
 
     // Add nanoseconds to timestamp via Duration
     DateTime::<Utc>::from_utc(
-        chrono::NaiveDate::from_ymd_opt(1970, 1, 1)
+       NaiveDate::from_ymd_opt(1970, 1, 1)
             .unwrap()
             .and_hms_nano_opt(0, 0, 0, 0)
             .unwrap()
@@ -38,7 +39,7 @@ pub fn format_date_time(date_time: DateTime<Utc>) -> String {
         }
     }
     // We should nenver hit this when coming from a FILETIME; we don't have that much precision
-    date_time.to_rfc3339_opts(chrono::SecondsFormat::Nanos, true)
+    date_time.to_rfc3339_opts(SecondsFormat::Nanos, true)
 }
 
 // extract GUID string from string like:
@@ -57,13 +58,13 @@ pub fn find_guid(inp: &str, v: &str) -> String {
 pub fn from_utf16(val: &[u8]) -> String {
     let s: Vec<u16> = val
         .chunks_exact(2)
-        .into_iter()
         .map(|a| u16::from_ne_bytes([a[0], a[1]]))
         .collect();
     String::from_utf16_lossy(s.as_slice())
 }
 
 bitflags! {
+    #[derive(Debug)]
     struct file_attributes_flag: u32 {
         const FILE_ATTRIBUTE_READONLY              = 0x00000001;
         const FILE_ATTRIBUTE_HIDDEN                = 0x00000002;
@@ -99,7 +100,7 @@ pub fn file_attributes_to_string(bytes: &Vec<u8>) -> String {
     } else {
         return format!("{:?}", bytes);
     };
-    let f = unsafe { file_attributes_flag::from_bits_unchecked(at) };
+    let f = file_attributes_flag::from_bits_retain(at);
     format!("{:?}", f)
 }
 

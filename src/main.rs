@@ -1,6 +1,5 @@
 #![allow(non_upper_case_globals, non_snake_case, non_camel_case_types)]
 
-#[macro_use]
 extern crate bitflags;
 
 use clap::Parser;
@@ -58,10 +57,10 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
     Ok(())
 }
 
-/// Copyright 2023, Aon 
-/// 
+/// Copyright 2023, Aon
+///
 /// Created by the Stroz Friedberg digital forensics practice at Aon
-/// 
+///
 /// SIDR (Search Index DB Reporter) is a Rust-based tool designed to parse Windows search artifacts from Windows 10 (and prior) and Windows 11 systems.
 /// The tool handles both ESE databases (Windows.edb) and SQLite databases (Windows.db) as input and generates three detailed reports as output.
 ///
@@ -76,7 +75,7 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
 ///
 /// Where the log name consists of:
 /// `HOSTNAME_ReportName_DateTime.json|csv`
-/// 
+///
 /// `HOSTNAME` is extracted from the database
 
 #[derive(Parser)]
