@@ -25,7 +25,7 @@ struct Cli {
 }
 
 fn do_sql_report(db_path: &str, cfg: &ReportsCfg) {
-    let mut sql_reader = wsa_lib::SqlReader::new_(db_path);
+    let mut sql_reader = wsa_lib::SqlReader::new(db_path);
     do_reports(cfg, &mut sql_reader);
 }
 
@@ -40,9 +40,6 @@ fn main() {
         .target(Target::Stderr)
         .init();
 
-    // for s in env::args() {
-    //     println!("{s}");
-    // }
     let cli = Cli::parse();
     let s = std::fs::read_to_string(&cli.cfg_path).unwrap();
     let mut cfg: ReportsCfg = match serde_yaml::from_str(s.as_str()) {

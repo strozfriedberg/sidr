@@ -328,7 +328,7 @@ pub struct SqlReader<'a> {
 }
 
 impl SqlReader<'_> {
-    pub fn new_(db_path: &str) -> Self {
+    pub fn new(db_path: &str) -> Self {
         let conn = Connection::open_with_flags(db_path, OpenFlags::new().set_read_only()).unwrap();
         let sql = "select WorkId, * from SystemIndex_1_PropertyStore order by WorkId";
         let session = Session::new_with_fn(Box::new(conn), unsafe {
