@@ -1,4 +1,3 @@
-#![feature(let_chains)]
 use std::fs::File;
 use std::io;
 use std::io::{BufRead, BufReader};
@@ -204,7 +203,7 @@ fn compare_iters(
     filename: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if !itertools::equal(sidr_iter.clone(), ext_iter.clone()) {
-        let mut errors= "".to_string();
+        let mut errors = "".to_string();
         let mut i = 0;
         for (s, e) in sidr_iter.zip(ext_iter) {
             i += 1;
