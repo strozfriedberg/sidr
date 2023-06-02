@@ -35,8 +35,10 @@ pub fn init_reports(
     ie_rep.set_field("System_ComputerName");
     ie_rep.set_field("System_ItemName");
     ie_rep.set_field("System_ItemUrl");
+    ie_rep.set_field("System_Link_TargetUrl");
     ie_rep.set_field("System_ItemDate");
     ie_rep.set_field("System_DateCreated");
+    ie_rep.set_field("System_DateModified");
     ie_rep.set_field("System_ItemFolderNameDisplay");
     ie_rep.set_field("System_Search_GatherTime");
     ie_rep.set_field("System_Title");
@@ -46,6 +48,7 @@ pub fn init_reports(
         report_prod.new_report(f, recovered_hostname, "Activity_History_Report")?;
     act_rep.set_field("WorkId");
     act_rep.set_field("System_ComputerName");
+    act_rep.set_field("System_DateModified");
     act_rep.set_field("System_ItemNameDisplay");
     act_rep.set_field("System_ItemUrl");
     act_rep.set_field("System_ActivityHistory_StartTime");
