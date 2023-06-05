@@ -1,9 +1,10 @@
+use std::borrow::BorrowMut;
 use chrono::prelude::*;
 use clap::ValueEnum;
 use simple_error::SimpleError;
 use std::cell::{Cell, RefCell};
 use std::fs::File;
-use std::io::Write;
+use std::io::{self, Write};
 use std::ops::IndexMut;
 use std::path::{Path, PathBuf};
 
@@ -15,13 +16,20 @@ pub enum ReportFormat {
     Csv,
 }
 
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum ReportType {
+    ToFile,
+    ToStdout
+}
+
 pub struct ReportProducer {
     dir: PathBuf,
     format: ReportFormat,
+    report_type: ReportType
 }
 
 impl ReportProducer {
-    pub fn new(dir: &Path, format: ReportFormat) -> Self {
+    pub fn new(dir: &Path, format: ReportFormat, report_type: ReportType) -> Self {
         if !dir.exists() {
             std::fs::create_dir(dir)
                 .unwrap_or_else(|_| panic!("Can't create directory \"{}\"", dir.to_string_lossy()));
@@ -29,6 +37,7 @@ impl ReportProducer {
         ReportProducer {
             dir: dir.to_path_buf(),
             format,
+            report_type,
         }
     }
 
@@ -51,8 +60,8 @@ impl ReportProducer {
             ext
         ));
         let rep: Box<dyn Report> = match self.format {
-            ReportFormat::Json => ReportJson::new(&path).map(Box::new)?,
-            ReportFormat::Csv => ReportCsv::new(&path).map(Box::new)?,
+            ReportFormat::Json => ReportJson::new(&path, self.report_type).map(Box::new)?,
+            ReportFormat::Csv => ReportCsv::new(&path, self.report_type).map(Box::new)?,
         };
         Ok((path, rep))
     }
@@ -68,20 +77,34 @@ pub trait Report {
 }
 
 // report json
-pub struct ReportJson {
-    f: RefCell<File>,
+pub struct ReportJson{
+    f: Option<RefCell<File>>,
+    report_type: ReportType,
     first_record: Cell<bool>,
     values: RefCell<Vec<String>>,
 }
 
-impl ReportJson {
-    pub fn new(f: &Path) -> Result<Self, SimpleError> {
-        let f = File::create(f).map_err(|e| SimpleError::new(format!("{}", e)))?;
-        Ok(ReportJson {
-            f: RefCell::new(f),
-            first_record: Cell::new(true),
-            values: RefCell::new(Vec::new()),
-        })
+impl ReportJson{
+    pub fn new(f: &Path, report_type: ReportType) -> Result<Self, SimpleError> {
+        match report_type {
+            ReportType::ToFile => {
+                let f = File::create(f).map_err(|e| SimpleError::new(format!("{}", e)))?;
+                Ok(ReportJson {
+                    f: Some(RefCell::new(f)),
+                    report_type,
+                    first_record: Cell::new(true),
+                    values: RefCell::new(Vec::new()),
+                })
+            },
+            ReportType::ToStdout => {
+                Ok(ReportJson {
+                    f: None,
+                    report_type,
+                    first_record: Cell::new(true),
+                    values: RefCell::new(Vec::new()),
+                })
+            }
+        }
     }
 
     fn escape(s: String) -> String {
@@ -149,20 +172,34 @@ impl Drop for ReportJson {
 }
 
 // report csv
-pub struct ReportCsv {
-    f: RefCell<File>,
+pub struct ReportCsv{
+    f: Option<RefCell<File>>,
+    report_type: ReportType,
     first_record: Cell<bool>,
     values: RefCell<Vec<(String /*field*/, String /*value*/)>>,
 }
 
-impl ReportCsv {
-    pub fn new(f: &Path) -> Result<Self, SimpleError> {
-        let f = File::create(f).map_err(|e| SimpleError::new(format!("{}", e)))?;
-        Ok(ReportCsv {
-            f: RefCell::new(f),
-            first_record: Cell::new(true),
-            values: RefCell::new(Vec::new()),
-        })
+impl ReportCsv{
+    pub fn new(f: &Path, report_type: ReportType) -> Result<Self, SimpleError> {
+        match report_type {
+            ReportType::ToFile => {
+                let f = File::create(f).map_err(|e| SimpleError::new(format!("{}", e)))?;
+                Ok(ReportCsv {
+                    f: Some(RefCell::new(f)),
+                    report_type,
+                    first_record: Cell::new(true),
+                    values: RefCell::new(Vec::new()),
+                })
+            },
+            ReportType::ToStdout => {
+                Ok(ReportCsv {
+                    f: None,
+                    report_type,
+                    first_record: Cell::new(true),
+                    values: RefCell::new(Vec::new()),
+                })
+            }
+        }
     }
 
     fn escape(s: String) -> String {
@@ -174,9 +211,11 @@ impl ReportCsv {
         for i in 0..values.len() {
             let v = &values[i];
             if i == values.len() - 1 {
-                self.f.borrow_mut().write_all(v.0.as_bytes()).unwrap();
+                self.f.as_ref().unwrap().borrow_mut().write_all(v.0.as_bytes()).unwrap();
             } else {
                 self.f
+                    .as_ref()
+                    .unwrap()
                     .borrow_mut()
                     .write_all(format!("{},", v.0).as_bytes())
                     .unwrap();
@@ -187,20 +226,44 @@ impl ReportCsv {
     pub fn write_values(&self) {
         let mut values = self.values.borrow_mut();
         let len = values.len();
-        for i in 0..len {
-            let v = values.index_mut(i);
-            let last = if i == len - 1 { "" } else { "," };
-            if v.1.is_empty() {
-                self.f
-                    .borrow_mut()
-                    .write_all(last.to_string().as_bytes())
-                    .unwrap();
-            } else {
-                self.f
-                    .borrow_mut()
-                    .write_all(format!("{}{}", v.1, last).as_bytes())
-                    .unwrap();
-                v.1.clear();
+        match self.report_type {
+            ReportType::ToFile => {
+                println!("To file is used: {:?}", self.report_type);
+                for i in 0..len {
+                    let v = values.index_mut(i);
+                    let last = if i == len - 1 { "" } else { "," };
+                    if v.1.is_empty() {
+                        self.f
+                            .as_ref()
+                            .unwrap()
+                            .borrow_mut()
+                            .write_all(last.to_string().as_bytes())
+                            .unwrap();
+                    } else {
+                        self.f
+                            .as_ref()
+                            .unwrap()
+                            .borrow_mut()
+                            .write_all(format!("{}{}", v.1, last).as_bytes())
+                            .unwrap();
+                        v.1.clear();
+                    }
+                }
+            },
+            ReportType::ToStdout => {
+                let stdout = io::stdout();
+                let mut handle = stdout.lock();
+                println!("To stdout is used: {:?}", self.report_type);
+                for i in 0..len {
+                    let v = values.index_mut(i);
+                    let last = if i == len - 1 { "" } else { "," };
+                    if v.1.is_empty() {
+                        handle.write_all(format!("{}{}", v.1, last).as_bytes());
+                    } else {
+                        handle.write_all(format!("{}{}", v.1, last).as_bytes());
+                        v.1.clear();
+                    }
+                }
             }
         }
     }
@@ -224,10 +287,19 @@ impl Report for ReportCsv {
         // at least 1 value was recorded?
         if self.is_some_val_in_record() {
             if self.first_record.get() {
-                self.write_header();
+                match self.report_type {
+                    ReportType::ToFile => {
+                        self.write_header();
+                        self.f.as_ref().unwrap().borrow_mut().write_all(b"\n").unwrap();
+                    },
+                    ReportType::ToStdout => {}
+                }
                 self.first_record.set(false);
             }
-            self.f.borrow_mut().write_all(b"\n").unwrap();
+            // match self.report_type {
+            //     ReportType::ToFile => self.f.as_ref().unwrap().borrow_mut().write_all(b"\n").unwrap(),
+            //     ReportType::ToStdout => {}
+            // }
             self.write_values();
         }
     }
