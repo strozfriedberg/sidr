@@ -291,15 +291,17 @@ impl Report for ReportCsv {
                         self.write_header();
                         self.f.as_ref().unwrap().borrow_mut().write_all(b"\n").unwrap();
                     },
-                    ReportType::ToStdout => {}
+                    ReportType::ToStdout => {
+                        // self.write_header_stdout()
+                    }
                 }
                 self.first_record.set(false);
             }
-            // match self.report_type {
-            //     ReportType::ToFile => self.f.as_ref().unwrap().borrow_mut().write_all(b"\n").unwrap(),
-            //     ReportType::ToStdout => {}
-            // }
-            self.write_values();
+            match self.report_type {
+                ReportType::ToFile => self.write_values_file(),
+                ReportType::ToStdout => self.write_values_stdout()
+            }
+
         }
     }
 
