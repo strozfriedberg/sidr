@@ -116,7 +116,27 @@ impl ReportJson{
         json_escape(&s)
     }
 
-    pub fn write_values(&self) {
+    pub fn write_values_stdout(&self) {
+        let mut values = self.values.borrow_mut();
+        let len = values.len();
+        let mut handle = get_stdout_handle();
+        if len > 0 {
+            handle.write_all(b"{").unwrap();
+        }
+        for i in 0..len {
+            let v = values.index_mut(i);
+            if !v.is_empty() {
+                let last = if i == len - 1 { "" } else { "," };
+                handle.write_all(format!("{}{}", v, last).as_bytes());
+            }
+        }
+        if len > 0 {
+            handle.write_all(b"}");
+            values.clear();
+        }
+    }
+
+    pub fn write_values_file(&self) {
         let mut values = self.values.borrow_mut();
         let len = values.len();
         if len > 0 {
