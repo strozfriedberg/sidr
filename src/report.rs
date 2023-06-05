@@ -223,47 +223,46 @@ impl ReportCsv{
         }
     }
 
-    pub fn write_values(&self) {
+    pub fn write_values_stdout(&self) {
         let mut values = self.values.borrow_mut();
         let len = values.len();
-        match self.report_type {
-            ReportType::ToFile => {
-                println!("To file is used: {:?}", self.report_type);
-                for i in 0..len {
-                    let v = values.index_mut(i);
-                    let last = if i == len - 1 { "" } else { "," };
-                    if v.1.is_empty() {
-                        self.f
-                            .as_ref()
-                            .unwrap()
-                            .borrow_mut()
-                            .write_all(last.to_string().as_bytes())
-                            .unwrap();
-                    } else {
-                        self.f
-                            .as_ref()
-                            .unwrap()
-                            .borrow_mut()
-                            .write_all(format!("{}{}", v.1, last).as_bytes())
-                            .unwrap();
-                        v.1.clear();
-                    }
-                }
-            },
-            ReportType::ToStdout => {
-                let stdout = io::stdout();
-                let mut handle = stdout.lock();
-                println!("To stdout is used: {:?}", self.report_type);
-                for i in 0..len {
-                    let v = values.index_mut(i);
-                    let last = if i == len - 1 { "" } else { "," };
-                    if v.1.is_empty() {
-                        handle.write_all(format!("{}{}", v.1, last).as_bytes());
-                    } else {
-                        handle.write_all(format!("{}{}", v.1, last).as_bytes());
-                        v.1.clear();
-                    }
-                }
+        let stdout = io::stdout();
+        let mut handle = stdout.lock();
+        println!("To stdout is used: {:?}", self.report_type);
+        for i in 0..len {
+            let v = values.index_mut(i);
+            let last = if i == len - 1 { "" } else { "," };
+            if v.1.is_empty() {
+                handle.write_all(format!("{}{}", v.1, last).as_bytes());
+            } else {
+                handle.write_all(format!("{}{}", v.1, last).as_bytes());
+                v.1.clear();
+            }
+        }
+    }
+
+    pub fn write_values_file(&self) {
+        let mut values = self.values.borrow_mut();
+        let len = values.len();
+        println!("To file is used: {:?}", self.report_type);
+        for i in 0..len {
+            let v = values.index_mut(i);
+            let last = if i == len - 1 { "" } else { "," };
+            if v.1.is_empty() {
+                self.f
+                    .as_ref()
+                    .unwrap()
+                    .borrow_mut()
+                    .write_all(last.to_string().as_bytes())
+                    .unwrap();
+            } else {
+                self.f
+                    .as_ref()
+                    .unwrap()
+                    .borrow_mut()
+                    .write_all(format!("{}{}", v.1, last).as_bytes())
+                    .unwrap();
+                v.1.clear();
             }
         }
     }
