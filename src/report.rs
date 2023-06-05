@@ -76,6 +76,11 @@ pub trait Report {
     fn is_some_val_in_record(&self) -> bool;
 }
 
+fn get_stdout_handle() -> std::io::StdoutLock<'static> {
+    let stdout = io::stdout();
+    stdout.lock()
+}
+
 // report json
 pub struct ReportJson{
     f: Option<RefCell<File>>,
@@ -242,8 +247,7 @@ impl ReportCsv{
     pub fn write_values_stdout(&self) {
         let mut values = self.values.borrow_mut();
         let len = values.len();
-        let stdout = io::stdout();
-        let mut handle = stdout.lock();
+        let mut handle = get_stdout_handle();
         println!("To stdout is used: {:?}", self.report_type);
         for i in 0..len {
             let v = values.index_mut(i);
@@ -304,11 +308,11 @@ impl Report for ReportCsv {
             if self.first_record.get() {
                 match self.report_type {
                     ReportType::ToFile => {
-                        self.write_header();
+                        self.write_header_file();
                         self.f.as_ref().unwrap().borrow_mut().write_all(b"\n").unwrap();
                     },
                     ReportType::ToStdout => {
-                        // self.write_header_stdout()
+                        self.write_header_stdout()
                     }
                 }
                 self.first_record.set(false);
