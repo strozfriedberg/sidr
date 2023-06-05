@@ -421,8 +421,10 @@ impl Drop for ReportCsv {
 #[test]
 pub fn test_report_csv() {
     let p = Path::new("test.csv");
+        let report_type: ReportType = ReportType::ToFile;
+    let report_suffix: Option<ReportSuffix> = Some(ReportSuffix::FileReport);
     {
-        let r = ReportCsv::new(p).unwrap();
+        let r = ReportCsv::new(p, report_type, report_suffix).unwrap();
         r.set_field("int_field");
         r.set_field("str_field");
         r.int_val("int_field", 0);
