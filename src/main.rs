@@ -88,6 +88,10 @@ struct Cli {
     #[arg(short, long, value_enum, default_value_t = ReportFormat::Json)]
     format: ReportFormat,
 
+    /// Report Type: ToFile or ToStdout
+    #[arg(short, long, value_enum, default_value_t = ReportType::ToFile)]
+    report_type: ReportType,
+
     /// Path to the directory where reports will be created (will be created if not present). Default is the current directory.
     #[arg(short, long, value_name = "OUTPUT DIRECTORY")]
     outdir: Option<PathBuf>,
@@ -100,7 +104,7 @@ fn main() -> Result<(), SimpleError> {
         Some(outdir) => outdir,
         None => std::env::current_dir().map_err(|e| SimpleError::new(format!("{}", e)))?,
     };
-    let rep_producer = ReportProducer::new(rep_dir.as_path(), cli.format);
+    let rep_producer = ReportProducer::new(rep_dir.as_path(), cli.format, cli.report_type);
 
     dump(&cli.input, &rep_producer)?;
     Ok(())
