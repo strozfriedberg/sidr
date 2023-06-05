@@ -83,9 +83,15 @@ impl ReportProducer {
             date_time_now.format("%Y%m%d_%H%M%S%.f"),
             ext
         ));
+        let report_suffix = match report_suffix {
+            "File_Report" => Some(ReportSuffix::FileReport),
+            "Activity_History_Report" => Some(ReportSuffix::ActivityHistory),
+            "Internet_History_Report" => Some(ReportSuffix::InternetHistory),
+            &_ => Some(ReportSuffix::Unknown)
+        };
         let rep: Box<dyn Report> = match self.format {
-            ReportFormat::Json => ReportJson::new(&path, self.report_type).map(Box::new)?,
-            ReportFormat::Csv => ReportCsv::new(&path, self.report_type).map(Box::new)?,
+            ReportFormat::Json => ReportJson::new(&path, self.report_type, report_suffix).map(Box::new)?,
+            ReportFormat::Csv => ReportCsv::new(&path, self.report_type, report_suffix).map(Box::new)?,
         };
         Ok((path, rep))
     }
