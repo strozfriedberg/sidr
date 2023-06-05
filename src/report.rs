@@ -169,11 +169,20 @@ impl Report for ReportJson {
     fn new_record(&self) {
         if !self.values.borrow().is_empty() {
             if !self.first_record.get() {
-                self.f.as_ref().unwrap().borrow_mut().write_all(b"\n").unwrap();
+                match self.report_type {
+                    ReportType::ToFile => self.f.as_ref().unwrap().borrow_mut().write_all(b"\n").unwrap(),
+                    ReportType::ToStdout => {
+                        let mut handle = get_stdout_handle();
+                        handle.write_all(b"\n");
+                    }
+                }
             } else {
                 self.first_record.set(false);
             }
-            self.write_values();
+            match self.report_type {
+                ReportType::ToFile => self.write_values_file(),
+                ReportType::ToStdout => self.write_values_stdout()
+            }
         }
     }
 
