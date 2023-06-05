@@ -208,7 +208,21 @@ impl ReportCsv{
         s.replace('\"', "\"\"")
     }
 
-    pub fn write_header(&self) {
+    pub fn write_header_stdout(&self) {
+        let values = self.values.borrow();
+        let mut handle = get_stdout_handle();
+        for i in 0..values.len() {
+            let v = &values[i];
+            if i == values.len() - 1 {
+                handle.write_all(v.0.as_bytes()).unwrap();
+            } else {
+                handle.write_all(format!("{},", v.0).as_bytes());
+            }
+        }
+        handle.write_all(b"\n").unwrap();
+    }
+
+    pub fn write_header_file(&self) {
         let values = self.values.borrow();
         for i in 0..values.len() {
             let v = &values[i];
