@@ -1,6 +1,7 @@
 table_edb: SystemIndex_PropertyStore
 table_sql: SystemIndex_1_PropertyStore
 output_format: Csv
+output_type: ToFile
 output_dir: "./report"
 reports:
   - title: Internet_History_Report
