@@ -457,8 +457,10 @@ pub fn test_report_csv() {
 #[test]
 pub fn test_report_jsonl() {
     let p = Path::new("test.json");
+    let report_type: ReportType = ReportType::ToFile;
+    let report_suffix: Option<ReportSuffix> = Some(ReportSuffix::FileReport);
     {
-        let r = ReportJson::new(p).unwrap();
+        let r = ReportJson::new(p, report_type, report_suffix).unwrap();
         r.int_val("int_field", 0);
         r.str_val("str_field", "string0_with_escapes_here1\"here2\\".into());
         for i in 1..10 {
