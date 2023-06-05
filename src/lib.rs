@@ -46,6 +46,12 @@ pub enum OutputFormat {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub enum OutputType {
+    ToFile,
+    ToStdout
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ReportCfg {
     pub title: String,
     pub output_filename: String,
@@ -58,6 +64,7 @@ pub struct ReportsCfg {
     pub table_edb: String,
     pub table_sql: String,
     pub output_format: OutputFormat,
+    pub output_type: OutputType,
     pub output_dir: String,
     pub reports: Vec<ReportCfg>,
 }
@@ -535,7 +542,7 @@ impl<'a> FieldReader for SqlReader<'a> {
 }
 
 //--------------------------------------------------------------------
-use crate::report::{ReportFormat, ReportProducer};
+use crate::report::{ReportFormat, ReportProducer, ReportType};
 use evalexpr::{Context, ContextWithMutableVariables, IterateVariablesContext, Value};
 use report::Report;
 use std::path::Path;
@@ -585,7 +592,13 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
         OutputFormat::Csv => ReportFormat::Csv,
         OutputFormat::Json => ReportFormat::Json,
     };
-    let rep_factory = ReportProducer::new(cfg.output_dir.as_ref(), report_format);
+
+    let report_type = match cfg.output_type {
+        OutputType::ToStdout => ReportType::ToStdout,
+        OutputType::ToFile => ReportType::ToFile,
+    };
+
+    let rep_factory = ReportProducer::new(cfg.output_dir.as_ref(), report_format, report_type);
     let mut cached = HashMap::<String, String>::new();
 
     for report in &cfg.reports {
