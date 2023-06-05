@@ -3,6 +3,8 @@ use chrono::prelude::*;
 use clap::ValueEnum;
 use simple_error::SimpleError;
 use std::cell::{Cell, RefCell};
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use serde_json;
 use std::fs::File;
 use std::io::{self, Write};
 use std::ops::IndexMut;
@@ -156,6 +158,7 @@ impl ReportJson{
         if len > 0 {
             handle.write_all(b"{").unwrap();
         }
+        handle.write_all(format!("{}:{},", serde_json::to_string("report_suffix").unwrap(), self.report_suffix.as_ref().unwrap()).as_bytes());
         for i in 0..len {
             let v = values.index_mut(i);
             if !v.is_empty() {
@@ -281,6 +284,7 @@ impl ReportCsv{
     pub fn write_header_stdout(&self) {
         let values = self.values.borrow();
         let mut handle = get_stdout_handle();
+        handle.write_all(b"Report Suffix");
         for i in 0..values.len() {
             let v = &values[i];
             if i == values.len() - 1 {
@@ -313,7 +317,7 @@ impl ReportCsv{
         let mut values = self.values.borrow_mut();
         let len = values.len();
         let mut handle = get_stdout_handle();
-        println!("To stdout is used: {:?}", self.report_type);
+        handle.write_all(format!("{},", self.report_suffix.as_ref().unwrap()).as_bytes());
         for i in 0..len {
             let v = values.index_mut(i);
             let last = if i == len - 1 { "" } else { "," };
@@ -324,6 +328,7 @@ impl ReportCsv{
                 v.1.clear();
             }
         }
+        handle.write_all(b"\n");
     }
 
     pub fn write_values_file(&self) {
@@ -377,7 +382,7 @@ impl Report for ReportCsv {
                         self.f.as_ref().unwrap().borrow_mut().write_all(b"\n").unwrap();
                     },
                     ReportType::ToStdout => {
-                        self.write_header_stdout()
+                        self.write_header_stdout();
                     }
                 }
                 self.first_record.set(false);
