@@ -115,20 +115,22 @@ impl ReportJson{
         let mut values = self.values.borrow_mut();
         let len = values.len();
         if len > 0 {
-            self.f.borrow_mut().write_all(b"{").unwrap();
+            self.f.as_ref().unwrap().borrow_mut().write_all(b"{").unwrap();
         }
         for i in 0..len {
             let v = values.index_mut(i);
             if !v.is_empty() {
                 let last = if i == len - 1 { "" } else { "," };
                 self.f
+                    .as_ref()
+                    .unwrap()
                     .borrow_mut()
                     .write_all(format!("{}{}", v, last).as_bytes())
                     .unwrap();
             }
         }
         if len > 0 {
-            self.f.borrow_mut().write_all(b"}").unwrap();
+            self.f.as_ref().unwrap().borrow_mut().write_all(b"}").unwrap();
             values.clear();
         }
     }
@@ -142,7 +144,7 @@ impl Report for ReportJson {
     fn new_record(&self) {
         if !self.values.borrow().is_empty() {
             if !self.first_record.get() {
-                self.f.borrow_mut().write_all(b"\n").unwrap();
+                self.f.as_ref().unwrap().borrow_mut().write_all(b"\n").unwrap();
             } else {
                 self.first_record.set(false);
             }
