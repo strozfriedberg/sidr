@@ -4,8 +4,8 @@ pub mod report;
 #[allow(non_camel_case_types)]
 pub mod utils;
 
+use crate::utils::column_string_part;
 use ::function_name::named;
-
 use log::{debug, error, info, trace};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str, string::String};
@@ -203,7 +203,10 @@ impl FieldReader for EseReader {
             let name = col_pair.edb.name.clone();
 
             if !name.is_empty() {
-                match cols.iter().find(|col| col.name == name) {
+                match cols
+                    .iter()
+                    .find(|col| col.name == name || column_string_part(&col.name) == name)
+                {
                     Some(col_info) => {
                         col_infos.insert(
                             col_pair.title.clone(),
@@ -554,7 +557,7 @@ struct ReportColumn {
     constraint: Option<String>,
     hidden: bool,
     optional: bool,
-    idx: usize,
+    _idx: usize,
 }
 
 impl<R: Report + ?Sized> Report for Box<R> {
@@ -617,7 +620,9 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
                 });
             let _columns = reader.get_used_columns(&[(*col_for_filename).clone()]);
 
-            assert!(reader.init());
+            if !reader.init() {
+                panic!("reader.init() failed");
+            }
 
             while reader.next() {
                 if let Some(ref str) = reader.get_str(output_filename_title) {
@@ -639,7 +644,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
             .new_report(Path::new(""), &output_filename, &report.title)
             .unwrap();
 
-        let columns = get_used_columns(report, reader, &reporter);
+        let columns = get_used_columns(report, reader, &*reporter);
         info!("{} columns: {columns:?}", report.title);
 
         let constrained_columns = get_constrained_cols(&columns);
@@ -670,7 +675,9 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     }
 
     let mut context = evalexpr::HashMapContext::new();
-    assert!(reader.init());
+    if !reader.init() {
+        panic!("reader.init() failed");
+    }
 
     while reader.next() {
         reports.iter().for_each(|r| {
@@ -775,13 +782,13 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
                         } else {
                             "".to_string()
                         };
-                        report.reporter.str_val(col.title.as_str(), s);
+                        if !s.is_empty() {
+                            report.reporter.str_val(col.title.as_str(), s);
+                        }
                     }
                     ColumnType::Integer => {
                         if let Some(v) = reader.get_int(col_id) {
                             report.reporter.int_val(col.title.as_str(), v as u64);
-                        } else {
-                            report.reporter.str_val(col.title.as_str(), "".to_string());
                         }
                     }
                     ColumnType::DateTime => {
@@ -789,15 +796,11 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
                             report
                                 .reporter
                                 .str_val(col.title.as_str(), utils::format_date_time(dt));
-                        } else {
-                            report.reporter.str_val(col.title.as_str(), "".to_string());
                         }
                     }
                     ColumnType::GUID => {
                         if let Some(guid) = reader.get_guid(col_id) {
                             report.reporter.str_val(col.title.as_str(), guid);
-                        } else {
-                            report.reporter.str_val(col.title.as_str(), "".to_string());
                         }
                     }
                 }
@@ -876,16 +879,21 @@ fn get_used_columns(
             constraint: fld.constraint.clone(),
             hidden: fld.hidden,
             optional: fld.optional,
-            idx: fld.idx,
+            _idx: fld.idx,
         });
     });
 
-    columns.sort_by_key(|fld| fld.idx);
-    columns.iter().for_each(|fld| {
-        if !fld.hidden {
-            debug!("set header '{}' for '{}' ", fld.title, cfg.title);
-            reporter.set_field(&fld.title);
+    // call set_field for all fields used in cfg (even empty one)
+    cfg.columns.iter().for_each(|cc| {
+        let hidden = columns
+            .iter()
+            .find(|c| c.title == cc.title && c.hidden)
+            .is_some();
+        if !hidden {
+            debug!("set header '{}' for '{}' ", cc.title, cfg.title);
+            reporter.set_field(&cc.title);
         }
     });
+
     columns
 }

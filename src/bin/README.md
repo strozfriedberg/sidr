@@ -13,7 +13,7 @@ The configuration file uses the [YAML](https://yaml.org/) format:
   - `columns` list
     - `title` - name column in report
     - `kind` - column data type (`Integer`, `String`, `DateTime`, `GUID`)
-    - <a name="edb_name"></a>`edb.name` - native column name in `esent` DB
+    - <a name="edb_name"></a>`edb.name` - native column name in `esent` DB. Short form is acceptable (like `System_ComputerName` is a short form of `4184-System_ComputerName`)
     - <a name="edb_constraint"></a>[`constraint`](#constraints) - optional boolean expression to accept [value](#edb_name)
     - <a name="sql_name"></a>`sql.name` - native column name in `sqlite` DB
     - <a name="sql_constraint"></a>[`constraint`](#constraints) - optional boolean expression to accept [value](#sql_name)

@@ -175,7 +175,6 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
             "System_Search_GatherTime",
             "System_ItemType",
             // IE/Edge History Report
-            "System_ItemName",
             "System_ItemUrl",
             "System_Link_TargetUrl",
             "System_ItemDate",

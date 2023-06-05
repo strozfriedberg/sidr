@@ -53,14 +53,11 @@ fn full_path(path: &str, file: &str) -> PathBuf {
 fn do_invoke(cmd: &mut Command) {
     info!("{}", function_path!());
     let args: Vec<&str> = cmd.get_args().map(|a| a.to_str().unwrap()).collect();
-    info!(
+    println!(
         "cmd '{} {}'",
         cmd.get_program().to_str().unwrap(),
         args.join(" ")
     );
-    // if let Some(cur_dir) = cmd.get_current_dir() {
-    //     info!("current_dir: {}", cur_dir.display());
-    // }
 
     let mut child = cmd
         .stderr(Stdio::inherit())
@@ -113,7 +110,7 @@ fn do_compare_json(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn st
     let dir_sidr = get_dir(sidr_path, ".json");
     let dir_ext_cfg = get_dir(ext_cfg_path, ".json");
     for (sidr, ext_cfg) in itertools::zip_eq(dir_sidr.iter(), dir_ext_cfg.iter()) {
-        println!("{sidr} <-> {ext_cfg}");
+        println!("{sidr} == {ext_cfg}");
 
         let sidr_lines = read_lines(full_path(sidr_path, sidr.as_str()).as_str()).count();
         let ext_lines = read_lines(full_path(ext_cfg_path, ext_cfg.as_str()).as_str()).count();
@@ -157,7 +154,7 @@ fn do_compare_csv(sidr_path: &str, ext_cfg_path: &str) -> Result<(), Box<dyn std
     let dir_ext_cfg = get_dir(ext_cfg_path, ".csv");
 
     for (sidr, ext_cfg) in dir_sidr.iter().zip(dir_ext_cfg.iter()) {
-        println!("{sidr} <-> {ext_cfg}");
+        println!("{sidr} == {ext_cfg}");
 
         let sidr = PathBuf::from_iter([sidr_path, sidr.as_str()].iter());
         let mut sidr_reader = Reader::from_path(&sidr)?;

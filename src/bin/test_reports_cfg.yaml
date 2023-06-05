@@ -16,7 +16,7 @@ reports:
       - title: System_ComputerName
         kind: String
         edb:
-          name: "4184-System_ComputerName"
+          name: "System_ComputerName"
           constraint: [auto_fill]
         sql:
           name: 557
@@ -24,31 +24,42 @@ reports:
       - title: System_ItemName
         kind: String
         edb:
-          name: "4442-System_ItemName"
-          constraint: ['str::regex_matches("{Value}", "^(http://|https://)")']
+          name: ""
         sql:
           name: 318
           constraint: ['str::regex_matches("{Value}", "^(http://|https://)")']
       - title: System_ItemUrl
         kind: String
         edb:
-          name: "33-System_ItemUrl"
-          constraint: ['str::regex_matches("{Value}", "^(iehistory://|winrt://).+(/LS/Desktop/Microsoft Edge/stable/Default/)")']
+          name: "System_ItemUrl"
+          constraint: ['str::regex_matches("{Value}", "^(iehistory://)|((winrt://).+(/LS/Desktop/Microsoft Edge/stable/Default/))")']
         sql:
           name: 39
-          constraint: ['str::regex_matches("{Value}", "^(iehistory://|winrt://).+(/LS/Desktop/Microsoft Edge/stable/Default/)")']
+          constraint: ['str::regex_matches("{Value}", "^(iehistory://)|((winrt://).+(/LS/Desktop/Microsoft Edge/stable/Default/))")']
+      - title: System_Link_TargetUrl
+        kind: String
+        edb:
+          name: "System_Link_TargetUrl"
+        sql:
+          name:
       - title: System_ItemDate
         kind: DateTime
         edb:
-          name: "4438-System_ItemDate"
+          name: "System_ItemDate"
         sql:
           name: 308
       - title: System_DateCreated
         kind: DateTime
         edb:
-          name: "16F-System_DateCreated"
+          name: ""
         sql:
           name: 445
+      - title: System_DateModified
+        kind: DateTime
+        edb:
+          name: "System_DateModified"
+        sql:
+          name:
       - title: System_ItemFolderNameDisplay
         kind: String
         edb:
@@ -58,19 +69,19 @@ reports:
       - title: System_Search_GatherTime
         kind: DateTime
         edb:
-          name: "4631F-System_Search_GatherTime"
+          name: "System_Search_GatherTime"
         sql:
           name: 26
       - title: System_Title
         kind: String
         edb:
-          name: "4682-System_Title"
+          name: "System_Title"
         sql:
           name: 424
       - title: System_Link_DateVisited
         kind: DateTime
         edb:
-          name: "4462-System_Link_DateVisited"
+          name: "System_Link_DateVisited"
         sql:
           name: 378
   - title: Activity_History_Report
@@ -85,15 +96,21 @@ reports:
       - title: System_ComputerName
         kind: String
         edb:
-          name: "4184-System_ComputerName"
+          name: "System_ComputerName"
           constraint: [auto_fill]
         sql:
           name: 557
           constraint: [auto_fill]
+      - title: System_DateModified
+        kind: DateTime
+        edb:
+          name: "System_DateModified"
+        sql:
+          name:
       - title: System_ItemType
         kind: String
         edb:
-          name: "4450-System_ItemType"
+          name: "System_ItemType"
           constraint: ['str::regex_matches("{Value}", "^ActivityHistoryItem$")',hidden]
         sql:
           name: 567
@@ -101,61 +118,61 @@ reports:
       - title: System_ItemNameDisplay
         kind: String
         edb:
-          name: "4443-System_ItemNameDisplay"
+          name: "System_ItemNameDisplay"
         sql:
           name: 432
       - title: System_ItemUrl
         kind: String
         edb:
-          name: "33-System_ItemUrl"
+          name: "System_ItemUrl"
         sql:
           name: 39
       - title: System_ActivityHistory_StartTime
         kind: DateTime
         edb:
-          name: "4139-System_ActivityHistory_StartTime"
+          name: "System_ActivityHistory_StartTime"
         sql:
           name: 346
       - title: System_ActivityHistory_EndTime
         kind: DateTime
         edb:
-          name: "4130-System_ActivityHistory_EndTime"
+          name: "System_ActivityHistory_EndTime"
         sql:
           name: 341
       - title: System_Activity_AppDisplayName
         kind: String
         edb:
-          name: "4105-System_Activity_AppDisplayName"
+          name: "System_Activity_AppDisplayName"
         sql:
           name: 297
       - title: System_ActivityHistory_AppId
         kind: String
         edb:
-          name: "4123-System_ActivityHistory_AppId"
+          name: "System_ActivityHistory_AppId"
         sql:
           name: 331
       - title: System_Activity_DisplayText
         kind: String
         edb:
-          name: "4115-System_Activity_DisplayText"
+          name: "System_Activity_DisplayText"
         sql:
           name: 315
       - title: VolumeId
         kind: GUID
         edb:
-          name: "4112-System_Activity_ContentUri"
+          name: "System_Activity_ContentUri"
         sql:
           name: 311
       - title: ObjectId
         kind: GUID
         edb:
-          name: "4112-System_Activity_ContentUri"
+          name: "System_Activity_ContentUri"
         sql:
           name: 311
       - title: System_Activity_ContentUri
         kind: String
         edb:
-          name: "4112-System_Activity_ContentUri"
+          name: "System_Activity_ContentUri"
         sql:
           name: 311
   - title: File_Report
@@ -171,7 +188,7 @@ reports:
       - title: System_ComputerName
         kind: String
         edb:
-          name: "4184-System_ComputerName"
+          name: "System_ComputerName"
           constraint: [auto_fill]
         sql:
           name: 557
@@ -179,54 +196,54 @@ reports:
       - title: System_ItemPathDisplay
         kind: String
         edb:
-          name: "4447-System_ItemPathDisplay"
+          name: "System_ItemPathDisplay"
         sql:
           name: 39
       - title: System_DateModified
         kind: DateTime
         edb:
-          name: "15F-System_DateModified"
+          name: "System_DateModified"
         sql:
           name: 441
       - title: System_DateCreated
         kind: DateTime
         edb:
-          name: "16F-System_DateCreated"
+          name: "System_DateCreated"
         sql:
           name: 445
       - title: System_DateAccessed
         kind: DateTime
         edb:
-          name: "17F-System_DateAccessed"
+          name: "System_DateAccessed"
         sql:
           name: 449
       - title: System_Size
         kind: Integer
         edb:
-          name: "13F-System_Size"
+          name: "System_Size"
         sql:
           name: 436
       - title: System_FileOwner
         kind: String
         edb:
-          name: "4396-System_FileOwner"
+          name: "System_FileOwner"
         sql:
           name: 93
       - title: System_Search_AutoSummary
         kind: String
         edb:
-          name: "4625-System_Search_AutoSummary"
+          name: "System_Search_AutoSummary"
         sql:
           name: 303
       - title: System_Search_GatherTime
         kind: DateTime
         edb:
-          name: "4631F-System_Search_GatherTime"
+          name: "System_Search_GatherTime"
         sql:
           name: 26
       - title: System_ItemType
         kind: String
         edb:
-          name: "4450-System_ItemType"
+          name: "System_ItemType"
         sql:
           name: 567
