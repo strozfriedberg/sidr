@@ -334,7 +334,6 @@ impl ReportCsv{
     pub fn write_values_file(&self) {
         let mut values = self.values.borrow_mut();
         let len = values.len();
-        println!("To file is used: {:?}", self.report_type);
         for i in 0..len {
             let v = values.index_mut(i);
             let last = if i == len - 1 { "" } else { "," };
