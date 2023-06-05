@@ -115,18 +115,20 @@ fn get_stdout_handle() -> std::io::StdoutLock<'static> {
 pub struct ReportJson{
     f: Option<RefCell<File>>,
     report_type: ReportType,
+    report_suffix: Option<ReportSuffix>,
     first_record: Cell<bool>,
     values: RefCell<Vec<String>>,
 }
 
 impl ReportJson{
-    pub fn new(f: &Path, report_type: ReportType) -> Result<Self, SimpleError> {
+    pub fn new(f: &Path, report_type: ReportType, report_suffix: Option<ReportSuffix>) -> Result<Self, SimpleError> {
         match report_type {
             ReportType::ToFile => {
                 let f = File::create(f).map_err(|e| SimpleError::new(format!("{}", e)))?;
                 Ok(ReportJson {
                     f: Some(RefCell::new(f)),
                     report_type,
+                    report_suffix: None,
                     first_record: Cell::new(true),
                     values: RefCell::new(Vec::new()),
                 })
@@ -135,6 +137,7 @@ impl ReportJson{
                 Ok(ReportJson {
                     f: None,
                     report_type,
+                    report_suffix,
                     first_record: Cell::new(true),
                     values: RefCell::new(Vec::new()),
                 })
