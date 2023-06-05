@@ -22,6 +22,30 @@ pub enum ReportType {
     ToStdout
 }
 
+pub enum ReportSuffix {
+    FileReport,
+    ActivityHistory,
+    InternetHistory,
+    Unknown
+}
+
+impl ReportSuffix {
+    pub fn message(&self) -> String {
+        match self {
+            Self::FileReport => serde_json::to_string("file_report").unwrap(),
+            Self::ActivityHistory => serde_json::to_string("activity_history").unwrap(),
+            Self::InternetHistory => serde_json::to_string("internet_history").unwrap(),
+            Self::Unknown => serde_json::to_string("").unwrap()
+        }
+    }
+}
+
+impl Display for ReportSuffix {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}", self.message())
+    }
+}
+
 pub struct ReportProducer {
     dir: PathBuf,
     format: ReportFormat,
