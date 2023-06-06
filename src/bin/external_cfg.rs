@@ -20,7 +20,7 @@ struct Cli {
     format: ReportFormat,
 
     /// Report type: file or stdout
-    #[arg(short, long, value_enum, default_value_t = ReportFormat::Json)]
+    #[arg(short, long, value_enum, default_value_t = ReportType::ToFile)]
     report_type: ReportType,
 
     /// Path to the directory where reports will be created (will be created if not present). Default is the current directory.
@@ -61,8 +61,8 @@ fn main() {
     };
 
     cfg.output_type = match cli.report_type {
-        ReportType::ToFile => wsa_lib::ReportType::ToFile,
-        ReportType::ToStdout => wsa_lib::ReportType::ToStdout,
+        ReportType::ToFile => wsa_lib::OutputType::ToFile,
+        ReportType::ToStdout => wsa_lib::OutputType::ToStdout,
     };
 
     static DB_NAMES: [&str; 2] = ["Windows.edb", "Windows.db"];
