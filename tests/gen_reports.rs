@@ -7,10 +7,10 @@ use std::{
     process::{Command, Stdio},
 };
 
-use ::function_name::named;
 use camino::Utf8PathBuf as PathBuf;
 use csv::{Reader, StringRecordIter};
 use env_logger::{self, Target};
+use function_name::named;
 use log::info;
 use simple_error::SimpleError;
 use std::path::Path as StdPath;
@@ -29,6 +29,7 @@ fn get_dir<P: AsRef<StdPath>>(path: P, ext: &str) -> Vec<PathBuf> {
     }
 
     WalkDir::new(path)
+        .sort_by(|a, b| a.file_name().cmp(b.file_name()))
         .same_file_system(true)
         .into_iter()
         .filter_map(|ref f| {
