@@ -1,4 +1,3 @@
-use std::borrow::BorrowMut;
 use chrono::prelude::*;
 use clap::ValueEnum;
 use simple_error::SimpleError;
