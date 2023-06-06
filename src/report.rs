@@ -421,8 +421,8 @@ impl Drop for ReportCsv {
 #[test]
 pub fn test_report_csv() {
     let p = Path::new("test.csv");
-        let report_type: ReportType = ReportType::ToFile;
-    let report_suffix: Option<ReportSuffix> = Some(ReportSuffix::FileReport);
+    let report_type = ReportType::ToFile;
+    let report_suffix = Some(ReportSuffix::FileReport);
     {
         let r = ReportCsv::new(p, report_type, report_suffix).unwrap();
         r.set_field("int_field");
@@ -457,8 +457,8 @@ pub fn test_report_csv() {
 #[test]
 pub fn test_report_jsonl() {
     let p = Path::new("test.json");
-    let report_type: ReportType = ReportType::ToFile;
-    let report_suffix: Option<ReportSuffix> = Some(ReportSuffix::FileReport);
+    let report_type = ReportType::ToFile;
+    let report_suffix = Some(ReportSuffix::FileReport);
     {
         let r = ReportJson::new(p, report_type, report_suffix).unwrap();
         r.int_val("int_field", 0);
