@@ -21,35 +21,41 @@ use crate::sqlite::*;
 
 fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
     let mut processed = 0;
-    for entry in fs::read_dir(f).unwrap().flatten() {
-        let p = entry.path();
-        let metadata = fs::metadata(&p).unwrap();
-        if metadata.is_dir() {
-            dump(&p.to_string_lossy(), report_prod)?;
-        } else if let Some(f) = p.file_name() {
-            if f == "Windows.edb" {
-                println!("Processing ESE db: {}", p.to_string_lossy());
-                if let Err(e) = ese_generate_report(&p, report_prod) {
-                    eprintln!(
-                        "ese_generate_report({}) failed with error: {}",
-                        p.to_string_lossy(),
-                        e
-                    );
+    match fs::read_dir(f) {
+        Ok(dir) =>  {
+            for entry in dir.flatten() {
+                let p = entry.path();
+                let metadata = fs::metadata(&p).unwrap();
+                if metadata.is_dir() {
+                    dump(&p.to_string_lossy(), report_prod)?;
+                } else if let Some(f) = p.file_name() {
+                    if f == "Windows.edb" {
+                        println!("Processing ESE db: {}", p.to_string_lossy());
+                        if let Err(e) = ese_generate_report(&p, report_prod) {
+                            eprintln!(
+                                "ese_generate_report({}) failed with error: {}",
+                                p.to_string_lossy(),
+                                e
+                            );
+                        }
+                        processed += 1;
+                    } else if f == "Windows.db" {
+                        println!("Processing sqlite: {}", p.to_string_lossy());
+                        if let Err(e) = sqlite_generate_report(&p, report_prod) {
+                            eprintln!(
+                                "sqlite_generate_report({}) failed with error: {}",
+                                p.to_string_lossy(),
+                                e
+                            );
+                        }
+                        processed += 1;
+                    }
                 }
-                processed += 1;
-            } else if f == "Windows.db" {
-                println!("Processing sqlite: {}", p.to_string_lossy());
-                if let Err(e) = sqlite_generate_report(&p, report_prod) {
-                    eprintln!(
-                        "sqlite_generate_report({}) failed with error: {}",
-                        p.to_string_lossy(),
-                        e
-                    );
-                }
-                processed += 1;
             }
-        }
+        },
+        Err(e) => panic!("Could not read dir '{f}': {e}"),
     }
+
     if processed > 0 {
         println!("Found {} Windows Search database(s)", processed);
     }
