@@ -378,7 +378,6 @@ impl Report for ReportCsv {
                 match self.report_type {
                     ReportType::ToFile => {
                         self.write_header_file();
-                        self.f.as_ref().unwrap().borrow_mut().write_all(b"\n").unwrap();
                     },
                     ReportType::ToStdout => {
                         self.write_header_stdout();
@@ -387,7 +386,10 @@ impl Report for ReportCsv {
                 self.first_record.set(false);
             }
             match self.report_type {
-                ReportType::ToFile => self.write_values_file(),
+                ReportType::ToFile => {
+                    self.f.as_ref().unwrap().borrow_mut().write_all(b"\n").unwrap();
+                    self.write_values_file()
+                },
                 ReportType::ToStdout => self.write_values_stdout()
             }
 
@@ -422,7 +424,7 @@ impl Drop for ReportCsv {
 pub fn test_report_csv() {
     let p = Path::new("test.csv");
     let report_type = ReportType::ToFile;
-    let report_suffix = Some(ReportSuffix::FileReport);
+    let report_suffix = None;
     {
         let r = ReportCsv::new(p, report_type, report_suffix).unwrap();
         r.set_field("int_field");
