@@ -157,16 +157,16 @@ impl ReportJson{
         if len > 0 {
             handle.write_all(b"{").unwrap();
         }
-        handle.write_all(format!("{}:{},", serde_json::to_string("report_suffix").unwrap(), self.report_suffix.as_ref().unwrap()).as_bytes());
+        handle.write_all(format!("{}:{},", serde_json::to_string("report_suffix").unwrap(), self.report_suffix.as_ref().unwrap()).as_bytes()).ok();
         for i in 0..len {
             let v = values.index_mut(i);
             if !v.is_empty() {
                 let last = if i == len - 1 { "" } else { "," };
-                handle.write_all(format!("{}{}", v, last).as_bytes());
+                handle.write_all(format!("{}{}", v, last).as_bytes()).ok();
             }
         }
         if len > 0 {
-            handle.write_all(b"}");
+            handle.write_all(b"}").ok();
             values.clear();
         }
     }
@@ -208,7 +208,7 @@ impl Report for ReportJson {
                     ReportType::ToFile => self.f.as_ref().unwrap().borrow_mut().write_all(b"\n").unwrap(),
                     ReportType::ToStdout => {
                         let mut handle = get_stdout_handle();
-                        handle.write_all(b"\n");
+                        handle.write_all(b"\n").ok();
                     }
                 }
             } else {
@@ -283,13 +283,13 @@ impl ReportCsv{
     pub fn write_header_stdout(&self) {
         let values = self.values.borrow();
         let mut handle = get_stdout_handle();
-        handle.write_all(b"Report Suffix");
+        handle.write_all(b"Report Suffix").ok();
         for i in 0..values.len() {
             let v = &values[i];
             if i == values.len() - 1 {
                 handle.write_all(v.0.as_bytes()).unwrap();
             } else {
-                handle.write_all(format!("{},", v.0).as_bytes());
+                handle.write_all(format!("{},", v.0).as_bytes()).ok();
             }
         }
         handle.write_all(b"\n").unwrap();
@@ -316,18 +316,18 @@ impl ReportCsv{
         let mut values = self.values.borrow_mut();
         let len = values.len();
         let mut handle = get_stdout_handle();
-        handle.write_all(format!("{},", self.report_suffix.as_ref().unwrap()).as_bytes());
+        handle.write_all(format!("{},", self.report_suffix.as_ref().unwrap()).as_bytes()).ok();
         for i in 0..len {
             let v = values.index_mut(i);
             let last = if i == len - 1 { "" } else { "," };
             if v.1.is_empty() {
-                handle.write_all(format!("{}{}", v.1, last).as_bytes());
+                handle.write_all(format!("{}{}", v.1, last).as_bytes()).ok();
             } else {
-                handle.write_all(format!("{}{}", v.1, last).as_bytes());
+                handle.write_all(format!("{}{}", v.1, last).as_bytes()).ok();
                 v.1.clear();
             }
         }
-        handle.write_all(b"\n");
+        handle.write_all(b"\n").ok();
     }
 
     pub fn write_values_file(&self) {
