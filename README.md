@@ -28,6 +28,12 @@ Options:
   -o, --outdir <OUTPUT DIRECTORY>
           Path to the directory where reports will be created (will be created if not present). Default is the current directory
 
+  --report-type <REPORT TYPE>
+          Output results to file or stdout
+
+          [default: to-file]
+          [possible values: to-file, to-stdout]
+
   -h, --help
           Print help (see a summary with '-h')
 
