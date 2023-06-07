@@ -60,10 +60,11 @@ fn main() {
         ReportFormat::Csv => wsa_lib::OutputFormat::Csv,
     };
 
-    cfg.output_type = match cli.report_type {
-        ReportType::ToFile => wsa_lib::OutputType::ToFile,
-        ReportType::ToStdout => wsa_lib::OutputType::ToStdout,
-    };
+    // Override config.yml with cli. TODO: figure out which one to keep
+    // cfg.output_type = match cli.report_type {
+    //     ReportType::ToFile => wsa_lib::OutputType::ToFile,
+    //     ReportType::ToStdout => wsa_lib::OutputType::ToStdout,
+    // };
 
     static DB_NAMES: [&str; 2] = ["Windows.edb", "Windows.db"];
 
