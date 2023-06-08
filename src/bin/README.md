@@ -60,6 +60,9 @@ The application source is in `src/bin/external_cfg.rs`. It accepted command line
                         Important: the option points to the folder where the db files are (not to the file itself)
 - `--report-type` - output results to file or stdout. Default: `to-file`. Possible values: `to-file`, `to-stdout`
 
+Example:
+`cargo run --bin external_cfg -- -f csv --report-type to-stdout -c /path/to/windows_search_artifact/src/bin/test_reports_cfg.yaml /path/to/tests_search_reader`
+
 ## Test
 There is a unit test in `tests/gen_reports.rs`. Test parameters are controlled by using environment variables:
 - `WSA_TEST_DB_PATH` - corresponds to [Application](#application)'s `--db_path` argument.
