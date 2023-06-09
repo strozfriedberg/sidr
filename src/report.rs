@@ -31,6 +31,15 @@ pub enum ReportSuffix {
 }
 
 impl ReportSuffix {
+    pub fn get_match(output_type: &str) -> Option<ReportSuffix>{
+        match output_type {
+            "File_Report" => Some(ReportSuffix::FileReport),
+            "Activity_History_Report" => Some(ReportSuffix::ActivityHistory),
+            "Internet_History_Report" => Some(ReportSuffix::InternetHistory),
+            &_ => Some(ReportSuffix::Unknown)
+        }
+    }
+
     pub fn message(&self) -> String {
         match self {
             Self::FileReport => serde_json::to_string("file_report").unwrap(),
@@ -84,12 +93,7 @@ impl ReportProducer {
             date_time_now.format("%Y%m%d_%H%M%S%.f"),
             ext
         ));
-        let report_suffix = match report_suffix {
-            "File_Report" => Some(ReportSuffix::FileReport),
-            "Activity_History_Report" => Some(ReportSuffix::ActivityHistory),
-            "Internet_History_Report" => Some(ReportSuffix::InternetHistory),
-            &_ => Some(ReportSuffix::Unknown)
-        };
+        let report_suffix = ReportSuffix::get_match(report_suffix);
         let rep: Box<dyn Report> = match self.format {
             ReportFormat::Json => ReportJson::new(&path, self.report_type, report_suffix).map(Box::new)?,
             ReportFormat::Csv => ReportCsv::new(&path, self.report_type, report_suffix).map(Box::new)?,
