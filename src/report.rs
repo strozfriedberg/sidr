@@ -49,6 +49,9 @@ impl ReportSuffix {
         }
     }
 
+    // Autogenerating the names from the enum values by deriving Debug is another option.
+    // However, if someone decided to change the name of one of these enums,
+    // it could break downstream processing.
     pub fn message(&self) -> String {
         match self {
             Self::FileReport => serde_json::to_string("file_report").unwrap(),
