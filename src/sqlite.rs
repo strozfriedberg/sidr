@@ -92,16 +92,16 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
         "557", /*System_ComputerName*/
     )?;
 
-    let (file_rep, ie_rep, act_rep) = init_reports(f, report_prod, &recovered_hostname)?;
+    let (mut file_rep, mut ie_rep, mut act_rep) = init_reports(f, report_prod, &recovered_hostname)?;
 
-    let handler = |workId: u32, h: &mut HashMap<String, Vec<u8>>| {
+    let mut handler = |workId: u32, h: &mut HashMap<String, Vec<u8>>| {
         // new WorkId, handle all collected fields
         if !h.is_empty() {
-            let ie_history = sqlite_IE_history_record(&*ie_rep, workId, h);
+            let ie_history = sqlite_IE_history_record(&mut *ie_rep, workId, h);
             if ie_history && ie_rep.is_some_val_in_record() {
                 ie_rep.str_val("System_ComputerName", recovered_hostname.clone());
             }
-            let act_history = sqlite_activity_history_record(&*act_rep, workId, h);
+            let act_history = sqlite_activity_history_record(&mut *act_rep, workId, h);
             if act_history && act_rep.is_some_val_in_record() {
                 act_rep.str_val("System_ComputerName", recovered_hostname.clone());
             }
@@ -113,7 +113,7 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
                 //         h.insert(k.into(), v.clone());
                 //     }
                 // }
-                sqlite_dump_file_record(&*file_rep, workId, h);
+                sqlite_dump_file_record(&mut *file_rep, workId, h);
                 if file_rep.is_some_val_in_record() {
                     file_rep.str_val("System_ComputerName", recovered_hostname.clone());
                 }
@@ -143,7 +143,7 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
 
 // File Report
 fn sqlite_dump_file_record(
-    r: &dyn Report,
+    r: &mut dyn Report,
     workId: u32,
     h: &HashMap<String /*ColumnId*/, Vec<u8> /*Value*/>,
 ) {
@@ -214,7 +214,7 @@ fn sqlite_dump_file_record(
 
 //IE/Edge History Report
 fn sqlite_IE_history_record(
-    r: &dyn Report,
+    r: &mut dyn Report,
     workId: u32,
     h: &HashMap<String /*ColumnId*/, Vec<u8> /*Value*/>,
 ) -> bool {
@@ -274,7 +274,7 @@ fn sqlite_IE_history_record(
 
 // Activity History Report
 fn sqlite_activity_history_record(
-    r: &dyn Report,
+    r: &mut dyn Report,
     workId: u32,
     h: &HashMap<String /*ColumnId*/, Vec<u8> /*Value*/>,
 ) -> bool {
