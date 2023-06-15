@@ -283,17 +283,15 @@ impl ReportCsv{
         handle.write_all(b"\n").unwrap();
     }
 
-    pub fn write_header_file(&self) {
+    pub fn write_header_file(&mut self) {
         let values = self.values.borrow();
         for i in 0..values.len() {
             let v = &values[i];
             if i == values.len() - 1 {
-                self.f.as_ref().unwrap().borrow_mut().write_all(v.0.as_bytes()).unwrap();
+                self.f.as_mut().write_all(v.0.as_bytes()).unwrap();
             } else {
                 self.f
-                    .as_ref()
-                    .unwrap()
-                    .borrow_mut()
+                    .as_mut()
                     .write_all(format!("{},", v.0).as_bytes())
                     .unwrap();
             }
@@ -318,7 +316,7 @@ impl ReportCsv{
         handle.write_all(b"\n").ok();
     }
 
-    pub fn write_values_file(&self) {
+    pub fn write_values_file(&mut self) {
         let mut values = self.values.borrow_mut();
         let len = values.len();
         for i in 0..len {
@@ -326,16 +324,12 @@ impl ReportCsv{
             let last = if i == len - 1 { "" } else { "," };
             if v.1.is_empty() {
                 self.f
-                    .as_ref()
-                    .unwrap()
-                    .borrow_mut()
+                    .as_mut()
                     .write_all(last.to_string().as_bytes())
                     .unwrap();
             } else {
                 self.f
-                    .as_ref()
-                    .unwrap()
-                    .borrow_mut()
+                    .as_mut()
                     .write_all(format!("{}{}", v.1, last).as_bytes())
                     .unwrap();
                 v.1.clear();
@@ -374,7 +368,7 @@ impl Report for ReportCsv {
             }
             match self.report_type {
                 ReportType::ToFile => {
-                    self.f.as_ref().unwrap().borrow_mut().write_all(b"\n").unwrap();
+                    self.f.as_mut().write_all(b"\n").unwrap();
                     self.write_values_file()
                 },
                 ReportType::ToStdout => self.write_values_stdout()
