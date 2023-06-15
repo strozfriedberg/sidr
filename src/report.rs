@@ -264,6 +264,9 @@ impl ReportCsv{
 
     pub fn write_header(&mut self) {
         let handle = self.f.as_mut();
+        if self.report_type.convert_to_str() == "stdout" {
+            handle.write_all(b"ReportSuffix,").ok();
+        }
         let values = self.values.borrow();
         for i in 0..values.len() {
             let v = &values[i];
