@@ -5,7 +5,7 @@ use std::cell::{Cell, RefCell};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use serde_json;
 use std::fs::File;
-use std::io::{self, Write};
+use std::io::{self, Write, BufWriter};
 use std::ops::IndexMut;
 use std::path::{Path, PathBuf};
 
