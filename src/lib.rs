@@ -545,7 +545,7 @@ impl<'a> FieldReader for SqlReader<'a> {
 }
 
 //--------------------------------------------------------------------
-use crate::report::{ReportFormat, ReportProducer, ReportType};
+use crate::report::{ReportFormat, ReportProducer, ReportOutput};
 use evalexpr::{Context, ContextWithMutableVariables, IterateVariablesContext, Value};
 use report::Report;
 use std::path::Path;
@@ -597,8 +597,8 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
     };
 
     let report_type = match cfg.output_type {
-        OutputType::ToStdout => ReportType::ToStdout,
-        OutputType::ToFile => ReportType::ToFile,
+        OutputType::ToStdout => ReportOutput::ToStdout,
+        OutputType::ToFile => ReportOutput::ToFile,
     };
 
     let rep_factory = ReportProducer::new(cfg.output_dir.as_ref(), report_format, report_type);
