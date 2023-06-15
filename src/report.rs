@@ -120,11 +120,6 @@ pub trait Report {
     fn is_some_val_in_record(&self) -> bool;
 }
 
-fn get_stdout_handle() -> std::io::StdoutLock<'static> {
-    let stdout = io::stdout();
-    stdout.lock()
-}
-
 // report json
 pub struct ReportJson {
     f: Box<dyn Write + 'static>,
@@ -268,22 +263,7 @@ impl ReportCsv{
         s.replace('\"', "\"\"")
     }
 
-    pub fn write_header_stdout(&self) {
-        let values = self.values.borrow();
-        let mut handle = get_stdout_handle();
-        handle.write_all(b"Report Suffix").ok();
-        for i in 0..values.len() {
-            let v = &values[i];
-            if i == values.len() - 1 {
-                handle.write_all(v.0.as_bytes()).unwrap();
-            } else {
-                handle.write_all(format!("{},", v.0).as_bytes()).ok();
-            }
-        }
-        handle.write_all(b"\n").unwrap();
-    }
-
-    pub fn write_header_file(&mut self) {
+    pub fn write_header(&mut self) {
         let values = self.values.borrow();
         for i in 0..values.len() {
             let v = &values[i];
@@ -298,38 +278,24 @@ impl ReportCsv{
         }
     }
 
-    pub fn write_values_stdout(&self) {
-        let mut values = self.values.borrow_mut();
-        let len = values.len();
-        let mut handle = get_stdout_handle();
-        handle.write_all(format!("{},", self.report_suffix.as_ref().unwrap()).as_bytes()).ok();
-        for i in 0..len {
-            let v = values.index_mut(i);
-            let last = if i == len - 1 { "" } else { "," };
-            if v.1.is_empty() {
-                handle.write_all(format!("{}{}", v.1, last).as_bytes()).ok();
-            } else {
-                handle.write_all(format!("{}{}", v.1, last).as_bytes()).ok();
-                v.1.clear();
-            }
-        }
-        handle.write_all(b"\n").ok();
-    }
+    pub fn write_values(&mut self) {
+        let handle = self.f.as_mut();
+        handle.write_all(b"\n").unwrap();
 
-    pub fn write_values_file(&mut self) {
         let mut values = self.values.borrow_mut();
         let len = values.len();
+        if self.report_type.convert_to_str() == "stdout" {
+            handle.write_all(format!("{},", self.report_suffix.as_ref().unwrap()).as_bytes()).ok();
+        }
         for i in 0..len {
             let v = values.index_mut(i);
             let last = if i == len - 1 { "" } else { "," };
             if v.1.is_empty() {
-                self.f
-                    .as_mut()
+                handle
                     .write_all(last.to_string().as_bytes())
                     .unwrap();
             } else {
-                self.f
-                    .as_mut()
+                handle
                     .write_all(format!("{}{}", v.1, last).as_bytes())
                     .unwrap();
                 v.1.clear();
@@ -356,24 +322,10 @@ impl Report for ReportCsv {
         // at least 1 value was recorded?
         if self.is_some_val_in_record() {
             if self.first_record.get() {
-                match self.report_type {
-                    ReportType::ToFile => {
-                        self.write_header_file();
-                    },
-                    ReportType::ToStdout => {
-                        self.write_header_stdout();
-                    }
-                }
+                self.write_header();
                 self.first_record.set(false);
             }
-            match self.report_type {
-                ReportType::ToFile => {
-                    self.f.as_mut().write_all(b"\n").unwrap();
-                    self.write_values_file()
-                },
-                ReportType::ToStdout => self.write_values_stdout()
-            }
-
+            self.write_values();
         }
     }
 
