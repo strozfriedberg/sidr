@@ -437,5 +437,5 @@ fn test_report_suffix() {
     assert_eq!(ReportSuffix::message(report_suffix.as_ref().unwrap()), serde_json::to_string("file_report").unwrap());
     assert_eq!(ReportSuffix::message(&ReportSuffix::ActivityHistory), serde_json::to_string("activity_history").unwrap());
     assert_eq!(ReportSuffix::message(&ReportSuffix::InternetHistory), serde_json::to_string("internet_history").unwrap());
-    assert_eq!(ReportSuffix::message(&ReportSuffix::Unknown), serde_json::to_string(""));
+    assert_eq!(ReportSuffix::message(&ReportSuffix::Unknown), serde_json::to_string("").unwrap());
 }
