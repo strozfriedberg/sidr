@@ -358,7 +358,7 @@ pub fn test_report_csv() {
     let report_type = ReportType::ToFile;
     let report_suffix = None;
     {
-        let r = ReportCsv::new(p, report_type, report_suffix).unwrap();
+        let mut r = ReportCsv::new(p, report_type, report_suffix).unwrap();
         r.set_field("int_field");
         r.set_field("str_field");
         r.int_val("int_field", 0);
@@ -394,7 +394,7 @@ pub fn test_report_jsonl() {
     let report_type = ReportType::ToFile;
     let report_suffix = Some(ReportSuffix::FileReport);
     {
-        let r = ReportJson::new(p, report_type, report_suffix).unwrap();
+        let mut r = ReportJson::new(p, report_type, report_suffix).unwrap();
         r.int_val("int_field", 0);
         r.str_val("str_field", "string0_with_escapes_here1\"here2\\".into());
         for i in 1..10 {
