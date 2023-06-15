@@ -112,8 +112,8 @@ impl ReportProducer {
 }
 
 pub trait Report {
-    fn footer(&self) {}
-    fn new_record(&self);
+    fn footer(&mut self) {}
+    fn new_record(&mut self);
     fn str_val(&self, f: &str, s: String);
     fn int_val(&self, f: &str, n: u64);
     fn set_field(&self, _: &str) {} // used in csv to generate header
@@ -126,21 +126,21 @@ fn get_stdout_handle() -> std::io::StdoutLock<'static> {
 }
 
 // report json
-pub struct ReportJson{
-    f: Option<RefCell<File>>,
+pub struct ReportJson {
+    f: Option<Box<dyn Write + 'static>>,
     report_type: ReportType,
     report_suffix: Option<ReportSuffix>,
     first_record: Cell<bool>,
     values: RefCell<Vec<String>>,
 }
 
-impl ReportJson{
-    pub fn new(f: &Path, report_type: ReportType, report_suffix: Option<ReportSuffix>) -> Result<Self, SimpleError> {
-        match report_type {
+impl ReportJson {
+    pub fn new(path: &Path, report_type: ReportType, report_suffix: Option<ReportSuffix>) -> Result<Self, SimpleError> {
+        let rt = match report_type {
             ReportType::ToFile => {
-                let f = File::create(f).map_err(|e| SimpleError::new(format!("{}", e)))?;
+                let output: Box<dyn Write> = Box::new(File::create(path).map_err(|e| SimpleError::new(format!("{}", e)))?);
                 Ok(ReportJson {
-                    f: Some(RefCell::new(f)),
+                    f: Some(output),
                     report_type,
                     report_suffix: None,
                     first_record: Cell::new(true),
@@ -149,88 +149,63 @@ impl ReportJson{
             },
             ReportType::ToStdout => {
                 Ok(ReportJson {
-                    f: None,
+                    f: Some(Box::new(BufWriter::new(io::stdout()))),
                     report_type,
                     report_suffix,
                     first_record: Cell::new(true),
                     values: RefCell::new(Vec::new()),
                 })
             }
-        }
+        };
+        rt
     }
 
     fn escape(s: String) -> String {
         json_escape(&s)
     }
 
-    pub fn write_values_stdout(&self) {
+    pub fn write_values(&mut self) {
         let mut values = self.values.borrow_mut();
         let len = values.len();
-        let mut handle = get_stdout_handle();
+        let handle = self.f.as_mut().unwrap();
         if len > 0 {
             handle.write_all(b"{").unwrap();
         }
-        handle.write_all(format!("{}:{},", serde_json::to_string("report_suffix").unwrap(), self.report_suffix.as_ref().unwrap()).as_bytes()).ok();
-        for i in 0..len {
-            let v = values.index_mut(i);
-            if !v.is_empty() {
-                let last = if i == len - 1 { "" } else { "," };
-                handle.write_all(format!("{}{}", v, last).as_bytes()).ok();
-            }
-        }
-        if len > 0 {
-            handle.write_all(b"}").ok();
-            values.clear();
-        }
-    }
-
-    pub fn write_values_file(&self) {
-        let mut values = self.values.borrow_mut();
-        let len = values.len();
-        if len > 0 {
-            self.f.as_ref().unwrap().borrow_mut().write_all(b"{").unwrap();
+        if self.report_type.convert_to_str() == "stdout" {
+            handle.write_all(format!("{}:{},", serde_json::to_string("report_suffix").unwrap(), self.report_suffix.as_ref().unwrap()).as_bytes()).ok();
         }
         for i in 0..len {
             let v = values.index_mut(i);
             if !v.is_empty() {
                 let last = if i == len - 1 { "" } else { "," };
-                self.f
-                    .as_ref()
-                    .unwrap()
-                    .borrow_mut()
+                handle
                     .write_all(format!("{}{}", v, last).as_bytes())
                     .unwrap();
             }
         }
         if len > 0 {
-            self.f.as_ref().unwrap().borrow_mut().write_all(b"}").unwrap();
+            self.f.as_mut().unwrap().write_all(b"}").unwrap();
             values.clear();
         }
     }
 }
 
 impl Report for ReportJson {
-    fn footer(&self) {
+    fn footer(&mut self) {
         self.new_record();
     }
 
-    fn new_record(&self) {
+    fn new_record(&mut self) {
         if !self.values.borrow().is_empty() {
             if !self.first_record.get() {
                 match self.report_type {
-                    ReportType::ToFile => self.f.as_ref().unwrap().borrow_mut().write_all(b"\n").unwrap(),
-                    ReportType::ToStdout => {
-                        let mut handle = get_stdout_handle();
-                        handle.write_all(b"\n").ok();
-                    }
+                    ReportType::ToFile => self.f.as_mut().unwrap().write_all(b"\n").unwrap(),
+                    ReportType::ToStdout => self.f.as_mut().unwrap().write_all(b"\n").unwrap()
                 }
             } else {
                 self.first_record.set(false);
             }
-            match self.report_type {
-                ReportType::ToFile => self.write_values_file(),
-                ReportType::ToStdout => self.write_values_stdout()
-            }
+            self.write_values();
         }
     }
 
@@ -379,11 +354,11 @@ impl ReportCsv{
 }
 
 impl Report for ReportCsv {
-    fn footer(&self) {
+    fn footer(&mut self) {
         self.new_record();
     }
 
-    fn new_record(&self) {
+    fn new_record(&mut self) {
         // at least 1 value was recorded?
         if self.is_some_val_in_record() {
             if self.first_record.get() {
