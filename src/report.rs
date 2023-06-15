@@ -178,7 +178,7 @@ impl ReportJson {
             }
         }
         if len > 0 {
-            self.f.as_mut().write_all(b"}").unwrap();
+            handle.write_all(b"}").unwrap();
             values.clear();
         }
     }
@@ -263,14 +263,14 @@ impl ReportCsv{
     }
 
     pub fn write_header(&mut self) {
+        let handle = self.f.as_mut();
         let values = self.values.borrow();
         for i in 0..values.len() {
             let v = &values[i];
             if i == values.len() - 1 {
-                self.f.as_mut().write_all(v.0.as_bytes()).unwrap();
+                handle.write_all(v.0.as_bytes()).unwrap();
             } else {
-                self.f
-                    .as_mut()
+                handle
                     .write_all(format!("{},", v.0).as_bytes())
                     .unwrap();
             }
