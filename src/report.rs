@@ -32,6 +32,7 @@ impl ReportOutput {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum ReportSuffix {
     FileReport,
     ActivityHistory,
@@ -425,4 +426,16 @@ pub fn test_report_jsonl() {
 {"int_field":9}"#;
     assert_eq!(data, expected);
     std::fs::remove_file(p).unwrap();
+}
+
+#[test]
+fn test_report_suffix() {
+    let report_suffix = Some(ReportSuffix::FileReport);
+    assert_eq!(ReportSuffix::get_match("File_Report"), report_suffix);
+    assert_ne!(ReportSuffix::get_match("Activity"), report_suffix);
+
+    assert_eq!(ReportSuffix::message(report_suffix.as_ref().unwrap()), serde_json::to_string("file_report").unwrap());
+    assert_eq!(ReportSuffix::message(&ReportSuffix::ActivityHistory), serde_json::to_string("activity_history").unwrap());
+    assert_eq!(ReportSuffix::message(&ReportSuffix::InternetHistory), serde_json::to_string("internet_history").unwrap());
+    assert_eq!(ReportSuffix::message(&ReportSuffix::Unknown), serde_json::to_string(""));
 }
