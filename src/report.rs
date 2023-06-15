@@ -127,20 +127,20 @@ pub trait Report {
 // report json
 pub struct ReportJson {
     f: Box<dyn Write + 'static>,
-    report_type: ReportOutput,
+    report_output: ReportOutput,
     report_suffix: Option<ReportSuffix>,
     first_record: Cell<bool>,
     values: RefCell<Vec<String>>,
 }
 
 impl ReportJson {
-    pub fn new(path: &Path, report_type: ReportOutput, report_suffix: Option<ReportSuffix>) -> Result<Self, SimpleError> {
-        match report_type {
+    pub fn new(path: &Path, report_output: ReportOutput, report_suffix: Option<ReportSuffix>) -> Result<Self, SimpleError> {
+        match report_output {
             ReportOutput::ToFile => {
                 let output: Box<dyn Write> = Box::new(File::create(path).map_err(|e| SimpleError::new(format!("{}", e)))?);
                 Ok(ReportJson {
                     f: output,
-                    report_type,
+                    report_output,
                     report_suffix: None,
                     first_record: Cell::new(true),
                     values: RefCell::new(Vec::new()),
@@ -149,7 +149,7 @@ impl ReportJson {
             ReportOutput::ToStdout => {
                 Ok(ReportJson {
                     f: Box::new(BufWriter::new(io::stdout())),
-                    report_type,
+                    report_output,
                     report_suffix,
                     first_record: Cell::new(true),
                     values: RefCell::new(Vec::new()),
@@ -169,7 +169,7 @@ impl ReportJson {
         if len > 0 {
             handle.write_all(b"{").unwrap();
         }
-        if self.report_type.convert_to_str() == "stdout" {
+        if self.report_output.convert_to_str() == "stdout" {
             handle.write_all(format!("{}:{},", serde_json::to_string("report_suffix").unwrap(), self.report_suffix.as_ref().unwrap()).as_bytes()).ok();
         }
         for i in 0..len {
@@ -196,7 +196,7 @@ impl Report for ReportJson {
     fn new_record(&mut self) {
         if !self.values.borrow().is_empty() {
             if !self.first_record.get() {
-                match self.report_type {
+                match self.report_output {
                     ReportOutput::ToFile => self.f.as_mut().write_all(b"\n").unwrap(),
                     ReportOutput::ToStdout => self.f.as_mut().write_all(b"\n").unwrap()
                 }
@@ -231,20 +231,20 @@ impl Drop for ReportJson {
 // report csv
 pub struct ReportCsv{
     f: Box<dyn Write + 'static>,
-    report_type: ReportOutput,
+    report_output: ReportOutput,
     report_suffix: Option<ReportSuffix>,
     first_record: Cell<bool>,
     values: RefCell<Vec<(String /*field*/, String /*value*/)>>,
 }
 
 impl ReportCsv{
-    pub fn new(f: &Path, report_type: ReportOutput, report_suffix: Option<ReportSuffix>) -> Result<Self, SimpleError> {
-        match report_type {
+    pub fn new(f: &Path, report_output: ReportOutput, report_suffix: Option<ReportSuffix>) -> Result<Self, SimpleError> {
+        match report_output {
             ReportOutput::ToFile => {
                 let output: Box<dyn Write> = Box::new(File::create(f).map_err(|e| SimpleError::new(format!("{}", e)))?);
                 Ok(ReportCsv {
                     f: output,
-                    report_type,
+                    report_output,
                     report_suffix: None,
                     first_record: Cell::new(true),
                     values: RefCell::new(Vec::new()),
@@ -253,7 +253,7 @@ impl ReportCsv{
             ReportOutput::ToStdout => {
                 Ok(ReportCsv {
                     f: Box::new(BufWriter::new(io::stdout())),
-                    report_type,
+                    report_output,
                     report_suffix,
                     first_record: Cell::new(true),
                     values: RefCell::new(Vec::new()),
@@ -268,7 +268,7 @@ impl ReportCsv{
 
     pub fn write_header(&mut self) {
         let handle = self.f.as_mut();
-        if self.report_type.convert_to_str() == "stdout" {
+        if self.report_output.convert_to_str() == "stdout" {
             handle.write_all(b"ReportSuffix,").ok();
         }
         let values = self.values.borrow();
@@ -290,7 +290,7 @@ impl ReportCsv{
 
         let mut values = self.values.borrow_mut();
         let len = values.len();
-        if self.report_type.convert_to_str() == "stdout" {
+        if self.report_output.convert_to_str() == "stdout" {
             handle.write_all(format!("{},", self.report_suffix.as_ref().unwrap()).as_bytes()).ok();
         }
         for i in 0..len {
