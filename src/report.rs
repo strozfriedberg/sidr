@@ -23,6 +23,15 @@ pub enum ReportType {
     ToStdout
 }
 
+impl ReportType {
+    pub fn convert_to_str(&self) -> &str {
+        match self {
+            Self::ToFile => "file",
+            Self::ToStdout => "stdout"
+        }
+    }
+}
+
 pub enum ReportSuffix {
     FileReport,
     ActivityHistory,
