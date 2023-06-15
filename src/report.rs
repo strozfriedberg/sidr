@@ -131,7 +131,7 @@ pub struct ReportJson {
 
 impl ReportJson {
     pub fn new(path: &Path, report_type: ReportType, report_suffix: Option<ReportSuffix>) -> Result<Self, SimpleError> {
-        let rt = match report_type {
+        match report_type {
             ReportType::ToFile => {
                 let output: Box<dyn Write> = Box::new(File::create(path).map_err(|e| SimpleError::new(format!("{}", e)))?);
                 Ok(ReportJson {
@@ -151,8 +151,7 @@ impl ReportJson {
                     values: RefCell::new(Vec::new()),
                 })
             }
-        };
-        rt
+        }
     }
 
     fn escape(s: String) -> String {
