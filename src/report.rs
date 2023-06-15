@@ -18,12 +18,12 @@ pub enum ReportFormat {
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
-pub enum ReportType {
+pub enum ReportOutput {
     ToFile,
     ToStdout
 }
 
-impl ReportType {
+impl ReportOutput {
     pub fn convert_to_str(&self) -> &str {
         match self {
             Self::ToFile => "file",
@@ -68,11 +68,11 @@ impl Display for ReportSuffix {
 pub struct ReportProducer {
     dir: PathBuf,
     format: ReportFormat,
-    report_type: ReportType
+    report_type: ReportOutput
 }
 
 impl ReportProducer {
-    pub fn new(dir: &Path, format: ReportFormat, report_type: ReportType) -> Self {
+    pub fn new(dir: &Path, format: ReportFormat, report_type: ReportOutput) -> Self {
         if !dir.exists() {
             std::fs::create_dir(dir)
                 .unwrap_or_else(|_| panic!("Can't create directory \"{}\"", dir.to_string_lossy()));
@@ -123,16 +123,16 @@ pub trait Report {
 // report json
 pub struct ReportJson {
     f: Box<dyn Write + 'static>,
-    report_type: ReportType,
+    report_type: ReportOutput,
     report_suffix: Option<ReportSuffix>,
     first_record: Cell<bool>,
     values: RefCell<Vec<String>>,
 }
 
 impl ReportJson {
-    pub fn new(path: &Path, report_type: ReportType, report_suffix: Option<ReportSuffix>) -> Result<Self, SimpleError> {
+    pub fn new(path: &Path, report_type: ReportOutput, report_suffix: Option<ReportSuffix>) -> Result<Self, SimpleError> {
         match report_type {
-            ReportType::ToFile => {
+            ReportOutput::ToFile => {
                 let output: Box<dyn Write> = Box::new(File::create(path).map_err(|e| SimpleError::new(format!("{}", e)))?);
                 Ok(ReportJson {
                     f: output,
@@ -142,7 +142,7 @@ impl ReportJson {
                     values: RefCell::new(Vec::new()),
                 })
             },
-            ReportType::ToStdout => {
+            ReportOutput::ToStdout => {
                 Ok(ReportJson {
                     f: Box::new(BufWriter::new(io::stdout())),
                     report_type,
@@ -193,8 +193,8 @@ impl Report for ReportJson {
         if !self.values.borrow().is_empty() {
             if !self.first_record.get() {
                 match self.report_type {
-                    ReportType::ToFile => self.f.as_mut().write_all(b"\n").unwrap(),
-                    ReportType::ToStdout => self.f.as_mut().write_all(b"\n").unwrap()
+                    ReportOutput::ToFile => self.f.as_mut().write_all(b"\n").unwrap(),
+                    ReportOutput::ToStdout => self.f.as_mut().write_all(b"\n").unwrap()
                 }
             } else {
                 self.first_record.set(false);
@@ -227,16 +227,16 @@ impl Drop for ReportJson {
 // report csv
 pub struct ReportCsv{
     f: Box<dyn Write + 'static>,
-    report_type: ReportType,
+    report_type: ReportOutput,
     report_suffix: Option<ReportSuffix>,
     first_record: Cell<bool>,
     values: RefCell<Vec<(String /*field*/, String /*value*/)>>,
 }
 
 impl ReportCsv{
-    pub fn new(f: &Path, report_type: ReportType, report_suffix: Option<ReportSuffix>) -> Result<Self, SimpleError> {
+    pub fn new(f: &Path, report_type: ReportOutput, report_suffix: Option<ReportSuffix>) -> Result<Self, SimpleError> {
         match report_type {
-            ReportType::ToFile => {
+            ReportOutput::ToFile => {
                 let output: Box<dyn Write> = Box::new(File::create(f).map_err(|e| SimpleError::new(format!("{}", e)))?);
                 Ok(ReportCsv {
                     f: output,
@@ -246,7 +246,7 @@ impl ReportCsv{
                     values: RefCell::new(Vec::new()),
                 })
             },
-            ReportType::ToStdout => {
+            ReportOutput::ToStdout => {
                 Ok(ReportCsv {
                     f: Box::new(BufWriter::new(io::stdout())),
                     report_type,
@@ -355,7 +355,7 @@ impl Drop for ReportCsv {
 #[test]
 pub fn test_report_csv() {
     let p = Path::new("test.csv");
-    let report_type = ReportType::ToFile;
+    let report_type = ReportOutput::ToFile;
     let report_suffix = None;
     {
         let mut r = ReportCsv::new(p, report_type, report_suffix).unwrap();
@@ -391,7 +391,7 @@ pub fn test_report_csv() {
 #[test]
 pub fn test_report_jsonl() {
     let p = Path::new("test.json");
-    let report_type = ReportType::ToFile;
+    let report_type = ReportOutput::ToFile;
     let report_suffix = Some(ReportSuffix::FileReport);
     {
         let mut r = ReportJson::new(p, report_type, report_suffix).unwrap();
