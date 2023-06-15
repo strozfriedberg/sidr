@@ -127,7 +127,7 @@ fn get_stdout_handle() -> std::io::StdoutLock<'static> {
 
 // report json
 pub struct ReportJson {
-    f: Option<Box<dyn Write + 'static>>,
+    f: Box<dyn Write + 'static>,
     report_type: ReportType,
     report_suffix: Option<ReportSuffix>,
     first_record: Cell<bool>,
@@ -140,7 +140,7 @@ impl ReportJson {
             ReportType::ToFile => {
                 let output: Box<dyn Write> = Box::new(File::create(path).map_err(|e| SimpleError::new(format!("{}", e)))?);
                 Ok(ReportJson {
-                    f: Some(output),
+                    f: output,
                     report_type,
                     report_suffix: None,
                     first_record: Cell::new(true),
@@ -149,7 +149,7 @@ impl ReportJson {
             },
             ReportType::ToStdout => {
                 Ok(ReportJson {
-                    f: Some(Box::new(BufWriter::new(io::stdout()))),
+                    f: Box::new(BufWriter::new(io::stdout())),
                     report_type,
                     report_suffix,
                     first_record: Cell::new(true),
@@ -167,7 +167,7 @@ impl ReportJson {
     pub fn write_values(&mut self) {
         let mut values = self.values.borrow_mut();
         let len = values.len();
-        let handle = self.f.as_mut().unwrap();
+        let handle = self.f.as_mut();
         if len > 0 {
             handle.write_all(b"{").unwrap();
         }
@@ -184,7 +184,7 @@ impl ReportJson {
             }
         }
         if len > 0 {
-            self.f.as_mut().unwrap().write_all(b"}").unwrap();
+            self.f.as_mut().write_all(b"}").unwrap();
             values.clear();
         }
     }
@@ -199,8 +199,8 @@ impl Report for ReportJson {
         if !self.values.borrow().is_empty() {
             if !self.first_record.get() {
                 match self.report_type {
-                    ReportType::ToFile => self.f.as_mut().unwrap().write_all(b"\n").unwrap(),
-                    ReportType::ToStdout => self.f.as_mut().unwrap().write_all(b"\n").unwrap()
+                    ReportType::ToFile => self.f.as_mut().write_all(b"\n").unwrap(),
+                    ReportType::ToStdout => self.f.as_mut().write_all(b"\n").unwrap()
                 }
             } else {
                 self.first_record.set(false);
