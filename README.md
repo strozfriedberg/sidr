@@ -44,7 +44,6 @@ Options:
 ### Example
 
 `> sidr -f json C:\\test`
-`cargo run --bin sidr -- -f csv --report-type to-file /home/<username>/path/to/tests_search_reader` (Linux)
 
 will scan `C:\test` directory for `Windows.db/Windows.edb` files and produce 3 logs for each database:
 `DESKTOP-POG7R45_File_Report_20230307_015244.json`
@@ -69,6 +68,9 @@ $ cargo build --release
 $ ./target/release/sidr --version
 sidr 0.8.0
 ```
+
+### Running with cargo
+`cargo run --bin sidr -- -f csv --report-type to-file /home/<username>/path/to/tests_search_reader` (Linux)
 
 ### Copyright
 Copyright 2023, Aon. SIDR is licensed under the Apache License, Version 2.0.
