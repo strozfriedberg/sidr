@@ -95,8 +95,8 @@ struct Cli {
     format: ReportFormat,
 
     /// Report Type: ToFile or ToStdout
-    #[arg(short, long, value_enum, default_value_t = ReportType::ToFile)]
-    report_type: ReportType,
+    #[arg(short, long, value_enum, default_value_t = ReportOutput::ToFile)]
+    report_type: ReportOutput,
 
     /// Path to the directory where reports will be created (will be created if not present). Default is the current directory.
     #[arg(short, long, value_name = "OUTPUT DIRECTORY")]
