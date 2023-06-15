@@ -561,7 +561,7 @@ struct ReportColumn {
 }
 
 impl<R: Report + ?Sized> Report for Box<R> {
-    fn new_record(&self) {
+    fn new_record(&mut self) {
         (**self).new_record()
     }
 
@@ -687,7 +687,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
                 .unwrap()
         });
 
-        'report: for report in &reports {
+        'report: for report in &mut reports {
             if let Some(ref constr) = report.constrain {
                 match constr.eval_with_context_mut(&mut context) {
                     Ok(ok) => {
