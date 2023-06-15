@@ -232,7 +232,7 @@ impl Drop for ReportJson {
 
 // report csv
 pub struct ReportCsv{
-    f: Option<RefCell<File>>,
+    f: Box<dyn Write + 'static>,
     report_type: ReportType,
     report_suffix: Option<ReportSuffix>,
     first_record: Cell<bool>,
@@ -243,9 +243,9 @@ impl ReportCsv{
     pub fn new(f: &Path, report_type: ReportType, report_suffix: Option<ReportSuffix>) -> Result<Self, SimpleError> {
         match report_type {
             ReportType::ToFile => {
-                let f = File::create(f).map_err(|e| SimpleError::new(format!("{}", e)))?;
+                let output: Box<dyn Write> = Box::new(File::create(f).map_err(|e| SimpleError::new(format!("{}", e)))?);
                 Ok(ReportCsv {
-                    f: Some(RefCell::new(f)),
+                    f: output,
                     report_type,
                     report_suffix: None,
                     first_record: Cell::new(true),
@@ -254,7 +254,7 @@ impl ReportCsv{
             },
             ReportType::ToStdout => {
                 Ok(ReportCsv {
-                    f: None,
+                    f: Box::new(BufWriter::new(io::stdout())),
                     report_type,
                     report_suffix,
                     first_record: Cell::new(true),
