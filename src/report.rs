@@ -17,19 +17,10 @@ pub enum ReportFormat {
     Csv,
 }
 
-#[derive(Clone, Copy, Debug, ValueEnum)]
+#[derive(Clone, Copy, Debug, PartialEq, ValueEnum)]
 pub enum ReportOutput {
     ToFile,
     ToStdout
-}
-
-impl ReportOutput {
-    pub fn convert_to_str(&self) -> &str {
-        match self {
-            Self::ToFile => "file",
-            Self::ToStdout => "stdout"
-        }
-    }
 }
 
 #[derive(Debug, PartialEq)]
