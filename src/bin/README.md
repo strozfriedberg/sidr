@@ -36,9 +36,9 @@ Some config values can be overridden in `external_cfg.rs`. For example:
 Cli `report_type` will be used instead of the config `output_type` value.
 
 ## Constraints
-There is used [evalexpr](https://docs.rs/evalexpr/latest/evalexpr/) to evaluate expressions.
-- on [report level](#rep_constraint) in [Context](https://docs.rs/evalexpr/latest/evalexpr/trait.Context.html) are added boolean variables named as [report name](#rep_title) (`true` - not empty report, `false` - no report was produced).
-  For example   
+SIDR uses [evalexpr](https://docs.rs/evalexpr/latest/evalexpr/) to evaluate expressions.
+- On the [report level](#rep_constraint) in the [Context](https://docs.rs/evalexpr/latest/evalexpr/trait.Context.html) trait, we have added a boolean variable that indicates the status of the report. The name of this variable will match the name of the report. A `true` value indicates a non-empty report, while a `false` value indicates that SIDR did not produce that report.
+  * For example:
   *<pre>    constraint: "!Internet_History_Report && !Activity_History_Report"</pre>*
 - in [edb constraint](#edb_constraint) or [sql constraint](#sql_constraint) there is a list of constraints. 
   In each constraint all literals `{Value}` are replaced with field's value. For example  
