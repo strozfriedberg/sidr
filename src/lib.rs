@@ -46,6 +46,12 @@ pub enum OutputFormat {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub enum OutputType {
+    ToFile,
+    ToStdout,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ReportCfg {
     pub title: String,
     pub output_filename: String,
@@ -58,6 +64,7 @@ pub struct ReportsCfg {
     pub table_edb: String,
     pub table_sql: String,
     pub output_format: OutputFormat,
+    pub output_type: OutputType,
     pub output_dir: String,
     pub reports: Vec<ReportCfg>,
 }
@@ -538,7 +545,7 @@ impl<'a> FieldReader for SqlReader<'a> {
 }
 
 //--------------------------------------------------------------------
-use crate::report::{ReportFormat, ReportProducer};
+use crate::report::{ReportFormat, ReportOutput, ReportProducer};
 use evalexpr::{Context, ContextWithMutableVariables, IterateVariablesContext, Value};
 use report::Report;
 use std::path::Path;
@@ -554,7 +561,7 @@ struct ReportColumn {
 }
 
 impl<R: Report + ?Sized> Report for Box<R> {
-    fn new_record(&self) {
+    fn new_record(&mut self) {
         (**self).new_record()
     }
 
@@ -588,7 +595,13 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
         OutputFormat::Csv => ReportFormat::Csv,
         OutputFormat::Json => ReportFormat::Json,
     };
-    let rep_factory = ReportProducer::new(cfg.output_dir.as_ref(), report_format);
+
+    let report_type = match cfg.output_type {
+        OutputType::ToStdout => ReportOutput::ToStdout,
+        OutputType::ToFile => ReportOutput::ToFile,
+    };
+
+    let rep_factory = ReportProducer::new(cfg.output_dir.as_ref(), report_format, report_type);
     let mut cached = HashMap::<String, String>::new();
 
     for report in &cfg.reports {
@@ -603,7 +616,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
                 .iter()
                 .find(|col| col.title == *output_filename_title)
                 .unwrap_or_else(|| {
-                    panic!("No column for output_filename '{}'", output_filename_title)
+                    panic!("No column for output_filename '{output_filename_title}'")
                 });
             let _columns = reader.get_used_columns(&[(*col_for_filename).clone()]);
 
@@ -653,7 +666,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
             constrain: if let Some(ref expr) = report.constraint {
                 match evalexpr::build_operator_tree(expr) {
                     Ok(node) => Some(node),
-                    Err(e) => panic!("failed parsing of '{}': {e}", expr),
+                    Err(e) => panic!("failed parsing of '{expr}': {e}"),
                 }
             } else {
                 None
@@ -674,7 +687,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
                 .unwrap()
         });
 
-        'report: for report in &reports {
+        'report: for report in &mut reports {
             if let Some(ref constr) = report.constrain {
                 match constr.eval_with_context_mut(&mut context) {
                     Ok(ok) => {
@@ -872,10 +885,7 @@ fn get_used_columns(
 
     // call set_field for all fields used in cfg (even empty one)
     cfg.columns.iter().for_each(|cc| {
-        let hidden = columns
-            .iter()
-            .find(|c| c.title == cc.title && c.hidden)
-            .is_some();
+        let hidden = columns.iter().any(|c| c.title == cc.title && c.hidden);
         if !hidden {
             debug!("set header '{}' for '{}' ", cc.title, cfg.title);
             reporter.set_field(&cc.title);
