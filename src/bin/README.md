@@ -73,8 +73,8 @@ There is a unit test in `tests/gen_reports.rs`. You can control the test paramet
 - `WSA_TEST_DB_PATH` - corresponds to [Application](#application)'s `--db_path` argument.
                        Important: the var points to the folder where the db files are (not to the file itself)
 - `WSA_TEST_CONFIGURATION_PATH`  - corresponds to [Application](#application)'s `--cfg_path` argument.
-- `KEEP_TEMP_WORK_DIR` - optional flag to do not delete temporary directory with test's data.
-- `RUST_LOG` - see [env_logger](https://docs.rs/env_logger/latest/env_logger/), all log records are sending on `stderr`.
+- `KEEP_TEMP_WORK_DIR` - optional flag. Indicates that SIDR should not delete the temporary directory with the test's data.
+- `RUST_LOG` - see [env_logger](https://docs.rs/env_logger/latest/env_logger/). All log records are sent to `stderr`.
 
 The test invokes [Application](#application) and `sidr` to produce reports in `csv` and `json` formats 
 (`generate_csv_json` function) for `WSA_TEST_DB_PATH`. After that all generated reports are compared. 
