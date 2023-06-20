@@ -54,16 +54,19 @@ SIDR uses [evalexpr](https://docs.rs/evalexpr/latest/evalexpr/) to evaluate expr
 
 ## Application
 
-The application source is in `src/bin/external_cfg.rs`. It accepted command line arguments
-- `--cfg_path` or `-c` - path to [configuration](#configuration)
-- `--outdir` or `-o` - path to placing output reports
-- `--format`or `-f` - output format (`Csv` or `Json`)
-- `--db_path` or `-d` - path to the database under study (extension defines format: `.edb` - `esent` format, `.db` - `sqlite` format
+The application source is in `src/bin/external_cfg.rs`. It accepts the folllowing command line arguments:
+
+- `--cfg_path` or `-c` path to [configuration](#configuration)
+- `--outdir` or `-o` - path to directory where reports will be saved
+- `--format` or `-f` - output format (`csv` or `json`)
+- `--db_path` or `-d` - path to the Windows Search Database
+  - Extension indicates DB format (i.e., `.edb` indicates `ESENT` format, while `.db` indicates `sqlite` format)
                         Important: the option points to the folder where the db files are (not to the file itself)
 - `--report-type` - output results to file or stdout. Default: `to-file`. Possible values: `to-file`, `to-stdout`
 
 Example:
 `cargo run --bin external_cfg -- -f csv --report-type to-stdout -c /path/to/windows_search_artifact/src/bin/test_reports_cfg.yaml /path/to/tests_search_reader`
+
 
 ## Test
 There is a unit test in `tests/gen_reports.rs`. Test parameters are controlled by using environment variables:
