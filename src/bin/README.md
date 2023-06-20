@@ -56,7 +56,7 @@ SIDR uses [evalexpr](https://docs.rs/evalexpr/latest/evalexpr/) to evaluate expr
 
 The application source is in `src/bin/external_cfg.rs`. It accepts the folllowing command line arguments:
 
-- `--cfg_path` or `-c` path to [configuration](#configuration)
+- `--cfg_path` or `-c` - path to [configuration](#configuration)
 - `--outdir` or `-o` - path to directory where reports will be saved
 - `--format` or `-f` - output format (`csv` or `json`)
 - `--db_path` or `-d` - path to the Windows Search Database
