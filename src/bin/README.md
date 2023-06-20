@@ -39,15 +39,15 @@ Cli `report_type` will be used instead of the config `output_type` value.
 SIDR uses [evalexpr](https://docs.rs/evalexpr/latest/evalexpr/) to evaluate expressions.
 - On the [report level](#rep_constraint) in the [Context](https://docs.rs/evalexpr/latest/evalexpr/trait.Context.html) trait, we have added a boolean variable that indicates the status of the report. The name of this variable will match the name of the report. A `true` value indicates a non-empty report, while a `false` value indicates that SIDR did not produce that report.
   * For example:
-  *<pre>    constraint: "!Internet_History_Report && !Activity_History_Report"</pre>*
+  *<pre>constraint: "!Internet_History_Report && !Activity_History_Report"</pre>*
 - in [edb constraint](#edb_constraint) or [sql constraint](#sql_constraint) there is a list of constraints. 
   In each constraint all literals `{Value}` are replaced with field's value. For example  
-  *<pre>    constraint: ['str::regex_matches("{Value}", "^(http://|https://)")']</pre>*
+  *<pre>constraint: ['str::regex_matches("{Value}", "^(http://|https://)")']</pre>*
   Besides [evalexpr](https://docs.rs/evalexpr/latest/evalexpr/) there are used some custom flags:
   - `auto_fill` - first not empty value is used for all values. For example
-    *<pre>    constraint: [auto_fill]</pre>*
+    *<pre>constraint: [auto_fill]</pre>*
   - `hidden` - field will be not included to report. For example
-    *<pre>    constraint: ['str::regex_matches("{Value}", "^ActivityHistoryItem$")',hidden]</pre>*
+    *<pre>constraint: ['str::regex_matches("{Value}", "^ActivityHistoryItem$")',hidden]</pre>*
   - `optional` - assume that the absence of a value satisfies the constraint.
 
 ## Application
