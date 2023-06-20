@@ -8,7 +8,7 @@ The app shares code with sidr. For example, `ReportProducer::new` is called in b
 ## Configuration
 The configuration file uses the [YAML](https://yaml.org/) format:
 - first level defines
-  - `table_edb` - a table name in `Windows.edb` (or other DB in `esent` format)
+  - `table_edb` - a table name in `Windows.edb` (or other DB in [ESENT](https://github.com/libyal/libesedb/blob/main/documentation/Extensible%20Storage%20Engine%20(ESE)%20Database%20File%20(EDB)%20format.asciidoc) format)
   - `table_sql` -  a table name in `Windows.db`  (or other DB in `sqlite` format)
   - `output_format` - default output format (`Csv` or `Json`) (can be changed with `--format` or `-f` command line argument)
   - `output_type` - output results to file or stdout (`ToFile` or `ToStdout`)
