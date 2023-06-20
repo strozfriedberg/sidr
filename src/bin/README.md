@@ -44,12 +44,13 @@ SIDR uses [evalexpr](https://docs.rs/evalexpr/latest/evalexpr/) to evaluate expr
   In each constraint, all `{Value}` literals are replaced with the field's value. 
   For example:
   *<pre>constraint: ['str::regex_matches("{Value}", "^(http://|https://)")']</pre>*
-  Besides [evalexpr](https://docs.rs/evalexpr/latest/evalexpr/) there are used some custom flags:
-  - `auto_fill` - first not empty value is used for all values. For example
+  * Besides [evalexpr](https://docs.rs/evalexpr/latest/evalexpr/), the configuration may include the following custom flags:
+    - `auto_fill` - indicates that the first non-empty value will be used for all values. 
+  For example:
     *<pre>constraint: [auto_fill]</pre>*
-  - `hidden` - field will be not included to report. For example
+    - `hidden` - indicates that the field will be not included in the report. For example:
     *<pre>constraint: ['str::regex_matches("{Value}", "^ActivityHistoryItem$")',hidden]</pre>*
-  - `optional` - assume that the absence of a value satisfies the constraint.
+  - `optional` - indicates that the absence of a value satisfies the constraint.
 
 ## Application
 
