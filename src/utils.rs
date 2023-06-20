@@ -11,7 +11,7 @@ pub fn get_date_time_from_filetime(filetime: u64) -> DateTime<Utc> {
 
     // Add nanoseconds to timestamp via Duration
     DateTime::<Utc>::from_utc(
-       NaiveDate::from_ymd_opt(1970, 1, 1)
+        NaiveDate::from_ymd_opt(1970, 1, 1)
             .unwrap()
             .and_hms_nano_opt(0, 0, 0, 0)
             .unwrap()
@@ -98,10 +98,10 @@ pub fn file_attributes_to_string(bytes: &Vec<u8>) -> String {
     } else if bytes.len() == 4 {
         u32::from_le_bytes(bytes[..].try_into().unwrap())
     } else {
-        return format!("{:?}", bytes);
+        return format!("{bytes:?}");
     };
     let f = file_attributes_flag::from_bits_retain(at);
-    format!("{:?}", f)
+    format!("{f:?}")
 }
 
 // in: 15F-System_DateModified

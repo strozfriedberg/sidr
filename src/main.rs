@@ -22,7 +22,7 @@ use crate::sqlite::*;
 fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
     let mut processed = 0;
     match fs::read_dir(f) {
-        Ok(dir) =>  {
+        Ok(dir) => {
             for entry in dir.flatten() {
                 let p = entry.path();
                 let metadata = fs::metadata(&p).unwrap();
@@ -52,12 +52,12 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
                     }
                 }
             }
-        },
+        }
         Err(e) => panic!("Could not read dir '{f}': {e}"),
     }
 
     if processed > 0 {
-        println!("Found {} Windows Search database(s)", processed);
+        println!("Found {processed} Windows Search database(s)");
     }
 
     Ok(())
@@ -108,7 +108,7 @@ fn main() -> Result<(), SimpleError> {
 
     let rep_dir = match cli.outdir {
         Some(outdir) => outdir,
-        None => std::env::current_dir().map_err(|e| SimpleError::new(format!("{}", e)))?,
+        None => std::env::current_dir().map_err(|e| SimpleError::new(format!("{e}")))?,
     };
     let rep_producer = ReportProducer::new(rep_dir.as_path(), cli.format, cli.report_type);
 

@@ -31,7 +31,7 @@ fn prepare_selected_cols(cols: Vec<ColumnInfo>, sel_cols: &Vec<&str>) -> Vec<Col
                 }
             }
             if !found {
-                println!("Requested column {} not found in table columns", i);
+                println!("Requested column {i} not found in table columns");
             }
         }
     }
@@ -123,7 +123,7 @@ fn ese_get_first_value_as_string(
 ) -> Result<String, SimpleError> {
     if !jdb.move_row(table_id, ESE_MoveFirst)? {
         // empty table
-        return Err(SimpleError::new(format!("Empty table {}", table_id)));
+        return Err(SimpleError::new(format!("Empty table {table_id}")));
     }
     loop {
         match jdb.get_column(table_id, column.id) {
@@ -154,7 +154,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
     let cols = jdb.get_columns(t)?;
     if !jdb.move_row(table_id, ESE_MoveFirst)? {
         // empty table
-        return Err(SimpleError::new(format!("Empty table {}", t)));
+        return Err(SimpleError::new(format!("Empty table {t}")));
     }
     //let gather_table_fields = dump_file_gather_ese(f)?;
 
@@ -201,7 +201,8 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
             .unwrap(),
     )?;
 
-    let (mut file_rep, mut ie_rep, mut act_rep) = init_reports(f, report_prod, &recovered_hostname)?;
+    let (mut file_rep, mut ie_rep, mut act_rep) =
+        init_reports(f, report_prod, &recovered_hostname)?;
 
     let mut h = HashMap::new();
     loop {
@@ -376,7 +377,11 @@ fn ese_IE_history_record(r: &mut dyn Report, workId: u32, h: &HashMap<String, Ve
 }
 
 // Activity History Report
-fn ese_activity_history_record(r: &mut dyn Report, workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
+fn ese_activity_history_record(
+    r: &mut dyn Report,
+    workId: u32,
+    h: &HashMap<String, Vec<u8>>,
+) -> bool {
     // record only if "4450-System_ItemType" == "ActivityHistoryItem"
     let item_type = h.get_key_value("4450-System_ItemType");
     if item_type.is_none() {

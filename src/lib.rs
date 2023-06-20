@@ -48,7 +48,7 @@ pub enum OutputFormat {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum OutputType {
     ToFile,
-    ToStdout
+    ToStdout,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -545,7 +545,7 @@ impl<'a> FieldReader for SqlReader<'a> {
 }
 
 //--------------------------------------------------------------------
-use crate::report::{ReportFormat, ReportProducer, ReportOutput};
+use crate::report::{ReportFormat, ReportOutput, ReportProducer};
 use evalexpr::{Context, ContextWithMutableVariables, IterateVariablesContext, Value};
 use report::Report;
 use std::path::Path;
@@ -616,7 +616,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
                 .iter()
                 .find(|col| col.title == *output_filename_title)
                 .unwrap_or_else(|| {
-                    panic!("No column for output_filename '{}'", output_filename_title)
+                    panic!("No column for output_filename '{output_filename_title}'")
                 });
             let _columns = reader.get_used_columns(&[(*col_for_filename).clone()]);
 
@@ -666,7 +666,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
             constrain: if let Some(ref expr) = report.constraint {
                 match evalexpr::build_operator_tree(expr) {
                     Ok(node) => Some(node),
-                    Err(e) => panic!("failed parsing of '{}': {e}", expr),
+                    Err(e) => panic!("failed parsing of '{expr}': {e}"),
                 }
             } else {
                 None
@@ -885,10 +885,7 @@ fn get_used_columns(
 
     // call set_field for all fields used in cfg (even empty one)
     cfg.columns.iter().for_each(|cc| {
-        let hidden = columns
-            .iter()
-            .find(|c| c.title == cc.title && c.hidden)
-            .is_some();
+        let hidden = columns.iter().any(|c| c.title == cc.title && c.hidden);
         if !hidden {
             debug!("set header '{}' for '{}' ", cc.title, cfg.title);
             reporter.set_field(&cc.title);
