@@ -69,7 +69,7 @@ Example:
 
 
 ## Test
-There is a unit test in `tests/gen_reports.rs`. Test parameters are controlled by using environment variables:
+There is a unit test in `tests/gen_reports.rs`. You can control the test parameters by using the following environment variables:
 - `WSA_TEST_DB_PATH` - corresponds to [Application](#application)'s `--db_path` argument.
                        Important: the var points to the folder where the db files are (not to the file itself)
 - `WSA_TEST_CONFIGURATION_PATH`  - corresponds to [Application](#application)'s `--cfg_path` argument.
