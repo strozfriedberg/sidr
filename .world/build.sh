@@ -6,6 +6,5 @@ if [[ "$Linkage" == 'static' ]]; then
   exit
 fi
 
-if [[ "$Target" == 'linux' ]]; then
-  $MAKE -j$PROCS build check OS=$Target ARCH=$Architecture LINKAGE=$Linkage INSTALL=$INSTALL DEPS=$DEPS
-fi
+BASEDIR=$(pwd)
+WSA_TEST_DB_PATH=$BASEDIR/tests/testdata WSA_TEST_CONFIGURATION_PATH=$BASEDIR/src/bin/test_reports_cfg.yaml cargo test
