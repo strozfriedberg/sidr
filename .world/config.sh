@@ -2,12 +2,6 @@
 
 . .world/build_config.sh
 
-if [[ "$Linkage" == 'static' ]]; then
+if [[ "$Linkage" == 'static' || ( "$Target" == 'windows' ) ]]; then
   exit
-fi
-
-if [[ "$Target" == 'linux' ]]; then
-  $MAKE -j$PROCS config OS=$Target ARCH=$Architecture LINKAGE=$Linkage INSTALL=$INSTALL DEPS=$DEPS
-elif [[ "$Target" == 'macos' ]]; then
-  $MAKE -j$PROCS macos_config OS=$Target ARCH=$Architecture LINKAGE=$Linkage INSTALL=$INSTALL DEPS=$DEPS
 fi
