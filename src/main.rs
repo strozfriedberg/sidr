@@ -70,19 +70,22 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
 /// SIDR (Search Index DB Reporter) is a Rust-based tool designed to parse Windows search artifacts from Windows 10 (and prior) and Windows 11 systems.
 /// The tool handles both ESE databases (Windows.edb) and SQLite databases (Windows.db) as input and generates three detailed reports as output.
 ///
-/// Example:
-/// `> sidr -f json C:\test`
+/// For example, running this command:
 ///
-/// will scan C:\test directory for Windows.db/Windows.edb files and produce 3 logs:
+/// sidr -f json C:\test
 ///
-/// `DESKTOP-POG7R45_File_Report_20230307_015244.json`
-/// `DESKTOP-POG7R45_Internet_History_Report_20230307_015317.json`
-/// `DESKTOP-POG7R45_Activity_History_Report_20230307_015317.json`
+/// will scan the C:\test directory for Windows.db and Windows.edb files and will produce 3 logs in the current working directory:
+///
+/// DESKTOP-12345_File_Report_20230307_015244.json
+///
+/// DESKTOP-12345_Internet_History_Report_20230307_015317.json
+///
+/// DESKTOP-12345_Activity_History_Report_20230307_015317.json
 ///
 /// Where the log name consists of:
-/// `HOSTNAME_ReportName_DateTime.json|csv`
+/// HOSTNAME_ReportName_DateTime.json|csv.
 ///
-/// `HOSTNAME` is extracted from the database
+/// HOSTNAME is extracted from the database.
 
 #[derive(Parser)]
 #[command(author, version, about, long_about)]
@@ -90,14 +93,14 @@ struct Cli {
     /// Path to input directory (which will be recursively scanned for Windows.edb and Windows.db).
     input: String,
 
-    /// Output format: json (default) or csv
+    /// Output report format
     #[arg(short, long, value_enum, default_value_t = ReportFormat::Json)]
     format: ReportFormat,
 
     /// Report Type: ToFile or ToStdout
     #[arg(short, long, value_enum, default_value_t = ReportOutput::ToFile)]
     report_type: ReportOutput,
-
+    
     /// Path to the directory where reports will be created (will be created if not present). Default is the current directory.
     #[arg(short, long, value_name = "OUTPUT DIRECTORY")]
     outdir: Option<PathBuf>,
