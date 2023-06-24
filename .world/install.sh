@@ -4,7 +4,7 @@
 
 BASEDIR=$(pwd)
 
-if [[ "$Linkage" == 'static' || ( "$Target" == 'windows' ) ]]; then
+if [[ "$Linkage" == 'static' ]]; then
   exit
 fi
 
