@@ -28,6 +28,12 @@ Options:
   -o, --outdir <OUTPUT DIRECTORY>
           Path to the directory where reports will be created (will be created if not present). Default is the current directory
 
+  --report-type <REPORT TYPE>
+          Output results to file or stdout
+
+          [default: to-file]
+          [possible values: to-file, to-stdout]
+
   -h, --help
           Print help (see a summary with '-h')
 
@@ -62,6 +68,9 @@ $ cargo build --release
 $ ./target/release/sidr --version
 sidr 0.8.0
 ```
+
+### Running with cargo
+`cargo run --bin sidr -- -f csv --report-type to-file /home/<username>/path/to/tests_search_reader` (Linux)
 
 ### Copyright
 Copyright 2023, Aon. SIDR is licensed under the Apache License, Version 2.0.

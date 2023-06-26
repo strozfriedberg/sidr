@@ -31,7 +31,7 @@ fn prepare_selected_cols(cols: Vec<ColumnInfo>, sel_cols: &Vec<&str>) -> Vec<Col
                 }
             }
             if !found {
-                println!("Requested column {} not found in table columns", i);
+                println!("Requested column {i} not found in table columns");
             }
         }
     }
@@ -123,7 +123,7 @@ fn ese_get_first_value_as_string(
 ) -> Result<String, SimpleError> {
     if !jdb.move_row(table_id, ESE_MoveFirst)? {
         // empty table
-        return Err(SimpleError::new(format!("Empty table {}", table_id)));
+        return Err(SimpleError::new(format!("Empty table {table_id}")));
     }
     loop {
         match jdb.get_column(table_id, column.id) {
@@ -154,7 +154,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
     let cols = jdb.get_columns(t)?;
     if !jdb.move_row(table_id, ESE_MoveFirst)? {
         // empty table
-        return Err(SimpleError::new(format!("Empty table {}", t)));
+        return Err(SimpleError::new(format!("Empty table {t}")));
     }
     //let gather_table_fields = dump_file_gather_ese(f)?;
 
@@ -201,7 +201,8 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
             .unwrap(),
     )?;
 
-    let (file_rep, ie_rep, act_rep) = init_reports(f, report_prod, &recovered_hostname)?;
+    let (mut file_rep, mut ie_rep, mut act_rep) =
+        init_reports(f, report_prod, &recovered_hostname)?;
 
     let mut h = HashMap::new();
     loop {
@@ -235,16 +236,16 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
                 }
             }
         }
-        let ie_history = ese_IE_history_record(&*ie_rep, workId, &h);
+        let ie_history = ese_IE_history_record(&mut *ie_rep, workId, &h);
         if ie_history && ie_rep.is_some_val_in_record() {
             ie_rep.str_val("System_ComputerName", recovered_hostname.clone());
         }
-        let act_history = ese_activity_history_record(&*act_rep, workId, &h);
+        let act_history = ese_activity_history_record(&mut *act_rep, workId, &h);
         if act_history && act_rep.is_some_val_in_record() {
             act_rep.str_val("System_ComputerName", recovered_hostname.clone());
         }
         if !ie_history && !act_history {
-            ese_dump_file_record(&*file_rep, workId, &h);
+            ese_dump_file_record(&mut *file_rep, workId, &h);
             if file_rep.is_some_val_in_record() {
                 file_rep.str_val("System_ComputerName", recovered_hostname.clone());
             }
@@ -259,7 +260,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
 }
 
 // File Report
-fn ese_dump_file_record(r: &dyn Report, workId: u32, h: &HashMap<String, Vec<u8>>) {
+fn ese_dump_file_record(r: &mut dyn Report, workId: u32, h: &HashMap<String, Vec<u8>>) {
     // let item_type = h.get_key_value("4447-System_ItemPathDisplay");
     // if item_type.is_none() {
     //     return ;
@@ -330,7 +331,7 @@ fn ese_dump_file_record(r: &dyn Report, workId: u32, h: &HashMap<String, Vec<u8>
 }
 
 // IE/Edge History Report
-fn ese_IE_history_record(r: &dyn Report, workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
+fn ese_IE_history_record(r: &mut dyn Report, workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
     let url = h.get_key_value("33-System_ItemUrl");
     if url.is_none() {
         return false;
@@ -376,7 +377,11 @@ fn ese_IE_history_record(r: &dyn Report, workId: u32, h: &HashMap<String, Vec<u8
 }
 
 // Activity History Report
-fn ese_activity_history_record(r: &dyn Report, workId: u32, h: &HashMap<String, Vec<u8>>) -> bool {
+fn ese_activity_history_record(
+    r: &mut dyn Report,
+    workId: u32,
+    h: &HashMap<String, Vec<u8>>,
+) -> bool {
     // record only if "4450-System_ItemType" == "ActivityHistoryItem"
     let item_type = h.get_key_value("4450-System_ItemType");
     if item_type.is_none() {
