@@ -8,3 +8,5 @@ fi
 
 BASEDIR=$(pwd)
 WSA_TEST_DB_PATH=$BASEDIR/tests/testdata WSA_TEST_CONFIGURATION_PATH=$BASEDIR/src/bin/test_reports_cfg.yaml cargo test
+
+cargo build -r
