@@ -82,7 +82,7 @@ fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
 ///
 /// DESKTOP-12345_Activity_History_Report_20230307_015317.json
 ///
-/// Where the log name consists of:
+/// Where the filename follows this format:
 /// HOSTNAME_ReportName_DateTime.json|csv.
 ///
 /// HOSTNAME is extracted from the database.
@@ -97,10 +97,10 @@ struct Cli {
     #[arg(short, long, value_enum, default_value_t = ReportFormat::Json)]
     format: ReportFormat,
 
-    /// Report Type: ToFile or ToStdout
+    /// Output results to file or stdout
     #[arg(short, long, value_enum, default_value_t = ReportOutput::ToFile)]
     report_type: ReportOutput,
-    
+
     /// Path to the directory where reports will be created (will be created if not present). Default is the current directory.
     #[arg(short, long, value_name = "OUTPUT DIRECTORY")]
     outdir: Option<PathBuf>,

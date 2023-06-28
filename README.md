@@ -1,6 +1,7 @@
 # Search Index DB Reporter (SIDR)
 
-SIDR is a tool designed to parse Windows search artifacts from Windows 10 (and prior) and Windows 11 systems. The tool handles both ESE databases (Windows.edb) and SQLite databases (Windows.db) as input and generates three detailed reports as output.
+SIDR (Search Index DB Reporter) is a Rust-based tool designed to parse Windows search artifacts from Windows 10 (and prior) and Windows 11 systems.
+The tool handles both ESE databases (Windows.edb) and SQLite databases (Windows.db) as input and generates three detailed reports as output.
 
 ### Quick Links
 
@@ -20,13 +21,13 @@ Arguments:
 
 Options:
   -f, --format <FORMAT>
-          Output format: json (default) or csv
+          Output report format
           
           [default: json]
           [possible values: json, csv]
 
   -o, --outdir <OUTPUT DIRECTORY>
-          Path to the directory where reports will be created (will be created if not present). Default is the current directory
+          Path to the directory where reports will be created (directory will be created if not present). Default is the current working directory
 
   --report-type <REPORT TYPE>
           Output results to file or stdout
@@ -45,13 +46,13 @@ Options:
 
 `> sidr -f json C:\\test`
 
-will scan `C:\test` directory for `Windows.db/Windows.edb` files and produce 3 logs for each database:
-`DESKTOP-POG7R45_File_Report_20230307_015244.json`
-`DESKTOP-POG7R45_Internet_History_Report_20230307_015317.json`
-`DESKTOP-POG7R45_Activity_History_Report_20230307_015317.json`
+will scan the C:\test directory for Windows.db and Windows.edb files and will produce 3 logs in the current working directory:
+`DESKTOP-12345_File_Report_20230307_015244.json`
+`DESKTOP-12345_Internet_History_Report_20230307_015317.json`
+`DESKTOP-12345_Activity_History_Report_20230307_015317.json`
 
-Where file name of logs consists of:
-`HOSTNAME_Report_name_Current_date_and_time.json|csv`
+Where the filename follows this format:
+`HOSTNAME_ReportName_DateTime.json|csv`
 
 `HOSTNAME` is extracted from the database.
 
