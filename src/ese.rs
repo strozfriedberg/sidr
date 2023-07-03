@@ -237,18 +237,9 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
             }
         }
         let ie_history = ese_IE_history_record(&mut *ie_rep, workId, &h);
-        if ie_history && ie_rep.is_some_val_in_record() {
-            ie_rep.str_val("System_ComputerName", recovered_hostname.clone());
-        }
         let act_history = ese_activity_history_record(&mut *act_rep, workId, &h);
-        if act_history && act_rep.is_some_val_in_record() {
-            act_rep.str_val("System_ComputerName", recovered_hostname.clone());
-        }
         if !ie_history && !act_history {
             ese_dump_file_record(&mut *file_rep, workId, &h);
-            if file_rep.is_some_val_in_record() {
-                file_rep.str_val("System_ComputerName", recovered_hostname.clone());
-            }
         }
         h.clear();
 
@@ -299,6 +290,7 @@ fn ese_dump_file_record(r: &mut dyn Report, workId: u32, h: &HashMap<String, Vec
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
             "System_ItemType" => r.str_val(csp, from_utf16(val)),
+            "System_ComputerName" => r.str_val(csp, from_utf16(val)),
             // "ScopeID" => println!("{}: {}", col, i32::from_bytes(val)),
             // "DocumentID" => println!("{}: {}", col, i32::from_bytes(val)),
             // "SDID" => println!("{}: {}", col, i32::from_bytes(val)),
@@ -370,6 +362,7 @@ fn ese_IE_history_record(r: &mut dyn Report, workId: u32, h: &HashMap<String, Ve
                 csp,
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
+            "System_ComputerName" => r.str_val(csp, from_utf16(val)),
             _ => {}
         }
     }
@@ -417,6 +410,7 @@ fn ese_activity_history_record(
                 r.str_val("ObjectId", find_guid(&v, "ObjectId="));
                 r.str_val(csp, v);
             }
+            "System_ComputerName" => r.str_val(csp, from_utf16(val)),
             _ => {}
         }
     }

@@ -17,10 +17,8 @@ reports:
         kind: String
         edb:
           name: "System_ComputerName"
-          constraint: [auto_fill]
         sql:
           name: 557
-          constraint: [auto_fill]
       - title: System_ItemName
         kind: String
         edb:
@@ -97,10 +95,8 @@ reports:
         kind: String
         edb:
           name: "System_ComputerName"
-          constraint: [auto_fill]
         sql:
           name: 557
-          constraint: [auto_fill]
       - title: System_DateModified
         kind: DateTime
         edb:
@@ -189,10 +185,8 @@ reports:
         kind: String
         edb:
           name: "System_ComputerName"
-          constraint: [auto_fill]
         sql:
           name: 557
-          constraint: [auto_fill]
       - title: System_ItemPathDisplay
         kind: String
         edb:
