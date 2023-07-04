@@ -59,19 +59,18 @@ fn dump_file_gather_sqlite(f: &Path)
 }
 */
 
-fn ese_get_first_value_as_string(
-    c: &sqlite::Connection,
-    table: &str,
-    column_id: &str,
-) -> Result<String, SimpleError> {
-    // "557" => r.str_val("System_ComputerName"
-    let q = format!("select Value from {table} where ColumnId={column_id} and Value is not NULL and Value <> '' limit 1");
+fn sqlite_get_hostname(c: &sqlite::Connection) -> Result<String, SimpleError> {
+    // ASDF-5849
+    // 557 - System_ComputerName
+    // 567 - System_ItemType
+    let q = format!("select WorkId as wId, Value from SystemIndex_1_PropertyStore where ColumnId=557 and Value is not NULL and Value <> '' and \
+        (select Value from SystemIndex_1_PropertyStore where WorkId=wId and ColumnId=567) <> '.url' order by WorkId desc limit 1;");
     let mut s = map_err!(c.prepare(q))?;
     if let Ok(State::Row) = s.next() {
         let val = map_err!(s.read::<Vec<u8>, _>("Value"))?;
         return Ok(String::from_utf8_lossy(&val).into_owned());
     }
-    Ok("".into())
+    Err(SimpleError::new(format!("Empty field System_ComputerName")))
 }
 
 // This report will provide information about all the files that have been indexed by Windows search,
@@ -86,11 +85,13 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
 
     //let gather_table_fields = dump_file_gather_sqlite(f)?;
 
-    let recovered_hostname = ese_get_first_value_as_string(
-        &c,
-        "SystemIndex_1_PropertyStore",
-        "557", /*System_ComputerName*/
-    )?;
+    let recovered_hostname = match sqlite_get_hostname(&c) {
+        Ok(h) => h,
+        Err(e) => {
+            eprintln!("sqlite_get_hostname() failed: {e}. Will use 'Unknown' as a hostname.");
+            "Unknown".to_string()
+        }
+    };
 
     let (mut file_rep, mut ie_rep, mut act_rep) =
         init_reports(f, report_prod, &recovered_hostname)?;

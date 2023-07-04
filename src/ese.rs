@@ -116,35 +116,65 @@ fn dump_file_gather_ese(f: &Path)
 }
 */
 
-fn ese_get_first_value_as_string(
+pub fn ese_get_hostname(
     jdb: &dyn EseDb,
     table_id: u64,
-    column: &ColumnInfo,
+    columns: &Vec<ColumnInfo>,
 ) -> Result<String, SimpleError> {
-    if !jdb.move_row(table_id, ESE_MoveFirst)? {
+    if !jdb.move_row(table_id, ESE_MoveLast)? {
         // empty table
         return Err(SimpleError::new(format!("Empty table {table_id}")));
     }
+    let sys_comp_name = columns
+        .iter()
+        .find(|i| column_string_part(&i.name) == "System_ComputerName")
+        .ok_or_else(|| SimpleError::new(format!("Can't find field 'System_ComputerName'")))?;
+    let sys_item_type = columns
+        .iter()
+        .find(|i| column_string_part(&i.name) == "System_ItemType")
+        .ok_or_else(|| SimpleError::new(format!("Can't find field 'System_ItemType'")))?;
     loop {
-        match jdb.get_column(table_id, column.id) {
+        match jdb.get_column(table_id, sys_comp_name.id) {
             Ok(r) => match r {
                 None => {} // Empty field, look further
                 Some(v) => {
-                    let _ = jdb.move_row(table_id, ESE_MoveFirst)?;
-                    return Ok(from_utf16(&v));
+                    // ASDF-5849
+                    // accept result only if System_ItemType != ".url"
+                    match jdb.get_column(table_id, sys_item_type.id) {
+                        Ok(r) => match r {
+                            None => {
+                                // reset cursor
+                                let _ = jdb.move_row(table_id, ESE_MoveFirst)?;
+                                return Ok(from_utf16(&v));
+                            }
+                            Some(v2) => {
+                                let item_type = from_utf16(&v2).to_lowercase();
+                                if item_type != ".url" {
+                                    // reset cursor
+                                    let _ = jdb.move_row(table_id, ESE_MoveFirst)?;
+                                    return Ok(from_utf16(&v));
+                                }
+                            }
+                        },
+                        Err(e) => println!(
+                            "Error while getting column {} from {}: {}",
+                            sys_item_type.name, table_id, e
+                        ),
+                    }
                 }
             },
             Err(e) => println!(
                 "Error while getting column {} from {}: {}",
-                column.name, table_id, e
+                sys_comp_name.name, table_id, e
             ),
         }
-        if !jdb.move_row(table_id, ESE_MoveNext)? {
+        if !jdb.move_row(table_id, ESE_MovePrevious)? {
             break;
         }
     }
+    // reset cursor
     let _ = jdb.move_row(table_id, ESE_MoveFirst)?;
-    Ok("".into())
+    Err(SimpleError::new(format!("Empty field System_ComputerName")))
 }
 
 pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(), SimpleError> {
@@ -192,14 +222,13 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
     );
 
     // get System_ComputerName value
-    let recovered_hostname = ese_get_first_value_as_string(
-        &*jdb,
-        table_id,
-        sel_cols
-            .iter()
-            .find(|i| column_string_part(&i.name) == "System_ComputerName")
-            .unwrap(),
-    )?;
+    let recovered_hostname = match ese_get_hostname(&*jdb, table_id, &sel_cols) {
+        Ok(h) => h,
+        Err(e) => {
+            eprintln!("ese_get_hostname() failed: {e}. Will use 'Unknown' as a hostname.");
+            "Unknown".to_string()
+        }
+    };
 
     let (mut file_rep, mut ie_rep, mut act_rep) =
         init_reports(f, report_prod, &recovered_hostname)?;
