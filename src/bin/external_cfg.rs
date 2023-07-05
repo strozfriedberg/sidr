@@ -1,5 +1,6 @@
 use clap::Parser;
 use env_logger::{self, Target};
+use ese_parser_lib::parser::jet::DbState;
 
 use std::path::PathBuf;
 use walkdir::WalkDir;
@@ -35,6 +36,14 @@ fn do_sql_report(db_path: &str, cfg: &ReportsCfg) {
 
 fn do_edb_report(db_path: &str, cfg: &ReportsCfg) {
     let mut edb_reader = wsa_lib::EseReader::new(db_path, &cfg.table_edb);
+
+    if edb_reader.jdb.get_database_state() != DbState::CleanShutdown {
+        eprintln!("WARNING: The database state is not clean.");
+        eprintln!("Please use EseUtil which helps check the status (/MH) of a database and perform a soft (/R) or hard (/P) recovery");
+        eprintln!("or system32/esentutl for repair (/p).");
+        eprintln!("Results could be inaccurate and unstable work (even crash) is possible.\n");
+    }
+
     do_reports(cfg, &mut edb_reader);
 }
 

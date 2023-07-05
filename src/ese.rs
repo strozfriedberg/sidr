@@ -1,3 +1,4 @@
+use ese_parser_lib::parser::jet::DbState;
 use simple_error::SimpleError;
 use std::collections::HashMap;
 use std::path::Path;
@@ -161,6 +162,14 @@ pub fn ese_get_hostname(
 
 pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(), SimpleError> {
     let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
+
+    if jdb.get_database_state() != DbState::CleanShutdown {
+        eprintln!("WARNING: The database state is not clean.");
+        eprintln!("Please use EseUtil which helps check the status (/MH) of a database and perform a soft (/R) or hard (/P) recovery");
+        eprintln!("or system32/esentutl for repair (/p).");
+        eprintln!("Results could be inaccurate and unstable work (even crash) is possible.\n");
+    }
+
     let t = "SystemIndex_PropertyStore";
     let table_id = jdb.open_table(t)?;
     let cols = jdb.get_columns(t)?;
