@@ -99,13 +99,7 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
         // new WorkId, handle all collected fields
         if !h.is_empty() {
             let ie_history = sqlite_IE_history_record(&mut *ie_rep, workId, h);
-            if ie_history && ie_rep.is_some_val_in_record() {
-                ie_rep.str_val("System_ComputerName", recovered_hostname.clone());
-            }
             let act_history = sqlite_activity_history_record(&mut *act_rep, workId, h);
-            if act_history && act_rep.is_some_val_in_record() {
-                act_rep.str_val("System_ComputerName", recovered_hostname.clone());
-            }
             if !ie_history && !act_history {
                 // only for File Report
                 // Join WorkID within SystemIndex_1_PropertyStore with DocumentID in SystemIndex_Gthr
@@ -115,9 +109,6 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
                 //     }
                 // }
                 sqlite_dump_file_record(&mut *file_rep, workId, h);
-                if file_rep.is_some_val_in_record() {
-                    file_rep.str_val("System_ComputerName", recovered_hostname.clone());
-                }
             }
             h.clear();
         }
@@ -182,6 +173,10 @@ fn sqlite_dump_file_record(
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
             "567" => r.str_val("System_ItemType", String::from_utf8_lossy(val).into_owned()),
+            "557" => r.str_val(
+                "System_ComputerName",
+                String::from_utf8_lossy(val).into_owned(),
+            ),
             // "ScopeID" => println!("{}", col, i32::from_bytes(val)),
             // "DocumentID" => println!("{}", col, i32::from_bytes(val)),
             // "SDID" => println!("{}", col, i32::from_bytes(val)),
@@ -267,6 +262,10 @@ fn sqlite_IE_history_record(
                 "System_Link_DateVisited",
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
+            "557" => r.str_val(
+                "System_ComputerName",
+                String::from_utf8_lossy(val).into_owned(),
+            ),
             _ => {}
         }
     }
@@ -325,6 +324,10 @@ fn sqlite_activity_history_record(
                 r.str_val("ObjectId", find_guid(&v, "ObjectId="));
                 r.str_val("System_Activity_ContentUri", v);
             }
+            "557" => r.str_val(
+                "System_ComputerName",
+                String::from_utf8_lossy(val).into_owned(),
+            ),
             _ => {}
         }
     }
