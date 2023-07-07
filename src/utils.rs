@@ -143,3 +143,28 @@ fn json_escape_test() {
         assert_eq!(json_escape(i.0), i.1);
     }
 }
+
+pub struct DropMe<F>
+where
+    F: Fn(),
+{
+    f: F,
+}
+
+impl<F> Drop for DropMe<F>
+where
+    F: Fn(),
+{
+    fn drop(&mut self) {
+        (self.f)();
+    }
+}
+
+impl<F> DropMe<F>
+where
+    F: Fn(),
+{
+    pub fn new(f: F) -> Self {
+        Self { f }
+    }
+}
