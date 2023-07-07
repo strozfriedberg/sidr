@@ -125,6 +125,9 @@ pub fn ese_get_hostname(
         // empty table
         return Err(SimpleError::new(format!("Empty table {table_id}")));
     }
+    let _rollback = DropMe::new(|| {
+        let _ = jdb.move_row(table_id, ESE_MoveFirst);
+    });
     let sys_comp_name = columns
         .iter()
         .find(|i| column_string_part(&i.name) == "System_ComputerName")
@@ -143,15 +146,11 @@ pub fn ese_get_hostname(
                     match jdb.get_column(table_id, sys_item_type.id) {
                         Ok(r) => match r {
                             None => {
-                                // reset cursor
-                                let _ = jdb.move_row(table_id, ESE_MoveFirst)?;
                                 return Ok(from_utf16(&v));
                             }
                             Some(v2) => {
                                 let item_type = from_utf16(&v2).to_lowercase();
                                 if item_type != ".url" {
-                                    // reset cursor
-                                    let _ = jdb.move_row(table_id, ESE_MoveFirst)?;
                                     return Ok(from_utf16(&v));
                                 }
                             }
@@ -172,8 +171,6 @@ pub fn ese_get_hostname(
             break;
         }
     }
-    // reset cursor
-    let _ = jdb.move_row(table_id, ESE_MoveFirst)?;
     Err(SimpleError::new(format!("Empty field System_ComputerName")))
 }
 
