@@ -190,6 +190,7 @@ impl ReportJson {
             handle.write_all(b"}").unwrap();
             values.clear();
         }
+        handle.flush().unwrap();
     }
 }
 
