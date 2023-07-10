@@ -419,7 +419,8 @@ pub fn test_report_jsonl() {
 {"str_field":"string6"}
 {"int_field":7}
 {"str_field":"string8"}
-{"int_field":9}"#;
+{"int_field":9}
+"#;
     assert_eq!(data, expected);
     std::fs::remove_file(p).unwrap();
 }
