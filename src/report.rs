@@ -187,7 +187,7 @@ impl ReportJson {
             }
         }
         if len > 0 {
-            handle.write_all(b"}").unwrap();
+            handle.write_all(b"}\n").unwrap();
             values.clear();
         }
         handle.flush().unwrap();
