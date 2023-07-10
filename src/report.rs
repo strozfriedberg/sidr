@@ -124,7 +124,6 @@ pub struct ReportJson {
     f: Box<dyn Write + 'static>,
     report_output: ReportOutput,
     report_suffix: Option<ReportSuffix>,
-    first_record: Cell<bool>,
     values: RefCell<Vec<String>>,
 }
 
@@ -142,7 +141,6 @@ impl ReportJson {
                     f: output,
                     report_output,
                     report_suffix: None,
-                    first_record: Cell::new(true),
                     values: RefCell::new(Vec::new()),
                 })
             }
@@ -150,7 +148,6 @@ impl ReportJson {
                 f: Box::new(BufWriter::new(io::stdout())),
                 report_output,
                 report_suffix,
-                first_record: Cell::new(true),
                 values: RefCell::new(Vec::new()),
             }),
         }
@@ -201,11 +198,6 @@ impl Report for ReportJson {
 
     fn new_record(&mut self) {
         if !self.values.borrow().is_empty() {
-            if !self.first_record.get() {
-                self.f.as_mut().write_all(b"\n").unwrap();
-            } else {
-                self.first_record.set(false);
-            }
             self.write_values();
         }
     }
