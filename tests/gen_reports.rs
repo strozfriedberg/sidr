@@ -42,10 +42,6 @@ fn get_dir<P: AsRef<StdPath>>(path: P, ext: &str) -> Vec<PathBuf> {
         .collect()
 }
 
-fn get_env(var: &str) -> String {
-    env::var(var).unwrap_or_else(|_| panic!("Error getting environment variable '{var}'"))
-}
-
 fn full_path(path: &str, file: &str) -> PathBuf {
     PathBuf::from_iter([path, file].iter())
 }
@@ -247,8 +243,9 @@ fn compare_generated_reports() {
     });
     let sidr_bin = bin_root.join("sidr");
     let ext_cfg_bin = bin_root.join("external_cfg");
-    let db_path = get_env("WSA_TEST_DB_PATH");
-    let cfg_path = get_env("WSA_TEST_CONFIGURATION_PATH");
+    let db_path = env::var("WSA_TEST_DB_PATH").unwrap_or("tests/testdata".to_string());
+    let cfg_path = env::var("WSA_TEST_CONFIGURATION_PATH")
+        .unwrap_or("src/bin/test_reports_cfg.yaml".to_string());
     let work_dir_name = format!("{}_testing", ext_cfg_bin.file_name().unwrap());
     let work_temp_dir = TempDir::new(work_dir_name.as_str()).expect("{work_dir_name} creation");
     let _work_dir_keeper;

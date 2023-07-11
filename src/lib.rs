@@ -611,28 +611,85 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
         if cached.contains_key(output_filename_title) {
             output_filename = cached[output_filename_title].clone();
         } else {
-            let col_for_filename = report
-                .columns
-                .iter()
-                .find(|col| col.title == *output_filename_title)
-                .unwrap_or_else(|| {
-                    panic!("No column for output_filename '{output_filename_title}'")
-                });
-            let _columns = reader.get_used_columns(&[(*col_for_filename).clone()]);
+            if output_filename_title == "System_ComputerName" {
+                // ASDF-5849
+                // special case for System_ComputerName
+                // read last value and if System_ItemType != ".url"
 
-            if !reader.init() {
-                panic!("reader.init() failed");
-            }
+                let system_itemtype = "System_ItemType".to_string();
 
-            while reader.next() {
-                if let Some(ref str) = reader.get_str(output_filename_title) {
-                    if !str.is_empty() {
-                        output_filename = str.clone();
-                        info!("output_filename '{output_filename_title}' -> '{output_filename}'");
-                        break;
+                let col_for_computername = report
+                    .columns
+                    .iter()
+                    .find(|col| col.title == *output_filename_title)
+                    .unwrap_or_else(|| {
+                        panic!("No column for output_filename '{output_filename_title}'")
+                    });
+
+                let col_for_itemtype = ColumnPair {
+                    title: system_itemtype.clone(),
+                    kind: ColumnType::String,
+                    edb: Column {
+                        name: system_itemtype.clone(),
+                        constraint: None,
+                    },
+                    sql: Column {
+                        name: "567".to_string(),
+                        constraint: None,
+                    },
+                };
+
+                let _columns = reader
+                    .get_used_columns(&[(*col_for_computername).clone(), col_for_itemtype.clone()]);
+
+                if !reader.init() {
+                    panic!("reader.init() failed");
+                }
+
+                while reader.next() {
+                    if let Some(ref str) = reader.get_str(output_filename_title) {
+                        if !str.is_empty() {
+                            if let Some(ref item_type) = reader.get_str(&system_itemtype) {
+                                if !item_type.is_empty() && item_type == ".url" {
+                                    // skip
+                                    continue;
+                                }
+                            }
+
+                            output_filename = str.clone();
+                        }
+                    }
+                }
+            } else {
+                // get first non-empty result
+
+                let col_for_filename = report
+                    .columns
+                    .iter()
+                    .find(|col| col.title == *output_filename_title)
+                    .unwrap_or_else(|| {
+                        panic!("No column for output_filename '{output_filename_title}'")
+                    });
+                let _columns = reader.get_used_columns(&[(*col_for_filename).clone()]);
+
+                if !reader.init() {
+                    panic!("reader.init() failed");
+                }
+
+                while reader.next() {
+                    if let Some(ref str) = reader.get_str(output_filename_title) {
+                        if !str.is_empty() {
+                            output_filename = str.clone();
+                            info!(
+                                "output_filename '{output_filename_title}' -> '{output_filename}'"
+                            );
+                            break;
+                        }
                     }
                 }
             }
+
+            info!("output_filename '{output_filename_title}' -> '{output_filename}'");
 
             cached.insert(
                 output_filename_title.to_string(),
