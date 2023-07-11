@@ -137,35 +137,20 @@ pub fn ese_get_hostname(
         .find(|i| column_string_part(&i.name) == "System_ItemType")
         .ok_or_else(|| SimpleError::new(format!("Can't find field 'System_ItemType'")))?;
     loop {
-        match jdb.get_column(table_id, sys_comp_name.id) {
-            Ok(r) => match r {
-                None => {} // Empty field, look further
-                Some(v) => {
-                    // ASDF-5849
-                    // accept result only if System_ItemType != ".url"
-                    match jdb.get_column(table_id, sys_item_type.id) {
-                        Ok(r) => match r {
-                            None => {
-                                return Ok(from_utf16(&v));
-                            }
-                            Some(v2) => {
-                                let item_type = from_utf16(&v2).to_lowercase();
-                                if item_type != ".url" {
-                                    return Ok(from_utf16(&v));
-                                }
-                            }
-                        },
-                        Err(e) => println!(
-                            "Error while getting column {} from {}: {}",
-                            sys_item_type.name, table_id, e
-                        ),
+        if let Some(v) = jdb.get_column(table_id, sys_comp_name.id)? {
+            // ASDF-5849
+            // accept result only if System_ItemType != ".url"
+            match jdb.get_column(table_id, sys_item_type.id)? {
+                None => {
+                    return Ok(from_utf16(&v));
+                }
+                Some(v2) => {
+                    let item_type = from_utf16(&v2).to_lowercase();
+                    if item_type != ".url" {
+                        return Ok(from_utf16(&v));
                     }
                 }
-            },
-            Err(e) => println!(
-                "Error while getting column {} from {}: {}",
-                sys_comp_name.name, table_id, e
-            ),
+            }
         }
         if !jdb.move_row(table_id, ESE_MovePrevious)? {
             break;
