@@ -45,10 +45,9 @@ evalexpr = { version = "9.0.0", features = ["regex_support"] }
 walkdir = "2.3.3"
 camino = "1.1.4"
 itertools = "0.10.5"
+tempdir = "0.3.7"
 
 [dependencies.sqlite3-sys]
 version = "0.14"
 default-features = false
 
-[dev-dependencies]
-tempdir = "0.3.7"
