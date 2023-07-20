@@ -267,7 +267,7 @@ impl ReportCsv {
     pub fn write_header(&mut self) {
         let handle = self.f.as_mut();
         if self.report_output == ReportOutput::ToStdout {
-            handle.write_all(b"ReportSuffix,").ok();
+            handle.write_all(b"\nReportSuffix,").ok();
         }
         let values = self.values.borrow();
         for i in 0..values.len() {
@@ -303,6 +303,7 @@ impl ReportCsv {
                 v.1.clear();
             }
         }
+        handle.flush().unwrap();
     }
 
     pub fn update_field_with_value(&self, f: &str, v: String) {
