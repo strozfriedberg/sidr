@@ -1,6 +1,7 @@
 use simple_error::SimpleError;
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 
 use crate::report::*;
 use crate::shared::*;
@@ -8,6 +9,7 @@ use crate::utils::*;
 
 use ese_parser_lib::ese_parser::EseParser;
 use ese_parser_lib::ese_trait::*;
+use wsa_lib::OutputType;
 
 const CACHE_SIZE_ENTRIES: usize = 10;
 
@@ -426,4 +428,12 @@ fn ese_activity_history_record(
         }
     }
     true
+}
+
+
+#[test]
+fn test_row_counts(){
+    let rep_dir = std::env::current_dir().map_err(|e| SimpleError::new(format!("{e}"))).unwrap();
+    let rep_producer = ReportProducer::new(rep_dir.as_path(), ReportFormat::Csv, ReportOutput::ToStdout);
+    ese_generate_report(Path::new("tests/testdata/Windows.edb"), &rep_producer);
 }
