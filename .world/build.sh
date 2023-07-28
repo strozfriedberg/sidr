@@ -18,8 +18,5 @@ elif [ "$Target" = 'windows' ]; then
   exec bash
   rustup target add x86_64-pc-windows-gnu
   cargo build -r --target x86_64-pc-windows-gnu
-
+  ls /home/builder/make_world/world/sidr/target/x86_64-pc-windows-gnu/release/
 fi
-
-ls /home/builder/make_world/world/sidr/target/release/
-ls /home/builder/make_world/world/sidr/target/x86_64-pc-windows-gnu/release/
