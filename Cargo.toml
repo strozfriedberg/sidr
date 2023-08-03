@@ -21,7 +21,7 @@ name = "external_cfg"
 path = "src/bin/external_cfg.rs"
 
 [dependencies]
-ese_parser_lib = { git = "https://github.com/strozfriedberg/ese_parser.git", tag="v0.1.0"}
+ese_parser_lib = { git = "https://github.com/strozfriedberg/ese_parser.git", tag="v0.2.1"}
 sqlite = "0.30.4"
 serde = { version = "*", features = ["derive"] }
 serde_yaml = "0.9.17"
@@ -31,7 +31,7 @@ num = "0.4.0"
 
 simple-error = "0.3.0"
 chrono = "^0.4"
-bitflags = "2.2.1"
+bitflags = ">= 2.3.3"
 clap = { version = "4.1.7", features = ["derive"] }
 log = "0.4"
 env_logger = "0.10.0"
