@@ -1,3 +1,4 @@
+use ese_parser_lib::parser::jet::DbState;
 use simple_error::SimpleError;
 use std::collections::HashMap;
 use std::path::Path;
@@ -161,6 +162,14 @@ pub fn ese_get_hostname(
 
 pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(), SimpleError> {
     let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
+
+    if jdb.get_database_state() != DbState::CleanShutdown {
+        eprintln!("WARNING: The database state is not clean.");
+        eprintln!("Please use EseUtil which helps check the status (/MH) of a database and perform a soft (/R) or hard (/P) recovery");
+        eprintln!("or system32/esentutl for repair (/p).");
+        eprintln!("Results could be inaccurate and unstable work (even crash) is possible.\n");
+    }
+
     let t = "SystemIndex_PropertyStore";
     let table_id = jdb.open_table(t)?;
     let cols = jdb.get_columns(t)?;
@@ -428,12 +437,47 @@ fn ese_activity_history_record(
     true
 }
 
+mod tests {
+    use std::{
+        fs,
+        io::Read,
+        path::PathBuf,
+        process::{Command, Stdio},
+    };
+    use tempdir::TempDir;
 
-#[test]
-fn test_stdout_succcess() {
-    let rep_dir = std::env::current_dir().map_err(|e| SimpleError::new(format!("{e}"))).unwrap();
-    for report_format in [ReportFormat::Csv, ReportFormat::Json] {
-        let rep_producer = ReportProducer::new(rep_dir.as_path(), report_format, ReportOutput::ToStdout);
-        assert_eq!(ese_generate_report(Path::new("tests/testdata/Windows.edb"), &rep_producer).unwrap(), ());
+    #[test]
+    fn warn_dirty() {
+        let test_dir =
+            TempDir::new("test_warn_dirty").unwrap_or_else(|e| panic!("TempDir::new failed: {e}"));
+        let src = "tests/testdata/Windows.edb";
+        let dst = test_dir.path().join("Windows.edb");
+        fs::copy(src, &dst)
+            .unwrap_or_else(|e| panic!("Could not copy '{src}' to '{}': {e}", dst.display()));
+
+        let bin_root = PathBuf::from("target").join(if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        });
+        let sidr_bin = bin_root.join("sidr");
+        let work_dir = test_dir.path().display().to_string();
+        let mut output = Command::new(sidr_bin)
+            .args(["--outdir", &work_dir, &work_dir])
+            .output()
+            .expect("failed to execute process");
+
+        assert!(output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr)
+            .contains("WARNING: The database state is not clean."));
+    }
+
+    #[test]
+    fn test_stdout_succcess() {
+        let rep_dir = std::env::current_dir().map_err(|e| SimpleError::new(format!("{e}"))).unwrap();
+        for report_format in [ReportFormat::Csv, ReportFormat::Json] {
+            let rep_producer = ReportProducer::new(rep_dir.as_path(), report_format, ReportOutput::ToStdout);
+            assert_eq!(ese_generate_report(Path::new("tests/testdata/Windows.edb"), &rep_producer).unwrap(), ());
+        }
     }
 }

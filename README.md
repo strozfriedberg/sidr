@@ -22,7 +22,7 @@ Arguments:
 Options:
   -f, --format <FORMAT>
           Output report format
-          
+
           [default: json]
           [possible values: json, csv]
 
@@ -58,7 +58,7 @@ Where the filename follows this format:
 
 ### Building
 
-Building SIDR requires [Rust](https://rustup.rs) to be installed. 
+Building SIDR requires [Rust](https://rustup.rs) to be installed.
 
 To build SIDR:
 
@@ -71,7 +71,14 @@ sidr 0.8.0
 ```
 
 ### Running with cargo
-`cargo run --bin sidr -- -f csv --report-type to-file /home/<username>/path/to/tests_search_reader` (Linux)
+`cargo run --bin sidr -- -f csv --report-type to-file /home/<username>/path/to/tests_s
+
+### Velociraptor Plugin
+
+The `velosidr.yaml` file can be used to configure a Velociraptor plugin that will run SIDR on a target system.
+
+Note: In order to parse the database on the target endpoint, the SIDR plugin must create an empty database and copy the original database to it. Creating the new copy can overwrite multiple gigabytes of data in unallocated clusters, which may result in loss of evidence. Please use the plugin with caution.
+earch_reader` (Linux)
 
 ### Copyright
 Copyright 2023, Aon. SIDR is licensed under the Apache License, Version 2.0.

@@ -150,7 +150,7 @@ fn field_size(col_type: u32, size: u32) -> u32 {
 }
 
 pub struct EseReader {
-    jdb: Box<EseParser<BufReader<File>>>,
+    pub jdb: Box<EseParser<BufReader<File>>>,
     filename: String,
     table: u64,
     tablename: String,
