@@ -439,12 +439,16 @@ fn ese_activity_history_record(
 
 mod tests {
     use std::{
+        path::Path,
         fs,
         io::Read,
         path::PathBuf,
         process::{Command, Stdio},
     };
     use tempdir::TempDir;
+    use crate::report::*;
+    use crate::ese::ese_generate_report;
+    use simple_error::SimpleError;
 
     #[test]
     fn warn_dirty() {
