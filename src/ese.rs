@@ -120,7 +120,7 @@ fn dump_file_gather_ese(f: &Path)
 pub fn ese_get_hostname(
     jdb: &dyn EseDb,
     table_id: u64,
-    columns: &Vec<ColumnInfo>,
+    columns: &[ColumnInfo],
 ) -> Result<String, SimpleError> {
     if !jdb.move_row(table_id, ESE_MoveLast)? {
         // empty table
@@ -132,11 +132,11 @@ pub fn ese_get_hostname(
     let sys_comp_name = columns
         .iter()
         .find(|i| column_string_part(&i.name) == "System_ComputerName")
-        .ok_or_else(|| SimpleError::new(format!("Can't find field 'System_ComputerName'")))?;
+        .ok_or_else(|| SimpleError::new("Can't find field 'System_ComputerName'".to_string()))?;
     let sys_item_type = columns
         .iter()
         .find(|i| column_string_part(&i.name) == "System_ItemType")
-        .ok_or_else(|| SimpleError::new(format!("Can't find field 'System_ItemType'")))?;
+        .ok_or_else(|| SimpleError::new("Can't find field 'System_ItemType'".to_string()))?;
     loop {
         if let Some(v) = jdb.get_column(table_id, sys_comp_name.id)? {
             // ASDF-5849
@@ -157,7 +157,7 @@ pub fn ese_get_hostname(
             break;
         }
     }
-    Err(SimpleError::new(format!("Empty field System_ComputerName")))
+    Err(SimpleError::new("Empty field System_ComputerName".to_string()))
 }
 
 pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(), SimpleError> {
@@ -165,9 +165,9 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
 
     if jdb.get_database_state() != DbState::CleanShutdown {
         eprintln!("WARNING: The database state is not clean.");
-        eprintln!("Please use EseUtil which helps check the status (/MH) of a database and perform a soft (/R) or hard (/P) recovery");
+        eprintln!("Please use EseUtil which helps check the status (/MH) of a database and perform a soft (/R) or hard (/P) recovery,");
         eprintln!("or system32/esentutl for repair (/p).");
-        eprintln!("Results could be inaccurate and unstable work (even crash) is possible.\n");
+        eprintln!("Processing a dirty database may generate inaccurate and/or incomplete results.\n");
     }
 
     let t = "SystemIndex_PropertyStore";
@@ -438,16 +438,15 @@ fn ese_activity_history_record(
 }
 
 mod tests {
-    use std::{
-        fs,
-        io::Read,
-        path::PathBuf,
-        process::{Command, Stdio},
-    };
-    use tempdir::TempDir;
-
     #[test]
     fn warn_dirty() {
+        use std::{
+            fs,
+            path::PathBuf,
+            process::Command,
+        };
+        use tempdir::TempDir;
+
         let test_dir =
             TempDir::new("test_warn_dirty").unwrap_or_else(|e| panic!("TempDir::new failed: {e}"));
         let src = "tests/testdata/Windows.edb";
@@ -462,7 +461,7 @@ mod tests {
         });
         let sidr_bin = bin_root.join("sidr");
         let work_dir = test_dir.path().display().to_string();
-        let mut output = Command::new(sidr_bin)
+        let output = Command::new(sidr_bin)
             .args(["--outdir", &work_dir, &work_dir])
             .output()
             .expect("failed to execute process");
