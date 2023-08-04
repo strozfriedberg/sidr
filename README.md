@@ -71,7 +71,7 @@ sidr 0.8.0
 ```
 
 ### Running with cargo
-`cargo run --bin sidr -- -f csv --report-type to-file /home/<username>/path/to/tests_s
+`cargo run --bin sidr -- -f csv --report-type to-file /home/<username>/path/to/tests_s`
 
 ### Velociraptor Plugin
 
