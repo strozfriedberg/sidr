@@ -120,7 +120,7 @@ fn dump_file_gather_ese(f: &Path)
 pub fn ese_get_hostname(
     jdb: &dyn EseDb,
     table_id: u64,
-    columns: &Vec<ColumnInfo>,
+    columns: &[ColumnInfo],
 ) -> Result<String, SimpleError> {
     if !jdb.move_row(table_id, ESE_MoveLast)? {
         // empty table
@@ -132,11 +132,11 @@ pub fn ese_get_hostname(
     let sys_comp_name = columns
         .iter()
         .find(|i| column_string_part(&i.name) == "System_ComputerName")
-        .ok_or_else(|| SimpleError::new(format!("Can't find field 'System_ComputerName'")))?;
+        .ok_or_else(|| SimpleError::new("Can't find field 'System_ComputerName'".to_string()))?;
     let sys_item_type = columns
         .iter()
         .find(|i| column_string_part(&i.name) == "System_ItemType")
-        .ok_or_else(|| SimpleError::new(format!("Can't find field 'System_ItemType'")))?;
+        .ok_or_else(|| SimpleError::new("Can't find field 'System_ItemType'".to_string()))?;
     loop {
         if let Some(v) = jdb.get_column(table_id, sys_comp_name.id)? {
             // ASDF-5849
@@ -157,7 +157,7 @@ pub fn ese_get_hostname(
             break;
         }
     }
-    Err(SimpleError::new(format!("Empty field System_ComputerName")))
+    Err(SimpleError::new("Empty field System_ComputerName".to_string()))
 }
 
 pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(), SimpleError> {
