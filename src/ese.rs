@@ -165,9 +165,9 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
 
     if jdb.get_database_state() != DbState::CleanShutdown {
         eprintln!("WARNING: The database state is not clean.");
-        eprintln!("Please use EseUtil which helps check the status (/MH) of a database and perform a soft (/R) or hard (/P) recovery,");
-        eprintln!("or system32/esentutl for repair (/p).");
         eprintln!("Processing a dirty database may generate inaccurate and/or incomplete results.\n");
+        eprintln!("Use windows\\system32\\esentutl.exe for recovery (/r) and repair (/p).");
+        eprintln!("Note that Esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.");
     }
 
     let t = "SystemIndex_PropertyStore";
