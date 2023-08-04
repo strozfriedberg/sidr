@@ -40,8 +40,8 @@ fn do_edb_report(db_path: &str, cfg: &ReportsCfg) {
     if edb_reader.jdb.get_database_state() != DbState::CleanShutdown {
         eprintln!("WARNING: The database state is not clean.");
         eprintln!("Processing a dirty database may generate inaccurate and/or incomplete results.\n");
-        eprintln!("Please use windows\\system32\\esentutl.exe for repair (/p).");
-        eprintln!("Note that behavior of Esentutl may differ across Windows versions; please use a version compatible with the version of Windows that generated the database.");
+        eprintln!("Use windows\\system32\\esentutl.exe for recovery (/r) and repair (/p).");
+        eprintln!("Note that Esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.");
     }
 
     do_reports(cfg, &mut edb_reader);
