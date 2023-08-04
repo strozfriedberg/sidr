@@ -12,8 +12,8 @@ if [ "$Target" = 'linux' ]; then
 
   cp $BASEDIR/target/release/sidr $INSTALL/bin
 
-elif [ "$Target" = 'windows' ]; then
+elif [ "$Target" = 'windows_package' ]; then
 
-  cp $BASEDIR/target/x86_64-pc-windows-gnu/release/sidr.exe $INSTALL/bin
+  cp $BASEDIR/target/release/sidr.exe $INSTALL/bin
 
 fi
