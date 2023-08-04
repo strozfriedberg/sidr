@@ -26,14 +26,14 @@ Options:
           [default: json]
           [possible values: json, csv]
 
-  -o, --outdir <OUTPUT DIRECTORY>
-          Path to the directory where reports will be created (directory will be created if not present). Default is the current working directory
-
-  --report-type <REPORT TYPE>
+  -r, --report-type <REPORT_TYPE>
           Output results to file or stdout
 
           [default: to-file]
           [possible values: to-file, to-stdout]
+
+  -o, --outdir <OUTPUT DIRECTORY>
+          Path to the directory where reports will be created (will be created if not present). Default is the current directory
 
   -h, --help
           Print help (see a summary with '-h')
