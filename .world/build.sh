@@ -13,10 +13,7 @@ if [ "$Target" = 'linux' ]; then
 
   cargo build -r
 
-elif [ "$Target" = 'windows' ]; then
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-  source ~/.bashrc
-  rustup target add x86_64-pc-windows-gnu
-  cargo build -r --target x86_64-pc-windows-gnu
-  ls /home/builder/make_world/world/sidr/target/x86_64-pc-windows-gnu/release/
+elif [ "$Target" = 'windows_package' ]; then
+  cargo build -r
+  ls /home/builder/make_world/world/sidr/target/release/
 fi
