@@ -78,7 +78,6 @@ sidr 0.8.0
 The `velosidr.yaml` file can be used to configure a Velociraptor plugin that will run SIDR on a target system.
 
 Note: In order to parse the database on the target endpoint, the SIDR plugin must create an empty database and copy the original database to it. Creating the new copy can overwrite multiple gigabytes of data in unallocated clusters, which may result in loss of evidence. Please use the plugin with caution.
-earch_reader` (Linux)
 
 ### Copyright
 Copyright 2023, Aon. SIDR is licensed under the Apache License, Version 2.0.
