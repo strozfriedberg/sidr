@@ -26,14 +26,14 @@ Options:
           [default: json]
           [possible values: json, csv]
 
-  -o, --outdir <OUTPUT DIRECTORY>
-          Path to the directory where reports will be created (directory will be created if not present). Default is the current working directory
-
-  --report-type <REPORT TYPE>
+  -r, --report-type <REPORT_TYPE>
           Output results to file or stdout
 
           [default: to-file]
           [possible values: to-file, to-stdout]
+
+  -o, --outdir <OUTPUT DIRECTORY>
+          Path to the directory where reports will be created (will be created if not present). Default is the current directory
 
   -h, --help
           Print help (see a summary with '-h')
@@ -71,14 +71,13 @@ sidr 0.8.0
 ```
 
 ### Running with cargo
-`cargo run --bin sidr -- -f csv --report-type to-file /home/<username>/path/to/tests_s
+`cargo run --bin sidr -- -f csv --report-type to-file /home/<username>/path/to/tests_s`
 
 ### Velociraptor Plugin
 
 The `velosidr.yaml` file can be used to configure a Velociraptor plugin that will run SIDR on a target system.
 
 Note: In order to parse the database on the target endpoint, the SIDR plugin must create an empty database and copy the original database to it. Creating the new copy can overwrite multiple gigabytes of data in unallocated clusters, which may result in loss of evidence. Please use the plugin with caution.
-earch_reader` (Linux)
 
 ### Copyright
 Copyright 2023, Aon. SIDR is licensed under the Apache License, Version 2.0.

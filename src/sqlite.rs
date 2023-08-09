@@ -63,14 +63,14 @@ fn sqlite_get_hostname(c: &sqlite::Connection) -> Result<String, SimpleError> {
     // ASDF-5849
     // 557 - System_ComputerName
     // 567 - System_ItemType
-    let q = format!("select WorkId as wId, Value from SystemIndex_1_PropertyStore where ColumnId=557 and Value is not NULL and Value <> '' and \
-        (select Value from SystemIndex_1_PropertyStore where WorkId=wId and ColumnId=567) <> '.url' order by WorkId desc limit 1;");
+    let q = "select WorkId as wId, Value from SystemIndex_1_PropertyStore where ColumnId=557 and Value is not NULL and Value <> '' and \
+        (select Value from SystemIndex_1_PropertyStore where WorkId=wId and ColumnId=567) <> '.url' order by WorkId desc limit 1;".to_string();
     let mut s = map_err!(c.prepare(q))?;
     if let Ok(State::Row) = s.next() {
         let val = map_err!(s.read::<Vec<u8>, _>("Value"))?;
         return Ok(String::from_utf8_lossy(&val).into_owned());
     }
-    Err(SimpleError::new(format!("Empty field System_ComputerName")))
+    Err(SimpleError::new("Empty field System_ComputerName".to_string()))
 }
 
 // This report will provide information about all the files that have been indexed by Windows search,
