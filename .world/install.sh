@@ -9,5 +9,6 @@ if [[ "$Linkage" == 'static' ]]; then
 fi
 
 if [[ "$Target" == 'linux' || "$Target" == 'windows_package' ]]; then
+  mkdir -p $INSTALL/bin
   cp $BASEDIR/target/release/sidr${EXE_EXT} $INSTALL/bin
 fi
