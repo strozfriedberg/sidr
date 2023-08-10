@@ -437,6 +437,7 @@ fn ese_activity_history_record(
     true
 }
 
+#[cfg(test)]
 mod tests {
     use std::{
         path::Path,
