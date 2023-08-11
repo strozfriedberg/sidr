@@ -442,9 +442,8 @@ mod tests {
     use std::{
         path::Path,
         fs,
-        io::Read,
         path::PathBuf,
-        process::{Command, Stdio},
+        process::{Command},
     };
     use tempdir::TempDir;
     use crate::report::*;
@@ -453,13 +452,6 @@ mod tests {
 
     #[test]
     fn warn_dirty() {
-        use std::{
-            fs,
-            path::PathBuf,
-            process::Command,
-        };
-        use tempdir::TempDir;
-
         let test_dir =
             TempDir::new("test_warn_dirty").unwrap_or_else(|e| panic!("TempDir::new failed: {e}"));
         let src = "tests/testdata/Windows.edb";
