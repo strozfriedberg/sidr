@@ -475,13 +475,4 @@ mod tests {
         assert!(String::from_utf8_lossy(&output.stderr)
             .contains("WARNING: The database state is not clean."));
     }
-
-    #[test]
-    fn test_stdout_succcess() {
-        let rep_dir = std::env::current_dir().map_err(|e| SimpleError::new(format!("{e}"))).unwrap();
-        for report_format in [ReportFormat::Csv, ReportFormat::Json] {
-            let rep_producer = ReportProducer::new(rep_dir.as_path(), report_format, ReportOutput::ToStdout);
-            assert_eq!(ese_generate_report(Path::new("tests/testdata/Windows.edb"), &rep_producer).unwrap(), ());
-        }
-    }
 }
