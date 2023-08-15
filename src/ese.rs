@@ -437,16 +437,21 @@ fn ese_activity_history_record(
     true
 }
 
+#[cfg(test)]
 mod tests {
+    use std::{
+        path::Path,
+        fs,
+        path::PathBuf,
+        process::{Command},
+    };
+    use tempdir::TempDir;
+    use crate::report::*;
+    use crate::ese::ese_generate_report;
+    use simple_error::SimpleError;
+
     #[test]
     fn warn_dirty() {
-        use std::{
-            fs,
-            path::PathBuf,
-            process::Command,
-        };
-        use tempdir::TempDir;
-
         let test_dir =
             TempDir::new("test_warn_dirty").unwrap_or_else(|e| panic!("TempDir::new failed: {e}"));
         let src = "tests/testdata/Windows.edb";
