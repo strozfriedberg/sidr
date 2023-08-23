@@ -32,6 +32,7 @@ fn print_to_file_only(phrase: Vec<&str>, report_type: &ReportOutput) {
     }
 }
 
+fn dump(f: &str, report_prod: &ReportProducer, report_type: &ReportOutput) -> Result<(), SimpleError> {
     let mut processed = 0;
     match fs::read_dir(f) {
         Ok(dir) => {
@@ -39,10 +40,10 @@ fn print_to_file_only(phrase: Vec<&str>, report_type: &ReportOutput) {
                 let p = entry.path();
                 let metadata = fs::metadata(&p).unwrap();
                 if metadata.is_dir() {
-                    dump(&p.to_string_lossy(), report_prod)?;
+                    dump(&p.to_string_lossy(), report_prod, report_type)?;
                 } else if let Some(f) = p.file_name() {
                     if f == "Windows.edb" {
-                        println!("Processing ESE db: {}", p.to_string_lossy());
+                        print_to_file_only(vec!("Processing ESE db: ", &p.to_string_lossy()), report_type);
                         if let Err(e) = ese_generate_report(&p, report_prod) {
                             eprintln!(
                                 "ese_generate_report({}) failed with error: {}",
@@ -52,7 +53,7 @@ fn print_to_file_only(phrase: Vec<&str>, report_type: &ReportOutput) {
                         }
                         processed += 1;
                     } else if f == "Windows.db" {
-                        println!("Processing sqlite: {}", p.to_string_lossy());
+                        print_to_file_only(vec!("Processing ESE db: ", &p.to_string_lossy()), report_type);
                         if let Err(e) = sqlite_generate_report(&p, report_prod) {
                             eprintln!(
                                 "sqlite_generate_report({}) failed with error: {}",
@@ -69,7 +70,7 @@ fn print_to_file_only(phrase: Vec<&str>, report_type: &ReportOutput) {
     }
 
     if processed > 0 {
-        println!("\nFound {processed} Windows Search database(s)");
+        print_to_file_only(vec!("\nFound ", &processed.to_string()," Windows Search database(s)"), report_type);
     }
 
     Ok(())
@@ -127,6 +128,6 @@ fn main() -> Result<(), SimpleError> {
     };
     let rep_producer = ReportProducer::new(rep_dir.as_path(), cli.format, cli.report_type);
 
-    dump(&cli.input, &rep_producer)?;
+    dump(&cli.input, &rep_producer, &cli.report_type)?;
     Ok(())
 }
