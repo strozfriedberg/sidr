@@ -19,7 +19,19 @@ use crate::ese::*;
 use crate::report::*;
 use crate::sqlite::*;
 
-fn dump(f: &str, report_prod: &ReportProducer) -> Result<(), SimpleError> {
+fn print_to_file_only(phrase: Vec<&str>, report_type: &ReportOutput) {
+    match report_type {
+        ReportOutput::ToFile => {
+            let mut message = String::new();
+            for val in phrase.iter() {
+                message.push_str(val);
+            }
+            println!("{}", message);
+        },
+        _ => ()
+    }
+}
+
     let mut processed = 0;
     match fs::read_dir(f) {
         Ok(dir) => {
