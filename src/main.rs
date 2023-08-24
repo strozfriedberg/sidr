@@ -6,6 +6,7 @@ use clap::Parser;
 
 use std::fs;
 use std::path::PathBuf;
+use std::io::Write;
 
 use simple_error::SimpleError;
 
