@@ -1,7 +1,10 @@
 #![allow(non_upper_case_globals, non_snake_case, non_camel_case_types)]
-#![feature(internal_output_capture)]
 
 extern crate bitflags;
+extern crate capture_stdio;
+
+use capture_stdio::OutputCapture;
+use crate::capture_stdio::Capture;
 
 use clap::Parser;
 
