@@ -1,10 +1,6 @@
 #![allow(non_upper_case_globals, non_snake_case, non_camel_case_types)]
 
 extern crate bitflags;
-extern crate capture_stdio;
-
-use capture_stdio::OutputCapture;
-use crate::capture_stdio::Capture;
 
 use clap::Parser;
 
@@ -120,43 +116,11 @@ fn main() -> Result<(), SimpleError> {
     };
     let rep_producer = ReportProducer::new(rep_dir.as_path(), cli.format, cli.report_type);
 
-    dump(&cli.input, &rep_producer, &cli.report_type)?;
+    let mut startup_logger = match cli.report_type {
+        ReportOutput::ToStdout => Box::new(std::io::sink()) as Box<dyn std::io::Write + 'static>,
+        ReportOutput::ToFile => Box::new(std::io::stdout()) as Box<dyn std::io::Write + 'static>,
+    };
+
+    dump(&cli.input, &rep_producer, &mut startup_logger)?;
     Ok(())
-}
-
-
-#[cfg(test)]
-fn capture_stdout(mut output_capture: OutputCapture) -> String {
-    use capture_stdio::OutputCapture;
-    use crate::capture_stdio::Capture;
-
-    output_capture.restore();
-    String::from_utf8(output_capture.get_output().lock().unwrap().clone()).unwrap()
-}
-
-#[test]
-fn test_print_to_file_only() {
-    let ro = ReportOutput::ToFile;
-
-    let output_capture = OutputCapture::capture().unwrap();
-    print_to_file_only(format!("gray dog running on the green {}", "grass"), &ro);
-    let captured = capture_stdout(output_capture);
-
-    assert_eq!(captured, "gray dog running on the green grass\n");
-
-    let output_capture = OutputCapture::capture().unwrap();
-    let dir = fs::read_dir("./tests").unwrap();
-    for entry in dir.flatten() {
-        let p = entry.path();
-        print_to_file_only(format!("test path is {}", &p.to_string_lossy()), &ro);
-        let captured = capture_stdout(output_capture);
-        assert_eq!(captured, "test path is ./tests/testdata\n");
-        break // making sure only tests/testdata is used
-    }
-
-    let output_capture = OutputCapture::capture().unwrap();
-    let processed = 5;  // reproducing scenario as close as possible to the real code
-    print_to_file_only(format!("\nFound {} Windows Search database(s)", &processed.to_string()), &ro);
-    let captured = capture_stdout(output_capture);
-    assert_eq!(captured, "\nFound 5 Windows Search database(s)\n");
 }
