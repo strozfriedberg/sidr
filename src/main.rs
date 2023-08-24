@@ -23,16 +23,8 @@ use crate::ese::*;
 use crate::report::*;
 use crate::sqlite::*;
 
-fn print_to_file_only(message: String, report_type: &ReportOutput) {
-    match report_type {
-        ReportOutput::ToFile => {
-            println!("{}", message);
-        },
-        _ => ()
-    }
-}
 
-fn dump(f: &str, report_prod: &ReportProducer, report_type: &ReportOutput) -> Result<(), SimpleError> {
+fn dump(f: &str, report_prod: &ReportProducer, startup_logger: &mut Box<dyn Write + 'static>) -> Result<(), SimpleError> {
     let mut processed = 0;
     match fs::read_dir(f) {
         Ok(dir) => {
@@ -40,10 +32,10 @@ fn dump(f: &str, report_prod: &ReportProducer, report_type: &ReportOutput) -> Re
                 let p = entry.path();
                 let metadata = fs::metadata(&p).unwrap();
                 if metadata.is_dir() {
-                    dump(&p.to_string_lossy(), report_prod, report_type)?;
+                    dump(&p.to_string_lossy(), report_prod, startup_logger)?;
                 } else if let Some(f) = p.file_name() {
                     if f == "Windows.edb" {
-                        print_to_file_only(format!("Processing ESE db: {}", &p.to_string_lossy()), report_type);
+                        writeln!(startup_logger, "Processing ESE db: {}", &p.to_string_lossy()).map_err(|e| SimpleError::new(format!("{e}")))?;
                         if let Err(e) = ese_generate_report(&p, report_prod) {
                             eprintln!(
                                 "ese_generate_report({}) failed with error: {}",
@@ -53,7 +45,7 @@ fn dump(f: &str, report_prod: &ReportProducer, report_type: &ReportOutput) -> Re
                         }
                         processed += 1;
                     } else if f == "Windows.db" {
-                        print_to_file_only(format!("Processing ESE db: {}", &p.to_string_lossy()), report_type);
+                        writeln!(startup_logger, "Processing ESE db: {}", &p.to_string_lossy()).map_err(|e| SimpleError::new(format!("{e}")))?;
                         if let Err(e) = sqlite_generate_report(&p, report_prod) {
                             eprintln!(
                                 "sqlite_generate_report({}) failed with error: {}",
@@ -70,7 +62,7 @@ fn dump(f: &str, report_prod: &ReportProducer, report_type: &ReportOutput) -> Re
     }
 
     if processed > 0 {
-        print_to_file_only(format!("\nFound {} Windows Search database(s)", &processed.to_string()), report_type);
+        writeln!(startup_logger, "\nFound {} Windows Search database(s)", &processed.to_string()).map_err(|e| SimpleError::new(format!("{e}")));
     }
 
     Ok(())
