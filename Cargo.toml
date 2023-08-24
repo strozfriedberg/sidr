@@ -46,7 +46,6 @@ walkdir = "2.3.3"
 camino = "1.1.4"
 itertools = "0.10.5"
 tempdir = "0.3.7"
-capture-stdio = "0.1.1"
 
 [dependencies.sqlite3-sys]
 version = "0.14"
