@@ -138,38 +138,37 @@ fn main() -> Result<(), SimpleError> {
 
 
 #[cfg(test)]
-fn capture_stdout() -> String {
-    use std::sync::Arc;
-    let captured = std::io::set_output_capture(None);
+fn capture_stdout(mut output_capture: OutputCapture) -> String {
+    use capture_stdio::OutputCapture;
+    use crate::capture_stdio::Capture;
 
-    let captured = captured.unwrap();
-    let captured = Arc::try_unwrap(captured).unwrap();
-    let captured = captured.into_inner().unwrap();
-    String::from_utf8(captured).unwrap()
+    output_capture.restore();
+    String::from_utf8(output_capture.get_output().lock().unwrap().clone()).unwrap()
 }
 
 #[test]
 fn test_print_to_file_only() {
     let ro = ReportOutput::ToFile;
 
-    std::io::set_output_capture(Some(Default::default()));
-    print_to_file_only(vec!["gray dog running ", "on the ", "green grass"], &ro);
-    let captured = capture_stdout();
+    let output_capture = OutputCapture::capture().unwrap();
+    print_to_file_only(format!("gray dog running on the green grass"), &ro);
+    let captured = capture_stdout(output_capture);
+
     assert_eq!(captured, "gray dog running on the green grass\n");
 
-    std::io::set_output_capture(Some(Default::default()));
+    let output_capture = OutputCapture::capture().unwrap();
     let dir = fs::read_dir("./tests").unwrap();
     for entry in dir.flatten() {
         let p = entry.path();
-        print_to_file_only(vec!["test path is ", &p.to_string_lossy()], &ro);
-        let captured = capture_stdout();
+        print_to_file_only(format!("test path is {}", &p.to_string_lossy()), &ro);
+        let captured = capture_stdout(output_capture);
         assert_eq!(captured, "test path is ./tests/testdata\n");
         break // making sure only tests/testdata is used
     }
 
-    std::io::set_output_capture(Some(Default::default()));
+    let output_capture = OutputCapture::capture().unwrap();
     let processed = 5;  // reproducing scenario as close as possible to the real code
-    print_to_file_only(vec!["\nFound ", &processed.to_string(), " Windows Search database(s)"], &ro);
-    let captured = capture_stdout();
+    print_to_file_only(format!("\nFound {} Windows Search database(s)", &processed.to_string()), &ro);
+    let captured = capture_stdout(output_capture);
     assert_eq!(captured, "\nFound 5 Windows Search database(s)\n");
 }
