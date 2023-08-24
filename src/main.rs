@@ -23,13 +23,9 @@ use crate::ese::*;
 use crate::report::*;
 use crate::sqlite::*;
 
-fn print_to_file_only(phrase: Vec<&str>, report_type: &ReportOutput) {
+fn print_to_file_only(message: String, report_type: &ReportOutput) {
     match report_type {
         ReportOutput::ToFile => {
-            let mut message = String::new();
-            for val in phrase.iter() {
-                message.push_str(val);
-            }
             println!("{}", message);
         },
         _ => ()
@@ -47,7 +43,7 @@ fn dump(f: &str, report_prod: &ReportProducer, report_type: &ReportOutput) -> Re
                     dump(&p.to_string_lossy(), report_prod, report_type)?;
                 } else if let Some(f) = p.file_name() {
                     if f == "Windows.edb" {
-                        print_to_file_only(vec!("Processing ESE db: ", &p.to_string_lossy()), report_type);
+                        print_to_file_only(format!("Processing ESE db: {}", &p.to_string_lossy()), report_type);
                         if let Err(e) = ese_generate_report(&p, report_prod) {
                             eprintln!(
                                 "ese_generate_report({}) failed with error: {}",
@@ -57,7 +53,7 @@ fn dump(f: &str, report_prod: &ReportProducer, report_type: &ReportOutput) -> Re
                         }
                         processed += 1;
                     } else if f == "Windows.db" {
-                        print_to_file_only(vec!("Processing ESE db: ", &p.to_string_lossy()), report_type);
+                        print_to_file_only(format!("Processing ESE db: {}", &p.to_string_lossy()), report_type);
                         if let Err(e) = sqlite_generate_report(&p, report_prod) {
                             eprintln!(
                                 "sqlite_generate_report({}) failed with error: {}",
@@ -74,7 +70,7 @@ fn dump(f: &str, report_prod: &ReportProducer, report_type: &ReportOutput) -> Re
     }
 
     if processed > 0 {
-        print_to_file_only(vec!("\nFound ", &processed.to_string()," Windows Search database(s)"), report_type);
+        print_to_file_only(format!("\nFound {} Windows Search database(s)", &processed.to_string()), report_type);
     }
 
     Ok(())
