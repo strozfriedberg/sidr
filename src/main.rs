@@ -147,7 +147,7 @@ fn test_print_to_file_only() {
     let ro = ReportOutput::ToFile;
 
     let output_capture = OutputCapture::capture().unwrap();
-    print_to_file_only(format!("gray dog running on the green grass"), &ro);
+    print_to_file_only(format!("gray dog running on the green {}", "grass"), &ro);
     let captured = capture_stdout(output_capture);
 
     assert_eq!(captured, "gray dog running on the green grass\n");
