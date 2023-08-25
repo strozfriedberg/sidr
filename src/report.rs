@@ -79,24 +79,42 @@ impl ReportProducer {
         }
     }
 
+    pub fn get_report_type(&self) -> ReportOutput {
+        self.report_type
+    }
+
+    pub fn get_path_db_status(&self, recovered_hostname: &str, report_suffix: &str, date_time_now: DateTime<Utc>, ext: &str, dirty_db: bool) -> PathBuf {
+        if dirty_db {
+           return self.dir.join(format!(
+            "{}_{}_{}_{}.{}",
+            recovered_hostname,
+            report_suffix,
+            date_time_now.format("%Y%m%d_%H%M%S%.f"),
+            "dirty",
+            ext
+        ));}
+        self.dir.join(format!(
+            "{}_{}_{}.{}",
+            recovered_hostname,
+            report_suffix,
+            date_time_now.format("%Y%m%d_%H%M%S%.f"),
+            ext
+        ))
+    }
+
     pub fn new_report(
         &self,
         _dbpath: &Path,
         recovered_hostname: &str,
         report_suffix: &str,
+        dirty_db: bool
     ) -> Result<(PathBuf, Box<dyn Report>), SimpleError> {
         let ext = match self.format {
             ReportFormat::Json => "json",
             ReportFormat::Csv => "csv",
         };
         let date_time_now: DateTime<Utc> = Utc::now();
-        let path = self.dir.join(format!(
-            "{}_{}_{}.{}",
-            recovered_hostname,
-            report_suffix,
-            date_time_now.format("%Y%m%d_%H%M%S%.f"),
-            ext
-        ));
+        let path = self.get_path_db_status(recovered_hostname, report_suffix, date_time_now, ext, dirty_db);
         let report_suffix = ReportSuffix::get_match(report_suffix);
         let rep: Box<dyn Report> = match self.format {
             ReportFormat::Json => {
