@@ -59,7 +59,7 @@ fn dump(f: &str, report_prod: &ReportProducer, startup_logger: &mut Box<dyn Writ
     }
 
     if processed > 0 {
-        writeln!(startup_logger, "\nFound {} Windows Search database(s)", &processed.to_string()).map_err(|e| SimpleError::new(format!("{e}")));
+        writeln!(startup_logger, "\nFound {} Windows Search database(s)", &processed.to_string()).map_err(|e| SimpleError::new(format!("{e}"))).unwrap();
     }
 
     Ok(())
