@@ -698,7 +698,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
         }
 
         let (_out_path, reporter) = rep_factory
-            .new_report(Path::new(""), &output_filename, &report.title)
+            .new_report(Path::new(""), &output_filename, &report.title, false)
             .unwrap();
 
         let columns = get_used_columns(report, reader, &*reporter);
