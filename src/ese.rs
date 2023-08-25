@@ -1,3 +1,6 @@
+extern crate exitcode;
+use std::process;
+
 use ese_parser_lib::parser::jet::DbState;
 use simple_error::SimpleError;
 use std::collections::HashMap;
@@ -160,16 +163,21 @@ pub fn ese_get_hostname(
     Err(SimpleError::new("Empty field System_ComputerName".to_string()))
 }
 
-pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(), SimpleError> {
-    let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
-
-    if jdb.get_database_state() != DbState::CleanShutdown {
+pub fn is_db_dirty(db_state: DbState) -> bool {
+    if db_state != DbState::CleanShutdown {
         eprintln!("WARNING: The database state is not clean.");
         eprintln!("Processing a dirty database may generate inaccurate and/or incomplete results.\n");
         eprintln!("Use windows\\system32\\esentutl.exe for recovery (/r) and repair (/p).");
         eprintln!("Note that Esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.");
+        return true
     }
+    false
+}
 
+pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(), SimpleError> {
+    let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
+
+    let dirty_db = is_db_dirty(jdb.get_database_state());
     let t = "SystemIndex_PropertyStore";
     let table_id = jdb.open_table(t)?;
     let cols = jdb.get_columns(t)?;
@@ -222,7 +230,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
     };
 
     let (mut file_rep, mut ie_rep, mut act_rep) =
-        init_reports(f, report_prod, &recovered_hostname)?;
+        init_reports(f, report_prod, &recovered_hostname, dirty_db)?;
 
     let mut h = HashMap::new();
     loop {
@@ -266,6 +274,9 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
         if !jdb.move_row(table_id, ESE_MoveNext)? {
             break;
         }
+    }
+    if report_prod.get_report_type() == ReportOutput::ToStdout && dirty_db {
+        process::exit(exitcode::DATAERR)
     }
     Ok(())
 }
