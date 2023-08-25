@@ -94,7 +94,7 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
     };
 
     let (mut file_rep, mut ie_rep, mut act_rep) =
-        init_reports(f, report_prod, &recovered_hostname)?;
+        init_reports(f, report_prod, &recovered_hostname, false)?;
 
     let mut handler = |workId: u32, h: &mut HashMap<String, Vec<u8>>| {
         // new WorkId, handle all collected fields
