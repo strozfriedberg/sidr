@@ -13,8 +13,9 @@ pub fn init_reports(
     f: &Path,
     report_prod: &ReportProducer,
     recovered_hostname: &str,
+    dirty_db: bool
 ) -> Result<Reports, SimpleError> {
-    let (file_rep_path, file_rep) = report_prod.new_report(f, recovered_hostname, "File_Report")?;
+    let (file_rep_path, file_rep) = report_prod.new_report(f, recovered_hostname, "File_Report", dirty_db)?;
 
     // declare all headers (using in csv report)
     file_rep.set_field("WorkId");
@@ -30,7 +31,7 @@ pub fn init_reports(
     file_rep.set_field("System_ItemType");
 
     let (ie_rep_path, ie_rep) =
-        report_prod.new_report(f, recovered_hostname, "Internet_History_Report")?;
+        report_prod.new_report(f, recovered_hostname, "Internet_History_Report", dirty_db)?;
     ie_rep.set_field("WorkId");
     ie_rep.set_field("System_ComputerName");
     ie_rep.set_field("System_ItemName");
@@ -45,7 +46,7 @@ pub fn init_reports(
     ie_rep.set_field("System_Link_DateVisited");
 
     let (act_rep_path, act_rep) =
-        report_prod.new_report(f, recovered_hostname, "Activity_History_Report")?;
+        report_prod.new_report(f, recovered_hostname, "Activity_History_Report", dirty_db)?;
     act_rep.set_field("WorkId");
     act_rep.set_field("System_ComputerName");
     act_rep.set_field("System_DateModified");
