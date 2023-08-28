@@ -374,28 +374,34 @@ impl Drop for ReportCsv {
     }
 }
 
-#[test]
-pub fn test_report_csv() {
-    let p = Path::new("test.csv");
-    let report_type = ReportOutput::ToFile;
-    let report_suffix = None;
-    {
-        let mut r = ReportCsv::new(p, report_type, report_suffix).unwrap();
-        r.set_field("int_field");
-        r.set_field("str_field");
-        r.int_val("int_field", 0);
-        r.str_val("str_field", "string0".into());
-        for i in 1..10 {
-            r.new_record();
-            if i % 2 == 0 {
-                r.str_val("str_field", format!("string{}", i));
-            } else {
-                r.int_val("int_field", i);
+#[cfg(test)]
+mod tests {
+    use crate::report::{Report, ReportFormat, ReportOutput, ReportProducer, ReportSuffix, ReportCsv, ReportJson};
+    use std::path::Path;
+    use chrono::{DateTime, NaiveDate, Utc};
+
+    #[test]
+    pub fn test_report_csv() {
+        let p = Path::new("test.csv");
+        let report_type = ReportOutput::ToFile;
+        let report_suffix = None;
+        {
+            let mut r = ReportCsv::new(p, report_type, report_suffix).unwrap();
+            r.set_field("int_field");
+            r.set_field("str_field");
+            r.int_val("int_field", 0);
+            r.str_val("str_field", "string0".into());
+            for i in 1..10 {
+                r.new_record();
+                if i % 2 == 0 {
+                    r.str_val("str_field", format!("string{}", i));
+                } else {
+                    r.int_val("int_field", i);
+                }
             }
         }
-    }
-    let data = std::fs::read_to_string(p).unwrap();
-    let expected = r#"int_field,str_field
+        let data = std::fs::read_to_string(p).unwrap();
+        let expected = r#"int_field,str_field
 0,"string0"
 1,
 ,"string2"
@@ -406,30 +412,30 @@ pub fn test_report_csv() {
 7,
 ,"string8"
 9,"#;
-    assert_eq!(data, expected);
-    std::fs::remove_file(p).unwrap();
-}
+        assert_eq!(data, expected);
+        std::fs::remove_file(p).unwrap();
+    }
 
-#[test]
-pub fn test_report_jsonl() {
-    let p = Path::new("test.json");
-    let report_type = ReportOutput::ToFile;
-    let report_suffix = Some(ReportSuffix::FileReport);
-    {
-        let mut r = ReportJson::new(p, report_type, report_suffix).unwrap();
-        r.int_val("int_field", 0);
-        r.str_val("str_field", "string0_with_escapes_here1\"here2\\".into());
-        for i in 1..10 {
-            r.new_record();
-            if i % 2 == 0 {
-                r.str_val("str_field", format!("string{}", i));
-            } else {
-                r.int_val("int_field", i);
+    #[test]
+    pub fn test_report_jsonl() {
+        let p = Path::new("test.json");
+        let report_type = ReportOutput::ToFile;
+        let report_suffix = Some(ReportSuffix::FileReport);
+        {
+            let mut r = ReportJson::new(p, report_type, report_suffix).unwrap();
+            r.int_val("int_field", 0);
+            r.str_val("str_field", "string0_with_escapes_here1\"here2\\".into());
+            for i in 1..10 {
+                r.new_record();
+                if i % 2 == 0 {
+                    r.str_val("str_field", format!("string{}", i));
+                } else {
+                    r.int_val("int_field", i);
+                }
             }
         }
-    }
-    let data = std::fs::read_to_string(p).unwrap();
-    let expected = r#"{"int_field":0,"str_field":"string0_with_escapes_here1\"here2\\"}
+        let data = std::fs::read_to_string(p).unwrap();
+        let expected = r#"{"int_field":0,"str_field":"string0_with_escapes_here1\"here2\\"}
 {"int_field":1}
 {"str_field":"string2"}
 {"int_field":3}
@@ -440,30 +446,43 @@ pub fn test_report_jsonl() {
 {"str_field":"string8"}
 {"int_field":9}
 "#;
-    assert_eq!(data, expected);
-    std::fs::remove_file(p).unwrap();
-}
+        assert_eq!(data, expected);
+        std::fs::remove_file(p).unwrap();
+    }
 
-#[test]
-fn test_report_suffix() {
-    let report_suffix = Some(ReportSuffix::FileReport);
-    assert_eq!(ReportSuffix::get_match("File_Report"), report_suffix);
-    assert_ne!(ReportSuffix::get_match("Activity"), report_suffix);
+    #[test]
+    fn test_report_suffix() {
+        let report_suffix = Some(ReportSuffix::FileReport);
+        assert_eq!(ReportSuffix::get_match("File_Report"), report_suffix);
+        assert_ne!(ReportSuffix::get_match("Activity"), report_suffix);
 
-    assert_eq!(
-        ReportSuffix::message(report_suffix.as_ref().unwrap()),
-        serde_json::to_string("file_report").unwrap()
-    );
-    assert_eq!(
-        ReportSuffix::message(&ReportSuffix::ActivityHistory),
-        serde_json::to_string("activity_history").unwrap()
-    );
-    assert_eq!(
-        ReportSuffix::message(&ReportSuffix::InternetHistory),
-        serde_json::to_string("internet_history").unwrap()
-    );
-    assert_eq!(
-        ReportSuffix::message(&ReportSuffix::Unknown),
-        serde_json::to_string("").unwrap()
-    );
+        assert_eq!(
+            ReportSuffix::message(report_suffix.as_ref().unwrap()),
+            serde_json::to_string("file_report").unwrap()
+        );
+        assert_eq!(
+            ReportSuffix::message(&ReportSuffix::ActivityHistory),
+            serde_json::to_string("activity_history").unwrap()
+        );
+        assert_eq!(
+            ReportSuffix::message(&ReportSuffix::InternetHistory),
+            serde_json::to_string("internet_history").unwrap()
+        );
+        assert_eq!(
+            ReportSuffix::message(&ReportSuffix::Unknown),
+            serde_json::to_string("").unwrap()
+        );
+    }
+
+    #[test]
+    fn test_get_path_db_status() {
+        let path = Path::new("./tests");
+        let rp = ReportProducer::new(path, ReportFormat::Json, ReportOutput::ToStdout);
+        let naivedatetime_utc = NaiveDate::from_ymd_opt(2000, 1, 12).unwrap().and_hms_opt(2, 0, 0).unwrap();
+        let dt = DateTime::<Utc>::from_utc(naivedatetime_utc, Utc);
+        assert_eq!(rp.get_path_db_status("test_hostname", "activity", dt, "edb.test", false).to_string_lossy(),
+                   "./tests/test_hostname_activity_20000112_020000.edb.test");
+        assert_eq!(rp.get_path_db_status("test_hostname", "activity", dt, "edb.test", true).to_string_lossy(),
+                   "./tests/test_hostname_activity_20000112_020000_dirty.edb.test");
+    }
 }
