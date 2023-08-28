@@ -9,6 +9,7 @@ use crate::utils::*;
 
 use ese_parser_lib::ese_parser::EseParser;
 use ese_parser_lib::ese_trait::*;
+use std::io::Write;
 
 const CACHE_SIZE_ENTRIES: usize = 10;
 
@@ -32,7 +33,7 @@ fn prepare_selected_cols(cols: Vec<ColumnInfo>, sel_cols: &Vec<&str>) -> Vec<Col
                 }
             }
             if !found {
-                println!("Requested column {i} not found in table columns");
+                eprintln!("Requested column {i} not found in table columns");
             }
         }
     }
@@ -160,7 +161,7 @@ pub fn ese_get_hostname(
     Err(SimpleError::new("Empty field System_ComputerName".to_string()))
 }
 
-pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(), SimpleError> {
+pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger: &mut Box<dyn Write>) -> Result<(), SimpleError> {
     let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
 
     if jdb.get_database_state() != DbState::CleanShutdown {
@@ -222,7 +223,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
     };
 
     let (mut file_rep, mut ie_rep, mut act_rep) =
-        init_reports(f, report_prod, &recovered_hostname)?;
+        init_reports(f, report_prod, &recovered_hostname, status_logger)?;
 
     let mut h = HashMap::new();
     loop {
@@ -242,7 +243,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
                             // }
                         }
                     }
-                    Err(e) => println!("Error while getting column {} from {}: {}", c.name, t, e),
+                    Err(e) => eprintln!("Error while getting column {} from {}: {}", c.name, t, e),
                 }
             } else {
                 match jdb.get_column(table_id, c.id) {
@@ -252,7 +253,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
                             h.insert(c.name.clone(), v);
                         }
                     },
-                    Err(e) => println!("Error while getting column {} from {}: {}", c.name, t, e),
+                    Err(e) => eprintln!("Error while getting column {} from {}: {}", c.name, t, e),
                 }
             }
         }
