@@ -458,8 +458,9 @@ mod tests {
     };
     use tempdir::TempDir;
     use crate::report::*;
-    use crate::ese::ese_generate_report;
+    use crate::ese::{ese_generate_report, is_db_dirty};
     use simple_error::SimpleError;
+    use ese_parser_lib::parser::jet::DbState;
 
     #[test]
     fn warn_dirty() {
@@ -485,5 +486,12 @@ mod tests {
         assert!(output.status.success());
         assert!(String::from_utf8_lossy(&output.stderr)
             .contains("WARNING: The database state is not clean."));
+    }
+
+    #[test]
+    fn test_is_db_dirty() {
+        assert_eq!(is_db_dirty(DbState::CleanShutdown), false);
+        assert_eq!(is_db_dirty(DbState::DirtyShutdown), true);
+        assert_eq!(is_db_dirty(DbState::BeingConverted), true);
     }
 }
