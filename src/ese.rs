@@ -32,7 +32,7 @@ fn prepare_selected_cols(cols: Vec<ColumnInfo>, sel_cols: &Vec<&str>) -> Vec<Col
                 }
             }
             if !found {
-                println!("Requested column {i} not found in table columns");
+                eprintln!("Requested column {i} not found in table columns");
             }
         }
     }
