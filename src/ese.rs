@@ -169,7 +169,7 @@ pub fn is_db_dirty(db_state: DbState) -> bool {
         eprintln!("Processing a dirty database may generate inaccurate and/or incomplete results.\n");
         eprintln!("Use windows\\system32\\esentutl.exe for recovery (/r) and repair (/p).");
         eprintln!("Note that Esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.");
-        return true
+        return true;
     }
     false
 }
