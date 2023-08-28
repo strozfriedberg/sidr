@@ -242,7 +242,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
                             // }
                         }
                     }
-                    Err(e) => println!("Error while getting column {} from {}: {}", c.name, t, e),
+                    Err(e) => eprintln!("Error while getting column {} from {}: {}", c.name, t, e),
                 }
             } else {
                 match jdb.get_column(table_id, c.id) {
@@ -252,7 +252,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(),
                             h.insert(c.name.clone(), v);
                         }
                     },
-                    Err(e) => println!("Error while getting column {} from {}: {}", c.name, t, e),
+                    Err(e) => eprintln!("Error while getting column {} from {}: {}", c.name, t, e),
                 }
             }
         }
