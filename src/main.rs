@@ -21,7 +21,7 @@ use crate::report::*;
 use crate::sqlite::*;
 
 
-fn dump(f: &str, report_prod: &ReportProducer, startup_logger: &mut Box<dyn Write + 'static>) -> Result<(), SimpleError> {
+fn dump(f: &str, report_prod: &ReportProducer, startup_logger: &mut Box<dyn Write>) -> Result<(), SimpleError> {
     let mut processed = 0;
     match fs::read_dir(f) {
         Ok(dir) => {
@@ -117,9 +117,9 @@ fn main() -> Result<(), SimpleError> {
     };
     let rep_producer = ReportProducer::new(rep_dir.as_path(), cli.format, cli.report_type);
 
-    let mut startup_logger = match cli.report_type {
-        ReportOutput::ToStdout => Box::new(std::io::sink()) as Box<dyn std::io::Write + 'static>,
-        ReportOutput::ToFile => Box::new(std::io::stdout()) as Box<dyn std::io::Write + 'static>,
+    let mut startup_logger: Box<dyn std::io::Write> = match cli.report_type {
+        ReportOutput::ToStdout => Box::new(std::io::sink()),
+        ReportOutput::ToFile => Box::new(std::io::stdout()),
     };
 
     dump(&cli.input, &rep_producer, &mut startup_logger)?;
