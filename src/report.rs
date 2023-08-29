@@ -84,20 +84,13 @@ impl ReportProducer {
     }
 
     pub fn get_path_db_status(&self, recovered_hostname: &str, report_suffix: &str, date_time_now: DateTime<Utc>, ext: &str, dirty_db: bool) -> PathBuf {
-        if dirty_db {
-           return self.dir.join(format!(
-            "{}_{}_{}_{}.{}",
-            recovered_hostname,
-            report_suffix,
-            date_time_now.format("%Y%m%d_%H%M%S%.f"),
-            "dirty",
-            ext
-        ));}
+        let status = if dirty_db { "_dirty" } else { "" };
         self.dir.join(format!(
-            "{}_{}_{}.{}",
+            "{}_{}_{}{}.{}",
             recovered_hostname,
             report_suffix,
             date_time_now.format("%Y%m%d_%H%M%S%.f"),
+            status,
             ext
         ))
     }
