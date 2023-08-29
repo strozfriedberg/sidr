@@ -2,6 +2,7 @@ use simple_error::SimpleError;
 use std::path::Path;
 
 use crate::report::*;
+use std::io::Write;
 
 type Reports = (
     Box<dyn Report>, /* file report */
@@ -13,6 +14,7 @@ pub fn init_reports(
     f: &Path,
     report_prod: &ReportProducer,
     recovered_hostname: &str,
+    status_logger: &mut Box<dyn Write>,
     dirty_db: bool
 ) -> Result<Reports, SimpleError> {
     let (file_rep_path, file_rep) = report_prod.new_report(f, recovered_hostname, "File_Report", dirty_db)?;
@@ -61,11 +63,10 @@ pub fn init_reports(
     act_rep.set_field("ObjectId");
     act_rep.set_field("System_Activity_ContentUri");
 
-    eprintln!(
-        "{}\n{}\n{}\n",
-        file_rep_path.to_string_lossy(),
-        ie_rep_path.to_string_lossy(),
-        act_rep_path.to_string_lossy()
-    );
+    writeln!(status_logger,
+             "{}\n{}\n{}\n",
+             file_rep_path.to_string_lossy(),
+             ie_rep_path.to_string_lossy(),
+             act_rep_path.to_string_lossy()).map_err(|e| SimpleError::new(format!("{e}")))?;
     Ok((file_rep, ie_rep, act_rep))
 }

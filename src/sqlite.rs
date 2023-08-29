@@ -8,6 +8,7 @@ use crate::utils::*;
 
 use ese_parser_lib::ese_parser::FromBytes;
 use sqlite::State;
+use std::io::Write;
 
 macro_rules! map_err(($result:expr) => ($result.map_err(|e| SimpleError::new(format!("{}", e)))));
 
@@ -75,7 +76,7 @@ fn sqlite_get_hostname(c: &sqlite::Connection) -> Result<String, SimpleError> {
 
 // This report will provide information about all the files that have been indexed by Windows search,
 // including the file name, path, and creation/modification dates.
-pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<(), SimpleError> {
+pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer, status_logger: &mut Box<dyn Write>) -> Result<(), SimpleError> {
     let c = map_err!(sqlite::Connection::open_with_flags(
         f,
         sqlite::OpenFlags::new().set_read_only()
@@ -94,7 +95,7 @@ pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer) -> Result<
     };
 
     let (mut file_rep, mut ie_rep, mut act_rep) =
-        init_reports(f, report_prod, &recovered_hostname, false)?;
+        init_reports(f, report_prod, &recovered_hostname, status_logger, false)?;
 
     let mut handler = |workId: u32, h: &mut HashMap<String, Vec<u8>>| {
         // new WorkId, handle all collected fields
