@@ -481,8 +481,8 @@ mod tests {
         let naivedatetime_utc = NaiveDate::from_ymd_opt(2000, 1, 12).unwrap().and_hms_opt(2, 0, 0).unwrap();
         let dt = DateTime::<Utc>::from_utc(naivedatetime_utc, Utc);
         assert_eq!(rp.get_path_db_status("test_hostname", "activity", dt, "edb.test", false).to_string_lossy(),
-                   "./tests/test_hostname_activity_20000112_020000.edb.test");
+                   Path::new("./tests").join("test_hostname_activity_20000112_020000.edb.test").to_string_lossy());
         assert_eq!(rp.get_path_db_status("test_hostname", "activity", dt, "edb.test", true).to_string_lossy(),
-                   "./tests/test_hostname_activity_20000112_020000_dirty.edb.test");
+                   Path::new("./tests").join("test_hostname_activity_20000112_020000_dirty.edb.test").to_string_lossy());
     }
 }
