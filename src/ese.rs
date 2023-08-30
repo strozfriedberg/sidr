@@ -168,7 +168,7 @@ pub fn ese_get_hostname(
 pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger: &mut Box<dyn Write>) -> Result<(), SimpleError> {
     let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
 
-    let dirty_db = is_db_dirty(jdb.get_database_state());
+    let is_dirty = is_db_dirty(jdb.get_database_state());
     let t = "SystemIndex_PropertyStore";
     let table_id = jdb.open_table(t)?;
     let cols = jdb.get_columns(t)?;
@@ -221,7 +221,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger
     };
 
     let (mut file_rep, mut ie_rep, mut act_rep) =
-        init_reports(f, report_prod, &recovered_hostname, status_logger, dirty_db)?;
+        init_reports(f, report_prod, &recovered_hostname, status_logger, is_dirty)?;
 
     let mut h = HashMap::new();
     loop {
@@ -266,7 +266,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger
             break;
         }
     }
-    if report_prod.get_report_type() == ReportOutput::ToStdout && dirty_db {
+    if report_prod.get_report_type() == ReportOutput::ToStdout && is_dirty {
         process::exit(exitcode::DATAERR)
     }
     Ok(())

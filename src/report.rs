@@ -100,14 +100,14 @@ impl ReportProducer {
         _dbpath: &Path,
         recovered_hostname: &str,
         report_suffix: &str,
-        dirty_db: bool
+        is_dirty: bool
     ) -> Result<(PathBuf, Box<dyn Report>), SimpleError> {
         let ext = match self.format {
             ReportFormat::Json => "json",
             ReportFormat::Csv => "csv",
         };
         let date_time_now: DateTime<Utc> = Utc::now();
-        let path = self.get_path_db_status(recovered_hostname, report_suffix, date_time_now, ext, dirty_db);
+        let path = self.get_path_db_status(recovered_hostname, report_suffix, date_time_now, ext, is_dirty);
         let report_suffix = ReportSuffix::get_match(report_suffix);
         let rep: Box<dyn Report> = match self.format {
             ReportFormat::Json => {
