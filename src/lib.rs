@@ -579,7 +579,7 @@ impl<R: Report + ?Sized> Report for Box<R> {
 }
 
 //#[named]
-pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
+pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader, is_dirty: bool) {
     //println!("FileReport: {}", cfg.title);
     struct ReportDef {
         title: String,
@@ -698,7 +698,7 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader) {
         }
 
         let (_out_path, reporter) = rep_factory
-            .new_report(Path::new(""), &output_filename, &report.title, false)
+            .new_report(Path::new(""), &output_filename, &report.title, is_dirty)
             .unwrap();
 
         let columns = get_used_columns(report, reader, &*reporter);
