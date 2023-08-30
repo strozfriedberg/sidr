@@ -13,6 +13,7 @@ use crate::utils::*;
 use ese_parser_lib::ese_parser::EseParser;
 use ese_parser_lib::ese_trait::*;
 use std::io::Write;
+use wsa_lib::utils::is_db_dirty;
 
 const CACHE_SIZE_ENTRIES: usize = 10;
 
@@ -162,17 +163,6 @@ pub fn ese_get_hostname(
         }
     }
     Err(SimpleError::new("Empty field System_ComputerName".to_string()))
-}
-
-pub fn is_db_dirty(db_state: DbState) -> bool {
-    if db_state != DbState::CleanShutdown {
-        eprintln!("WARNING: The database state is not clean.");
-        eprintln!("Processing a dirty database may generate inaccurate and/or incomplete results.\n");
-        eprintln!("Use windows\\system32\\esentutl.exe for recovery (/r) and repair (/p).");
-        eprintln!("Note that Esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.");
-        return true;
-    }
-    false
 }
 
 pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger: &mut Box<dyn Write>) -> Result<(), SimpleError> {
