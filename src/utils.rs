@@ -2,6 +2,7 @@ use chrono::prelude::*;
 
 use bitflags::bitflags;
 use std::convert::TryInto;
+use ese_parser_lib::parser::jet::DbState;
 
 /// Converts a u64 filetime to a DateTime<Utc>
 pub fn get_date_time_from_filetime(filetime: u64) -> DateTime<Utc> {
@@ -167,4 +168,15 @@ where
     pub fn new(f: F) -> Self {
         Self { f }
     }
+}
+
+pub fn is_db_dirty(db_state: DbState) -> bool {
+    if db_state != DbState::CleanShutdown {
+        eprintln!("WARNING: The database state is not clean.");
+        eprintln!("Processing a dirty database may generate inaccurate and/or incomplete results.\n");
+        eprintln!("Use windows\\system32\\esentutl.exe for recovery (/r) and repair (/p).");
+        eprintln!("Note that Esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.");
+        return true;
+    }
+    false
 }
