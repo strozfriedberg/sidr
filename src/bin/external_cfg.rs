@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use walkdir::WalkDir;
 use wsa_lib::report::{ReportFormat, ReportOutput};
 use wsa_lib::{do_reports, ReportsCfg};
+use wsa_lib::utils::is_db_dirty;
 
 #[derive(Parser)]
 struct Cli {
@@ -36,13 +37,7 @@ fn do_sql_report(db_path: &str, cfg: &ReportsCfg) {
 
 fn do_edb_report(db_path: &str, cfg: &ReportsCfg) {
     let mut edb_reader = wsa_lib::EseReader::new(db_path, &cfg.table_edb);
-
-    if edb_reader.jdb.get_database_state() != DbState::CleanShutdown {
-        eprintln!("WARNING: The database state is not clean.");
-        eprintln!("Processing a dirty database may generate inaccurate and/or incomplete results.\n");
-        eprintln!("Use windows\\system32\\esentutl.exe for recovery (/r) and repair (/p).");
-        eprintln!("Note that Esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.");
-    }
+    let dirty = is_db_dirty(edb_reader.jdb.get_database_state());
 
     do_reports(cfg, &mut edb_reader);
 }
