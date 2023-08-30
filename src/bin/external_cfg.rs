@@ -1,6 +1,5 @@
 use clap::Parser;
 use env_logger::{self, Target};
-use ese_parser_lib::parser::jet::DbState;
 
 use std::path::PathBuf;
 use walkdir::WalkDir;
