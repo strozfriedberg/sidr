@@ -32,14 +32,14 @@ struct Cli {
 
 fn do_sql_report(db_path: &str, cfg: &ReportsCfg) {
     let mut sql_reader = wsa_lib::SqlReader::new(db_path);
-    do_reports(cfg, &mut sql_reader);
+    do_reports(cfg, &mut sql_reader, false);
 }
 
 fn do_edb_report(db_path: &str, cfg: &ReportsCfg) {
     let mut edb_reader = wsa_lib::EseReader::new(db_path, &cfg.table_edb);
-    let dirty = is_db_dirty(edb_reader.jdb.get_database_state());
+    let is_dirty = is_db_dirty(edb_reader.jdb.get_database_state());
 
-    do_reports(cfg, &mut edb_reader);
+    do_reports(cfg, &mut edb_reader, is_dirty);
 }
 
 fn main() {
