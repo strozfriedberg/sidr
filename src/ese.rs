@@ -1,7 +1,6 @@
 extern crate exitcode;
 use std::process;
 
-use ese_parser_lib::parser::jet::DbState;
 use simple_error::SimpleError;
 use std::collections::HashMap;
 use std::path::Path;
