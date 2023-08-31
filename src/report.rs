@@ -8,6 +8,7 @@ use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::ops::IndexMut;
 use std::path::{Path, PathBuf};
+use ese_parser_lib::parser::jet::DbState;
 
 use crate::utils::*;
 
@@ -83,7 +84,25 @@ impl ReportProducer {
         self.report_type
     }
 
-    pub fn get_path_db_status(&self, recovered_hostname: &str, report_suffix: &str, date_time_now: DateTime<Utc>, ext: &str, dirty_db: bool) -> PathBuf {
+    pub fn is_db_dirty(&self, db_state: Option<DbState>) -> bool {
+        if db_state.is_some() {
+            if db_state.unwrap() != DbState::CleanShutdown {
+                if self.report_type == ReportOutput::ToFile {
+                    eprintln!("WARNING: The database state is not clean.");
+                    eprintln!("Processing a dirty database may generate inaccurate and/or incomplete results.\n");
+                    eprintln!("Use windows\\system32\\esentutl.exe for recovery (/r) and repair (/p).");
+                    eprintln!("Note that Esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.");
+                } else {
+                    eprintln!("WARNING: The database state is not clean. DB filename: {:?}", &self.dir);
+                }
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn get_path_db_status(&self, recovered_hostname: &str, report_suffix: &str, date_time_now: DateTime<Utc>, ext: &str, edb_database_state: Option<DbState>) -> PathBuf {
+        let dirty_db = self.is_db_dirty(edb_database_state);
         let status = if dirty_db { "_dirty" } else { "" };
         self.dir.join(format!(
             "{}_{}_{}{}.{}",
@@ -100,14 +119,14 @@ impl ReportProducer {
         _dbpath: &Path,
         recovered_hostname: &str,
         report_suffix: &str,
-        is_dirty: bool
+        edb_database_state: Option<DbState>
     ) -> Result<(PathBuf, Box<dyn Report>), SimpleError> {
         let ext = match self.format {
             ReportFormat::Json => "json",
             ReportFormat::Csv => "csv",
         };
         let date_time_now: DateTime<Utc> = Utc::now();
-        let path = self.get_path_db_status(recovered_hostname, report_suffix, date_time_now, ext, is_dirty);
+        let path = self.get_path_db_status(recovered_hostname, report_suffix, date_time_now, ext, edb_database_state);
         let report_suffix = ReportSuffix::get_match(report_suffix);
         let rep: Box<dyn Report> = match self.format {
             ReportFormat::Json => {
@@ -372,6 +391,7 @@ mod tests {
     use crate::report::{Report, ReportFormat, ReportOutput, ReportProducer, ReportSuffix, ReportCsv, ReportJson};
     use std::path::Path;
     use chrono::{DateTime, NaiveDate, Utc};
+    use ese_parser_lib::parser::jet::DbState;
 
     #[test]
     pub fn test_report_csv() {
