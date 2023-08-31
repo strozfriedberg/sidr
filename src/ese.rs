@@ -12,7 +12,6 @@ use crate::utils::*;
 use ese_parser_lib::ese_parser::EseParser;
 use ese_parser_lib::ese_trait::*;
 use std::io::Write;
-use wsa_lib::utils::is_db_dirty;
 
 const CACHE_SIZE_ENTRIES: usize = 10;
 
@@ -166,8 +165,7 @@ pub fn ese_get_hostname(
 
 pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger: &mut Box<dyn Write>) -> Result<(), SimpleError> {
     let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
-
-    let is_dirty = is_db_dirty(jdb.get_database_state());
+    let edb_database_state = jdb.get_database_state();
     let t = "SystemIndex_PropertyStore";
     let table_id = jdb.open_table(t)?;
     let cols = jdb.get_columns(t)?;
@@ -220,7 +218,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger
     };
 
     let (mut file_rep, mut ie_rep, mut act_rep) =
-        init_reports(f, report_prod, &recovered_hostname, status_logger, is_dirty)?;
+        init_reports(f, report_prod, &recovered_hostname, status_logger, Some(edb_database_state))?;
 
     let mut h = HashMap::new();
     loop {
@@ -265,7 +263,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger
             break;
         }
     }
-    if report_prod.get_report_type() == ReportOutput::ToStdout && is_dirty {
+    if report_prod.get_report_type() == ReportOutput::ToStdout && report_prod.is_db_dirty(Some(edb_database_state)) {
         process::exit(exitcode::DATAERR)
     }
     Ok(())
@@ -448,7 +446,7 @@ mod tests {
     };
     use tempdir::TempDir;
     use crate::report::*;
-    use crate::ese::{ese_generate_report, is_db_dirty};
+    use crate::ese::ese_generate_report;
     use simple_error::SimpleError;
     use ese_parser_lib::parser::jet::DbState;
 
