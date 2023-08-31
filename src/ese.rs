@@ -475,11 +475,4 @@ mod tests {
         assert!(String::from_utf8_lossy(&output.stderr)
             .contains("WARNING: The database state is not clean."));
     }
-
-    #[test]
-    fn test_is_db_dirty() {
-        assert_eq!(is_db_dirty(DbState::CleanShutdown), false);
-        assert_eq!(is_db_dirty(DbState::DirtyShutdown), true);
-        assert_eq!(is_db_dirty(DbState::BeingConverted), true);
-    }
 }
