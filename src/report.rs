@@ -85,12 +85,10 @@ impl ReportProducer {
     }
 
     pub fn is_db_dirty(&self, db_state: Option<DbState>) -> bool {
-        if db_state.is_some() {
-            if db_state.unwrap() != DbState::CleanShutdown {
-                return true;
-            }
+        match db_state {
+            Some(state) => state != DbState::CleanShutdown,
+            None => false
         }
-        false
     }
 
     pub fn get_path_db_status(&self, recovered_hostname: &str, report_suffix: &str, date_time_now: DateTime<Utc>, ext: &str, edb_database_state: Option<DbState>) -> PathBuf {
