@@ -445,10 +445,8 @@ mod tests {
         process::{Command},
     };
     use tempdir::TempDir;
-    use crate::report::*;
     use crate::ese::ese_generate_report;
     use simple_error::SimpleError;
-    use ese_parser_lib::parser::jet::DbState;
 
     #[test]
     fn warn_dirty() {
