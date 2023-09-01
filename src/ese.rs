@@ -263,8 +263,17 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger
             break;
         }
     }
-    if report_prod.get_report_type() == ReportOutput::ToStdout && report_prod.is_db_dirty(Some(edb_database_state)) {
-        process::exit(exitcode::DATAERR)
+    if report_prod.is_db_dirty(Some(edb_database_state)) {
+        if report_prod.get_report_type() == ReportOutput::ToStdout {
+            eprintln!("WARNING: The database state is not clean. DB filename: {}", f.to_string_lossy());
+            process::exit(exitcode::DATAERR)
+        }
+        else {
+            eprintln!("WARNING: The database state is not clean.");
+            eprintln!("Processing a dirty database may generate inaccurate and/or incomplete results.\n");
+            eprintln!("Use windows\\system32\\esentutl.exe for recovery (/r) and repair (/p).");
+            eprintln!("Note that Esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.");
+        }
     }
     Ok(())
 }
