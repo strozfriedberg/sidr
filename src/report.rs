@@ -94,8 +94,7 @@ impl ReportProducer {
     }
 
     pub fn get_path_db_status(&self, recovered_hostname: &str, report_suffix: &str, date_time_now: DateTime<Utc>, ext: &str, edb_database_state: Option<DbState>) -> PathBuf {
-        let dirty_db = self.is_db_dirty(edb_database_state);
-        let status = if dirty_db { "_dirty" } else { "" };
+        let status = if self.is_db_dirty(edb_database_state) { "_dirty" } else { "" };
         self.dir.join(format!(
             "{}_{}_{}{}.{}",
             recovered_hostname,
