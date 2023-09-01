@@ -87,14 +87,6 @@ impl ReportProducer {
     pub fn is_db_dirty(&self, db_state: Option<DbState>) -> bool {
         if db_state.is_some() {
             if db_state.unwrap() != DbState::CleanShutdown {
-                if self.report_type == ReportOutput::ToFile {
-                    eprintln!("WARNING: The database state is not clean.");
-                    eprintln!("Processing a dirty database may generate inaccurate and/or incomplete results.\n");
-                    eprintln!("Use windows\\system32\\esentutl.exe for recovery (/r) and repair (/p).");
-                    eprintln!("Note that Esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.");
-                } else {
-                    eprintln!("WARNING: The database state is not clean. DB filename: {:?}", &self.dir);
-                }
                 return true;
             }
         }
