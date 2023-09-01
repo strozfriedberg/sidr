@@ -696,7 +696,6 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader, edb_database_s
                 output_filename.to_string(),
             );
         }
-        // let is_dirty = is_db_dirty(edb_reader.jdb.get_database_state());
         let (_out_path, reporter) = rep_factory
             .new_report(Path::new(""), &output_filename, &report.title, edb_database_state)
             .unwrap();
