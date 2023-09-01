@@ -4,7 +4,7 @@ use env_logger::{self, Target};
 use std::path::PathBuf;
 use walkdir::WalkDir;
 use wsa_lib::report::{ReportFormat, ReportOutput};
-use wsa_lib::{do_reports, OutputType, ReportsCfg};
+use wsa_lib::{do_reports, ReportsCfg};
 
 #[derive(Parser)]
 struct Cli {
