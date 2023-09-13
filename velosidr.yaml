@@ -20,7 +20,7 @@ description: |
     ***`WARNING`***: In order to parse the database on the target endpoint, SIDR plugin must create an empty database and copy the original database to it. Creating the new copy can result in multiple gigabytes of data in unallocated clusters being overwritten. This may result in a loss of relevant evidence for an in-depth forensic analysis. Please use the plugin with caution, where the likelihood of needing forensic analysis of unallocated clusters is low relative to the benefit of using SIDR via Velociraptor.
     ---
 
-    © 20231 Aon plc
+    © 2023 Aon plc
 
 
 type: CLIENT
