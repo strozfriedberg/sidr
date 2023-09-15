@@ -12,7 +12,6 @@ use crate::utils::*;
 use ese_parser_lib::ese_parser::EseParser;
 use ese_parser_lib::ese_trait::*;
 use std::io::Write;
-use wsa_lib::utils::is_db_dirty;
 
 const CACHE_SIZE_ENTRIES: usize = 10;
 
@@ -166,8 +165,7 @@ pub fn ese_get_hostname(
 
 pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger: &mut Box<dyn Write>) -> Result<(), SimpleError> {
     let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
-
-    let is_dirty = is_db_dirty(jdb.get_database_state());
+    let edb_database_state = jdb.get_database_state();
     let t = "SystemIndex_PropertyStore";
     let table_id = jdb.open_table(t)?;
     let cols = jdb.get_columns(t)?;
@@ -220,7 +218,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger
     };
 
     let (mut file_rep, mut ie_rep, mut act_rep) =
-        init_reports(f, report_prod, &recovered_hostname, status_logger, is_dirty)?;
+        init_reports(f, report_prod, &recovered_hostname, status_logger, Some(edb_database_state))?;
 
     let mut h = HashMap::new();
     loop {
@@ -265,8 +263,17 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger
             break;
         }
     }
-    if report_prod.get_report_type() == ReportOutput::ToStdout && is_dirty {
-        process::exit(exitcode::DATAERR)
+    if report_prod.is_db_dirty(Some(edb_database_state)) {
+        if report_prod.get_report_type() == ReportOutput::ToStdout {
+            eprintln!("WARNING: The database state is not clean. DB filename: {}", f.to_string_lossy());
+            process::exit(exitcode::DATAERR)
+        }
+        else {
+            eprintln!("WARNING: The database state is not clean.");
+            eprintln!("Processing a dirty database may generate inaccurate and/or incomplete results.\n");
+            eprintln!("Use windows\\system32\\esentutl.exe for recovery (/r) and repair (/p).");
+            eprintln!("Note that Esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.");
+        }
     }
     Ok(())
 }
@@ -447,10 +454,8 @@ mod tests {
         process::{Command},
     };
     use tempdir::TempDir;
-    use crate::report::*;
-    use crate::ese::{ese_generate_report, is_db_dirty};
+    use crate::ese::ese_generate_report;
     use simple_error::SimpleError;
-    use ese_parser_lib::parser::jet::DbState;
 
     #[test]
     fn warn_dirty() {
@@ -476,12 +481,5 @@ mod tests {
         assert!(output.status.success());
         assert!(String::from_utf8_lossy(&output.stderr)
             .contains("WARNING: The database state is not clean."));
-    }
-
-    #[test]
-    fn test_is_db_dirty() {
-        assert_eq!(is_db_dirty(DbState::CleanShutdown), false);
-        assert_eq!(is_db_dirty(DbState::DirtyShutdown), true);
-        assert_eq!(is_db_dirty(DbState::BeingConverted), true);
     }
 }

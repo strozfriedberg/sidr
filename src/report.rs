@@ -8,6 +8,7 @@ use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::ops::IndexMut;
 use std::path::{Path, PathBuf};
+use ese_parser_lib::parser::jet::DbState;
 
 use crate::utils::*;
 
@@ -83,8 +84,15 @@ impl ReportProducer {
         self.report_type
     }
 
-    pub fn get_path_db_status(&self, recovered_hostname: &str, report_suffix: &str, date_time_now: DateTime<Utc>, ext: &str, dirty_db: bool) -> PathBuf {
-        let status = if dirty_db { "_dirty" } else { "" };
+    pub fn is_db_dirty(&self, db_state: Option<DbState>) -> bool {
+        match db_state {
+            Some(state) => state != DbState::CleanShutdown,
+            None => false
+        }
+    }
+
+    pub fn get_path_db_status(&self, recovered_hostname: &str, report_suffix: &str, date_time_now: DateTime<Utc>, ext: &str, edb_database_state: Option<DbState>) -> PathBuf {
+        let status = if self.is_db_dirty(edb_database_state) { "_dirty" } else { "" };
         self.dir.join(format!(
             "{}_{}_{}{}.{}",
             recovered_hostname,
@@ -100,14 +108,14 @@ impl ReportProducer {
         _dbpath: &Path,
         recovered_hostname: &str,
         report_suffix: &str,
-        is_dirty: bool
+        edb_database_state: Option<DbState>
     ) -> Result<(PathBuf, Box<dyn Report>), SimpleError> {
         let ext = match self.format {
             ReportFormat::Json => "json",
             ReportFormat::Csv => "csv",
         };
         let date_time_now: DateTime<Utc> = Utc::now();
-        let path = self.get_path_db_status(recovered_hostname, report_suffix, date_time_now, ext, is_dirty);
+        let path = self.get_path_db_status(recovered_hostname, report_suffix, date_time_now, ext, edb_database_state);
         let report_suffix = ReportSuffix::get_match(report_suffix);
         let rep: Box<dyn Report> = match self.format {
             ReportFormat::Json => {
@@ -372,6 +380,7 @@ mod tests {
     use crate::report::{Report, ReportFormat, ReportOutput, ReportProducer, ReportSuffix, ReportCsv, ReportJson};
     use std::path::Path;
     use chrono::{DateTime, NaiveDate, Utc};
+    use ese_parser_lib::parser::jet::DbState;
 
     #[test]
     pub fn test_report_csv() {
@@ -473,9 +482,18 @@ mod tests {
         let rp = ReportProducer::new(path, ReportFormat::Json, ReportOutput::ToStdout);
         let naivedatetime_utc = NaiveDate::from_ymd_opt(2000, 1, 12).unwrap().and_hms_opt(2, 0, 0).unwrap();
         let dt = DateTime::<Utc>::from_utc(naivedatetime_utc, Utc);
-        assert_eq!(rp.get_path_db_status("test_hostname", "activity", dt, "edb.test", false).to_string_lossy(),
+        assert_eq!(rp.get_path_db_status("test_hostname", "activity", dt, "edb.test", Some(DbState::CleanShutdown)).to_string_lossy(),
                    Path::new("./tests").join("test_hostname_activity_20000112_020000.edb.test").to_string_lossy());
-        assert_eq!(rp.get_path_db_status("test_hostname", "activity", dt, "edb.test", true).to_string_lossy(),
+        assert_eq!(rp.get_path_db_status("test_hostname", "activity", dt, "edb.test", Some(DbState::DirtyShutdown)).to_string_lossy(),
                    Path::new("./tests").join("test_hostname_activity_20000112_020000_dirty.edb.test").to_string_lossy());
+    }
+
+    #[test]
+    fn test_is_db_dirty() {
+        let path = Path::new("./tests");
+        let rp = ReportProducer::new(path, ReportFormat::Json, ReportOutput::ToStdout);
+        assert_eq!(rp.is_db_dirty(Some(DbState::CleanShutdown)), false);
+        assert_eq!(rp.is_db_dirty(Some(DbState::DirtyShutdown)), true);
+        assert_eq!(rp.is_db_dirty(Some(DbState::BeingConverted)), true);
     }
 }
