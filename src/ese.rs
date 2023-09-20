@@ -265,7 +265,7 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger
     }
     if report_prod.is_db_dirty(Some(edb_database_state)) {
         if report_prod.get_report_type() == ReportOutput::ToStdout {
-            eprintln!("WARNING: The database state is not clean. DB filename: {}", f.to_string_lossy());
+            eprintln!("WARNING: The database state is not clean");
             process::exit(exitcode::DATAERR)
         }
         else {
