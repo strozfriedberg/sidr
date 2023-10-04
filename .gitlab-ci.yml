@@ -1,0 +1,97 @@
+---
+
+variables:
+  FULL_BUILD:
+    value: "false"
+    options:
+      - "true"
+      - "false"
+    description: "Whether to run a full build, including Windows E2E"
+  PENGUIN_BUILD:
+    value: "false"
+    options:
+      - "true"
+      - "false"
+    description: "Whether to run a penguin_ci build"
+  BUILD_LOCATION:
+    value: "staging"
+    options:
+      - "production"
+      - "staging"
+    description: "Where to build"
+
+build:
+  stage: build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+  variables:
+    JOB_TYPE: "build"
+    GIT_SUBMODULE_STRATEGY: recursive
+    GIT_SUBMODULE_PATHS: "world/$CI_PROJECT_NAME"
+    MERGE_PROJECT: $CI_MERGE_REQUEST_PROJECT_PATH
+    MERGE_SOURCE_BRANCH: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+    MERGE_TARGET_BRANCH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+    MERGE_REQUEST_IID: $CI_MERGE_REQUEST_IID
+    MERGE_COMMIT: $CI_COMMIT_SHA
+  trigger:
+    project: soldev/dfdev/make_world
+    branch: main
+    strategy: depend
+
+build (penguin ci):
+  stage: build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+  variables:
+    JOB_TYPE: "build"
+    GIT_SUBMODULE_STRATEGY: recursive
+    GIT_SUBMODULE_PATHS: "world/$CI_PROJECT_NAME"
+    MERGE_PROJECT: $CI_MERGE_REQUEST_PROJECT_PATH
+    MERGE_SOURCE_BRANCH: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+    MERGE_TARGET_BRANCH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+    MERGE_REQUEST_IID: $CI_MERGE_REQUEST_IID
+    MERGE_COMMIT: $CI_COMMIT_SHA
+    PENGUIN_BUILD: "true"
+  trigger:
+    project: soldev/dfdev/make_world
+    branch: main
+    strategy: depend
+
+build (full):
+  stage: build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+  variables:
+    JOB_TYPE: "build"
+    GIT_SUBMODULE_STRATEGY: recursive
+    GIT_SUBMODULE_PATHS: "world/$CI_PROJECT_NAME"
+    MERGE_PROJECT: $CI_MERGE_REQUEST_PROJECT_PATH
+    MERGE_SOURCE_BRANCH: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+    MERGE_TARGET_BRANCH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+    MERGE_REQUEST_IID: $CI_MERGE_REQUEST_IID
+    MERGE_COMMIT: $CI_COMMIT_SHA
+    FULL_BUILD: "true"
+  trigger:
+    project: soldev/dfdev/make_world
+    branch: main
+    strategy: depend
+
+# update submodule ref in make_world when an MR is merged
+update make_world:
+  stage: build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"
+  variables:
+    JOB_TYPE: "update"
+    GIT_SUBMODULE_STRATEGY: recursive
+    GIT_SUBMODULE_PATHS: "world/$CI_PROJECT_NAME"
+    MERGE_PROJECT: $CI_PROJECT_NAME
+    MERGE_COMMIT: $CI_COMMIT_SHA
+    MERGE_COMMIT_MESSAGE: $CI_COMMIT_MESSAGE
+  trigger:
+    project: soldev/dfdev/make_world
+    branch: main
+    strategy: depend
