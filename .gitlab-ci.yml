@@ -36,7 +36,7 @@ build:
     MERGE_COMMIT: $CI_COMMIT_SHA
   trigger:
     project: soldev/dfdev/make_world
-    branch: main
+    branch: $MAKE_WORLD_DEFAULT_BRANCH
     strategy: depend
 
 build (penguin ci):
@@ -56,7 +56,7 @@ build (penguin ci):
     PENGUIN_BUILD: "true"
   trigger:
     project: soldev/dfdev/make_world
-    branch: main
+    branch: $MAKE_WORLD_DEFAULT_BRANCH
     strategy: depend
 
 build (full):
@@ -76,14 +76,14 @@ build (full):
     FULL_BUILD: "true"
   trigger:
     project: soldev/dfdev/make_world
-    branch: main
+    branch: $MAKE_WORLD_DEFAULT_BRANCH
     strategy: depend
 
 # update submodule ref in make_world when an MR is merged
 update make_world:
   stage: build
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   variables:
     JOB_TYPE: "update"
     GIT_SUBMODULE_STRATEGY: recursive
@@ -93,5 +93,5 @@ update make_world:
     MERGE_COMMIT_MESSAGE: $CI_COMMIT_MESSAGE
   trigger:
     project: soldev/dfdev/make_world
-    branch: main
+    branch: $MAKE_WORLD_DEFAULT_BRANCH
     strategy: depend
