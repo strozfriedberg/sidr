@@ -37,6 +37,7 @@ build:
     MERGE_TARGET_BRANCH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
     MERGE_REQUEST_IID: $CI_MERGE_REQUEST_IID
     MERGE_SOURCE_COMMIT: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA
+    BUILD_LOCATION: "production"
   trigger:
     project: soldev/cyberdev/make_world
     branch: $MAKE_WORLD_DEFAULT_BRANCH
@@ -56,6 +57,7 @@ build (penguin ci):
     MERGE_REQUEST_IID: $CI_MERGE_REQUEST_IID
     MERGE_SOURCE_COMMIT: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA
     PENGUIN_BUILD: "true"
+    BUILD_LOCATION: "production"
   trigger:
     project: soldev/cyberdev/make_world
     branch: $MAKE_WORLD_DEFAULT_BRANCH
@@ -75,10 +77,71 @@ build (full e2e):
     MERGE_REQUEST_IID: $CI_MERGE_REQUEST_IID
     MERGE_SOURCE_COMMIT: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA
     FULL_BUILD: "true"
+    BUILD_LOCATION: "production"
   trigger:
     project: soldev/cyberdev/make_world
     branch: $MAKE_WORLD_DEFAULT_BRANCH
     strategy: depend
+
+STAGING build:
+  stage: build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+  variables:
+    JOB_TYPE: "build"
+    MERGE_PROJECT: $CI_MERGE_REQUEST_PROJECT_PATH
+    MERGE_PROJECT_ID: $CI_MERGE_REQUEST_PROJECT_ID
+    MERGE_SOURCE_BRANCH: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+    MERGE_TARGET_BRANCH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+    MERGE_REQUEST_IID: $CI_MERGE_REQUEST_IID
+    MERGE_SOURCE_COMMIT: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA
+    BUILD_LOCATION: "staging"
+  trigger:
+    project: soldev/cyberdev/make_world
+    branch: $MAKE_WORLD_DEFAULT_BRANCH
+    strategy: depend
+
+STAGING (penguin ci):
+  stage: build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+  variables:
+    JOB_TYPE: "build"
+    MERGE_PROJECT: $CI_MERGE_REQUEST_PROJECT_PATH
+    MERGE_PROJECT_ID: $CI_MERGE_REQUEST_PROJECT_ID
+    MERGE_SOURCE_BRANCH: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+    MERGE_TARGET_BRANCH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+    MERGE_REQUEST_IID: $CI_MERGE_REQUEST_IID
+    MERGE_SOURCE_COMMIT: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA
+    PENGUIN_BUILD: "true"
+    BUILD_LOCATION: "staging"
+  trigger:
+    project: soldev/cyberdev/make_world
+    branch: $MAKE_WORLD_DEFAULT_BRANCH
+    strategy: depend
+
+STAGING (full e2e):
+  stage: build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+  variables:
+    JOB_TYPE: "build"
+    MERGE_PROJECT: $CI_MERGE_REQUEST_PROJECT_PATH
+    MERGE_PROJECT_ID: $CI_MERGE_REQUEST_PROJECT_ID
+    MERGE_SOURCE_BRANCH: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+    MERGE_TARGET_BRANCH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+    MERGE_REQUEST_IID: $CI_MERGE_REQUEST_IID
+    MERGE_SOURCE_COMMIT: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA
+    FULL_BUILD: "true"
+    BUILD_LOCATION: "staging"
+  trigger:
+    project: soldev/cyberdev/make_world
+    branch: $MAKE_WORLD_DEFAULT_BRANCH
+    strategy: depend
+
 
 # update submodule ref in make_world when an MR is merged
 update make_world:
