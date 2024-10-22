@@ -5,8 +5,8 @@ extern crate bitflags;
 use clap::Parser;
 
 use std::fs;
-use std::path::PathBuf;
 use std::io::Write;
+use std::path::PathBuf;
 
 use simple_error::SimpleError;
 
@@ -20,8 +20,11 @@ use crate::ese::*;
 use crate::report::*;
 use crate::sqlite::*;
 
-
-fn dump(f: &str, report_prod: &ReportProducer, status_logger: &mut Box<dyn Write>) -> Result<(), SimpleError> {
+fn dump(
+    f: &str,
+    report_prod: &ReportProducer,
+    status_logger: &mut Box<dyn Write>,
+) -> Result<(), SimpleError> {
     let mut processed = 0;
     match fs::read_dir(f) {
         Ok(dir) => {
@@ -31,26 +34,34 @@ fn dump(f: &str, report_prod: &ReportProducer, status_logger: &mut Box<dyn Write
                 if metadata.is_dir() {
                     dump(&p.to_string_lossy(), report_prod, status_logger)?;
                 } else if let Some(f) = p.file_name() {
-                    if f.to_ascii_lowercase() == "windows.edb" || f.to_ascii_lowercase().to_str().unwrap().starts_with("s-1-") && f.to_ascii_lowercase().to_str().unwrap().ends_with(".edb") {
-                        writeln!(status_logger, "Processing ESE db: {}", &p.to_string_lossy()).map_err(|e| SimpleError::new(format!("{e}")))?;
-                        if let Err(e) = ese_generate_report(&p, report_prod, status_logger) {
-                            eprintln!(
-                                "ese_generate_report({}) failed with error: {}",
-                                p.to_string_lossy(),
-                                e
-                            );
+                    if let Some(f) = f.to_str() {
+                        let f = f.to_lowercase();
+                        if f.starts_with("s-1-") || f.starts_with("windows") {
+                            if f.ends_with(".edb") {
+                                writeln!(status_logger, "Processing ESE db: {}", &p.to_string_lossy())
+                                    .map_err(|e| SimpleError::new(format!("{e}")))?;
+                                if let Err(e) = ese_generate_report(&p, report_prod, status_logger) {
+                                    eprintln!(
+                                        "ese_generate_report({}) failed with error: {}",
+                                        p.to_string_lossy(),
+                                        e
+                                    );
+                                }
+                                processed += 1;
+                            }
+                            else if f.ends_with(".db") {
+                                writeln!(status_logger, "Processing SQLite db: {}", &p.to_string_lossy())
+                                    .map_err(|e| SimpleError::new(format!("{e}")))?;
+                                if let Err(e) = sqlite_generate_report(&p, report_prod, status_logger) {
+                                    eprintln!(
+                                        "sqlite_generate_report({}) failed with error: {}",
+                                        p.to_string_lossy(),
+                                        e
+                                    );
+                                }
+                                processed += 1;
+                            }
                         }
-                        processed += 1;
-                    } else if f.to_ascii_lowercase() == "windows.db" || f.to_ascii_lowercase().to_str().unwrap().starts_with("s-1-") && f.to_ascii_lowercase().to_str().unwrap().ends_with(".db") {
-                        writeln!(status_logger, "Processing ESE db: {}", &p.to_string_lossy()).map_err(|e| SimpleError::new(format!("{e}")))?;
-                        if let Err(e) = sqlite_generate_report(&p, report_prod, status_logger) {
-                            eprintln!(
-                                "sqlite_generate_report({}) failed with error: {}",
-                                p.to_string_lossy(),
-                                e
-                            );
-                        }
-                        processed += 1;
                     }
                 }
             }
@@ -59,7 +70,13 @@ fn dump(f: &str, report_prod: &ReportProducer, status_logger: &mut Box<dyn Write
     }
 
     if processed > 0 {
-        writeln!(status_logger, "\nFound {} Windows Search database(s)", &processed.to_string()).map_err(|e| SimpleError::new(format!("{e}"))).unwrap();
+        writeln!(
+            status_logger,
+            "\nFound {} Windows Search database(s)",
+            &processed.to_string()
+        )
+        .map_err(|e| SimpleError::new(format!("{e}")))
+        .unwrap();
     }
 
     Ok(())
