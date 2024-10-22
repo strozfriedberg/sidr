@@ -31,7 +31,7 @@ fn dump(f: &str, report_prod: &ReportProducer, status_logger: &mut Box<dyn Write
                 if metadata.is_dir() {
                     dump(&p.to_string_lossy(), report_prod, status_logger)?;
                 } else if let Some(f) = p.file_name() {
-                    if f == "Windows.edb" {
+                    if f.to_ascii_lowercase() == "windows.edb" || f.to_ascii_lowercase().to_str().unwrap().starts_with("s-1-") && f.to_ascii_lowercase().to_str().unwrap().ends_with(".edb") {
                         writeln!(status_logger, "Processing ESE db: {}", &p.to_string_lossy()).map_err(|e| SimpleError::new(format!("{e}")))?;
                         if let Err(e) = ese_generate_report(&p, report_prod, status_logger) {
                             eprintln!(
@@ -41,7 +41,7 @@ fn dump(f: &str, report_prod: &ReportProducer, status_logger: &mut Box<dyn Write
                             );
                         }
                         processed += 1;
-                    } else if f == "Windows.db" {
+                    } else if f.to_ascii_lowercase() == "windows.db" || f.to_ascii_lowercase().to_str().unwrap().starts_with("s-1-") && f.to_ascii_lowercase().to_str().unwrap().ends_with(".db") {
                         writeln!(status_logger, "Processing ESE db: {}", &p.to_string_lossy()).map_err(|e| SimpleError::new(format!("{e}")))?;
                         if let Err(e) = sqlite_generate_report(&p, report_prod, status_logger) {
                             eprintln!(
