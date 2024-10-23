@@ -78,16 +78,19 @@ fn sqlite_get_hostname(c: &sqlite::Connection) -> Result<String, SimpleError> {
 
 fn get_property_id_map<'a>(
     c: &sqlite::Connection,
-    m: &'a mut HashMap<i64, String>,
+    m: &'a mut HashMap<i64, (String, i64)>,
 ) -> Result<(), SimpleError> {
-    let q = "select Id, Name from SystemIndex_1_PropertyStore_Metadata";
+    let q = "select Id, Name, StorageType from SystemIndex_1_PropertyStore_Metadata";
     let s = map_err!(c.prepare(q))?;
 
     for row in s.into_iter().map(|row| row.unwrap()) {
         // dbg!(row);
         m.insert(
             row.read::<i64, _>("Id"),
-            row.read::<&str, _>("Name").to_string(),
+            (
+                row.read::<&str, _>("Name").to_string(),
+                row.read::<i64, _>("StorageType"),
+            ),
         );
     }
     Ok(())
@@ -174,11 +177,10 @@ fn sqlite_dump_file_record(
 ) {
     r.create_new_row();
     r.insert_int_val("WorkId", workId as u64);
-    let mut m = HashMap::<i64, String>::new();
+    let mut m = HashMap::<i64, (String, i64)>::new();
     if get_property_id_map(c, &mut m).is_err() {
         panic!("Unable to read property IDs.")
     };
-
 
     for (col, val) in h {
         match col {
@@ -381,7 +383,7 @@ fn test_get_property_id_map() {
         sqlite::OpenFlags::new().set_read_only()
     ))
     .unwrap();
-    let mut m = HashMap::<i64, String>::new();
+    let mut m = HashMap::<i64, (String, i64)>::new();
     get_property_id_map(&c, &mut m).unwrap();
     assert!(m.len() > 0);
 }
