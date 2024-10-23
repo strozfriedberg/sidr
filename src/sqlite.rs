@@ -84,7 +84,6 @@ fn get_property_id_map<'a>(
     let s = map_err!(c.prepare(q))?;
 
     for row in s.into_iter().map(|row| row.unwrap()) {
-        // dbg!(row);
         m.insert(
             row.read::<i64, _>("Id"),
             (
