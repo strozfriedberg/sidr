@@ -183,70 +183,95 @@ fn sqlite_dump_file_record(
     };
 
     for (col, val) in h {
-        match col {
-            39 => r.insert_str_val(
-                "System_ItemPathDisplay",
-                String::from_utf8_lossy(val).into_owned(),
-            ),
-            441 => r.insert_str_val(
-                "System_DateModified",
-                format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-            ),
-            445 => r.insert_str_val(
-                "System_DateCreated",
-                format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-            ),
-            449 => r.insert_str_val(
-                "System_DateAccessed",
-                format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-            ),
-            436 => r.insert_int_val("System_Size", u64::from_bytes(val)),
-            93 => r.insert_str_val(
-                "System_FileOwner",
-                String::from_utf8_lossy(val).into_owned(),
-            ),
-            303 => r.insert_str_val(
-                "System_Search_AutoSummary",
-                String::from_utf8_lossy(val).into_owned(),
-            ),
-            26 => r.insert_str_val(
-                "System_Search_GatherTime",
-                format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-            ),
-            567 => r.insert_str_val("System_ItemType", String::from_utf8_lossy(val).into_owned()),
-            557 => r.insert_str_val(
-                "System_ComputerName",
-                String::from_utf8_lossy(val).into_owned(),
-            ),
-            // "ScopeID" => println!("{}", col, i32::from_bytes(val)),
-            // "DocumentID" => println!("{}", col, i32::from_bytes(val)),
-            // "SDID" => println!("{}", col, i32::from_bytes(val)),
-            // "LastModified" => println!("{}", col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-            // "TransactionFlags" => println!("{}", col, i32::from_bytes(val)),
-            // "TransactionExtendedFlags" => println!("{}", col, i32::from_bytes(val)),
-            // "CrawlNumberCrawled" => println!("{}", col, i32::from_bytes(val)),
-            // "StartAddressIdentifier" => println!("{}", col, u16::from_bytes(val)),
-            // "Priority" => println!("{}", col, u8::from_bytes(val)),
-            // "FileName" => println!("{}", col, from_utf16(val)),
-            // "DeletedCount" => println!("{}", col, i32::from_bytes(val)),
-            // "RunTime" => println!("{}", col, i32::from_bytes(val)),
-            // "FailureUpdateAttempts" => println!("{}", col, u8::from_bytes(val)),
-            // "ClientID" => println!("{}", col, u32::from_bytes(val)),
-            // "LastRequestedRunTime" => println!("{}", col, u32::from_bytes(val)),
-            // "CalculatedPropertyFlags" => println!("{}", col, u32::from_bytes(val)),
-            _ => {
-                // /*
-                // field: UserData
-                // field: AppOwnerId
-                // field: RequiredSIDs
-                // field: StorageProviderId
-                // */
-                // if col.chars().nth(0).unwrap().is_alphabetic() {
-                //     r.insert_str_val(col, format!("{:?}", val));
-                // }
+        let property_name = m.get(&col);
+        if let Some((property_name, storage_type)) = property_name {
+            match storage_type {
+                11 => {
+                    r.insert_str_val(
+                        property_name,
+                        String::from_utf8_lossy(val).into_owned(),
+                    )
+                }
+                12 => {
+                    if property_name.contains("Date") {
+                        r.insert_str_val(
+                            property_name,
+                            format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
+                        )
+                    } else {
+                        r.insert_int_val(property_name, u64::from_bytes(val))
+                    }
+                }
+                _ => eprintln!("Storage type {storage_type} not implemented."),
             }
         }
     }
+
+    // for (col, val) in h {
+    //     match col {
+    //         39 => r.insert_str_val(
+    //             "System_ItemPathDisplay",
+    //             String::from_utf8_lossy(val).into_owned(),
+    //         ),
+    //         441 => r.insert_str_val(
+    //             "System_DateModified",
+    //             format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
+    //         ),
+    //         445 => r.insert_str_val(
+    //             "System_DateCreated",
+    //             format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
+    //         ),
+    //         449 => r.insert_str_val(
+    //             "System_DateAccessed",
+    //             format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
+    //         ),
+    //         436 => r.insert_int_val("System_Size", u64::from_bytes(val)),
+    //         93 => r.insert_str_val(
+    //             "System_FileOwner",
+    //             String::from_utf8_lossy(val).into_owned(),
+    //         ),
+    //         303 => r.insert_str_val(
+    //             "System_Search_AutoSummary",
+    //             String::from_utf8_lossy(val).into_owned(),
+    //         ),
+    //         26 => r.insert_str_val(
+    //             "System_Search_GatherTime",
+    //             format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
+    //         ),
+    //         567 => r.insert_str_val("System_ItemType", String::from_utf8_lossy(val).into_owned()),
+    //         557 => r.insert_str_val(
+    //             "System_ComputerName",
+    //             String::from_utf8_lossy(val).into_owned(),
+    //         ),
+    //         // "ScopeID" => println!("{}", col, i32::from_bytes(val)),
+    //         // "DocumentID" => println!("{}", col, i32::from_bytes(val)),
+    //         // "SDID" => println!("{}", col, i32::from_bytes(val)),
+    //         // "LastModified" => println!("{}", col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
+    //         // "TransactionFlags" => println!("{}", col, i32::from_bytes(val)),
+    //         // "TransactionExtendedFlags" => println!("{}", col, i32::from_bytes(val)),
+    //         // "CrawlNumberCrawled" => println!("{}", col, i32::from_bytes(val)),
+    //         // "StartAddressIdentifier" => println!("{}", col, u16::from_bytes(val)),
+    //         // "Priority" => println!("{}", col, u8::from_bytes(val)),
+    //         // "FileName" => println!("{}", col, from_utf16(val)),
+    //         // "DeletedCount" => println!("{}", col, i32::from_bytes(val)),
+    //         // "RunTime" => println!("{}", col, i32::from_bytes(val)),
+    //         // "FailureUpdateAttempts" => println!("{}", col, u8::from_bytes(val)),
+    //         // "ClientID" => println!("{}", col, u32::from_bytes(val)),
+    //         // "LastRequestedRunTime" => println!("{}", col, u32::from_bytes(val)),
+    //         // "CalculatedPropertyFlags" => println!("{}", col, u32::from_bytes(val)),
+    //         _ => {
+    //             // /*
+    //             // field: UserData
+    //             // field: AppOwnerId
+    //             // field: RequiredSIDs
+    //             // field: StorageProviderId
+    //             // */
+    //             // if col.chars().nth(0).unwrap().is_alphabetic() {
+    //             //     r.insert_str_val(col, format!("{:?}", val));
+    //             // }
+    //         }
+    //     }
+    // }
 }
 
 //IE/Edge History Report

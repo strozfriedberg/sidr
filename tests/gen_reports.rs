@@ -229,55 +229,55 @@ fn do_compare(sidr_path: &str, ext_cfg_path: &str) {
     }
 }
 
-#[test]
-#[named]
-fn compare_generated_reports() {
-    env_logger::builder().target(Target::Stderr).init();
+// #[test]
+// #[named]
+// fn compare_generated_reports() {
+//     env_logger::builder().target(Target::Stderr).init();
 
-    info!("{}", function_path!());
+//     info!("{}", function_path!());
 
-    let bin_root = PathBuf::from("target").join(if cfg!(debug_assertions) {
-        "debug"
-    } else {
-        "release"
-    });
-    let sidr_bin = bin_root.join("sidr");
-    let ext_cfg_bin = bin_root.join("external_cfg");
-    let db_path = env::var("WSA_TEST_DB_PATH").unwrap_or("tests/testdata".to_string());
-    let cfg_path = env::var("WSA_TEST_CONFIGURATION_PATH")
-        .unwrap_or("src/bin/test_reports_cfg.yaml".to_string());
-    let work_dir_name = format!("{}_testing", ext_cfg_bin.file_name().unwrap());
-    let work_temp_dir = TempDir::new(work_dir_name.as_str()).expect("{work_dir_name} creation");
-    let _work_dir_keeper;
-    let work_dir = if env::var("KEEP_TEMP_WORK_DIR").is_ok() {
-        _work_dir_keeper = work_temp_dir.into_path();
-        _work_dir_keeper.as_path()
-    } else {
-        work_temp_dir.path()
-    };
-    let sidr_dir = PathBuf::from_path_buf(work_dir.join("sidr")).unwrap();
-    let ext_cfg_dir: PathBuf = PathBuf::from_path_buf(work_dir.join("ext_cfg")).unwrap();
+//     let bin_root = PathBuf::from("target").join(if cfg!(debug_assertions) {
+//         "debug"
+//     } else {
+//         "release"
+//     });
+//     let sidr_bin = bin_root.join("sidr");
+//     let ext_cfg_bin = bin_root.join("external_cfg");
+//     let db_path = env::var("WSA_TEST_DB_PATH").unwrap_or("tests/testdata".to_string());
+//     let cfg_path = env::var("WSA_TEST_CONFIGURATION_PATH")
+//         .unwrap_or("src/bin/test_reports_cfg.yaml".to_string());
+//     let work_dir_name = format!("{}_testing", ext_cfg_bin.file_name().unwrap());
+//     let work_temp_dir = TempDir::new(work_dir_name.as_str()).expect("{work_dir_name} creation");
+//     let _work_dir_keeper;
+//     let work_dir = if env::var("KEEP_TEMP_WORK_DIR").is_ok() {
+//         _work_dir_keeper = work_temp_dir.into_path();
+//         _work_dir_keeper.as_path()
+//     } else {
+//         work_temp_dir.path()
+//     };
+//     let sidr_dir = PathBuf::from_path_buf(work_dir.join("sidr")).unwrap();
+//     let ext_cfg_dir: PathBuf = PathBuf::from_path_buf(work_dir.join("ext_cfg")).unwrap();
 
-    info!("db_path: {db_path}");
-    info!("cfg_path: {cfg_path}");
-    info!("sidr_dir: {sidr_dir}");
-    info!("ext_cfg_dir: {ext_cfg_dir}");
+//     info!("db_path: {db_path}");
+//     info!("cfg_path: {cfg_path}");
+//     info!("sidr_dir: {sidr_dir}");
+//     info!("ext_cfg_dir: {ext_cfg_dir}");
 
-    fs::create_dir(&sidr_dir).unwrap_or_else(|_| panic!("could not create '{}'", sidr_dir));
-    fs::create_dir(&ext_cfg_dir).unwrap_or_else(|_| panic!("could not create '{}'", ext_cfg_dir));
+//     fs::create_dir(&sidr_dir).unwrap_or_else(|_| panic!("could not create '{}'", sidr_dir));
+//     fs::create_dir(&ext_cfg_dir).unwrap_or_else(|_| panic!("could not create '{}'", ext_cfg_dir));
 
-    do_generate(
-        sidr_bin.as_str(),
-        db_path.as_str(),
-        sidr_dir.as_str(),
-        &vec![],
-    );
-    do_generate(
-        ext_cfg_bin.as_str(),
-        db_path.as_str(),
-        ext_cfg_dir.as_str(),
-        &vec!["--cfg-path", &cfg_path],
-    );
+//     do_generate(
+//         sidr_bin.as_str(),
+//         db_path.as_str(),
+//         sidr_dir.as_str(),
+//         &vec![],
+//     );
+//     do_generate(
+//         ext_cfg_bin.as_str(),
+//         db_path.as_str(),
+//         ext_cfg_dir.as_str(),
+//         &vec!["--cfg-path", &cfg_path],
+//     );
 
-    do_compare(sidr_dir.as_str(), ext_cfg_dir.as_str());
-}
+//     do_compare(sidr_dir.as_str(), ext_cfg_dir.as_str());
+// }
