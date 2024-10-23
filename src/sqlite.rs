@@ -140,7 +140,7 @@ pub fn sqlite_generate_report(
                 //         h.insert(k.into(), v.clone());
                 //     }
                 // }
-                sqlite_dump_file_record(&mut *file_rep, workId, h);
+                sqlite_dump_file_record(&mut *file_rep, workId, h, &c);
             }
             h.clear();
         }
@@ -170,9 +170,16 @@ fn sqlite_dump_file_record(
     r: &mut dyn Report,
     workId: u32,
     h: &HashMap<String /*ColumnId*/, Vec<u8> /*Value*/>,
+    c: &sqlite::Connection,
 ) {
     r.new_record();
     r.int_val("WorkId", workId as u64);
+    let mut m = HashMap::<i64, String>::new();
+    if get_property_id_map(c, &mut m).is_err() {
+        panic!("Unable to read property IDs.")
+    };
+
+
     for (col, val) in h {
         match col.as_str() {
             "39" => r.str_val(
@@ -375,6 +382,6 @@ fn test_get_property_id_map() {
     ))
     .unwrap();
     let mut m = HashMap::<i64, String>::new();
-    let res = get_property_id_map(&c, &mut m).unwrap();
-    assert!(res.len() > 0);
+    get_property_id_map(&c, &mut m).unwrap();
+    assert!(m.len() > 0);
 }
