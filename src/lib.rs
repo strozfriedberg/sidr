@@ -561,16 +561,16 @@ struct ReportColumn {
 }
 
 impl<R: Report + ?Sized> Report for Box<R> {
-    fn new_record(&mut self) {
-        (**self).new_record()
+    fn create_new_row(&mut self) {
+        (**self).create_new_row()
     }
 
-    fn str_val(&self, f: &str, s: String) {
-        (**self).str_val(f, s)
+    fn insert_str_val(&self, f: &str, s: String) {
+        (**self).insert_str_val(f, s)
     }
 
-    fn int_val(&self, f: &str, n: u64) {
-        (**self).int_val(f, n)
+    fn insert_int_val(&self, f: &str, n: u64) {
+        (**self).insert_int_val(f, n)
     }
 
     fn is_some_val_in_record(&self) -> bool {
@@ -815,7 +815,7 @@ pub fn do_reports(
                 }
             }
 
-            report.reporter.new_record();
+            report.reporter.create_new_row();
             debug!("flag {} -> true", report.title);
             context
                 .set_value(report.title.clone(), Value::Boolean(true))
@@ -848,24 +848,24 @@ pub fn do_reports(
                             "".to_string()
                         };
                         if !s.is_empty() {
-                            report.reporter.str_val(col.title.as_str(), s);
+                            report.reporter.insert_str_val(col.title.as_str(), s);
                         }
                     }
                     ColumnType::Integer => {
                         if let Some(v) = reader.get_int(col_id) {
-                            report.reporter.int_val(col.title.as_str(), v as u64);
+                            report.reporter.insert_int_val(col.title.as_str(), v as u64);
                         }
                     }
                     ColumnType::DateTime => {
                         if let Some(dt) = reader.get_datetime(col_id) {
                             report
                                 .reporter
-                                .str_val(col.title.as_str(), utils::format_date_time(dt));
+                                .insert_str_val(col.title.as_str(), utils::format_date_time(dt));
                         }
                     }
                     ColumnType::GUID => {
                         if let Some(guid) = reader.get_guid(col_id) {
-                            report.reporter.str_val(col.title.as_str(), guid);
+                            report.reporter.insert_str_val(col.title.as_str(), guid);
                         }
                     }
                 }

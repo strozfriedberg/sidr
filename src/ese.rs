@@ -306,33 +306,33 @@ fn ese_dump_file_record(r: &mut dyn Report, workId: u32, h: &HashMap<String, Vec
     //     }
     // }
 
-    r.new_record();
-    r.int_val("WorkId", workId as u64);
+    r.create_new_row();
+    r.insert_int_val("WorkId", workId as u64);
     for (col, val) in h {
         let csp = column_string_part(col);
         match csp {
-            "System_ItemPathDisplay" => r.str_val(csp, from_utf16(val)),
-            "System_DateModified" => r.str_val(
+            "System_ItemPathDisplay" => r.insert_str_val(csp, from_utf16(val)),
+            "System_DateModified" => r.insert_str_val(
                 csp,
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "System_DateCreated" => r.str_val(
+            "System_DateCreated" => r.insert_str_val(
                 csp,
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "System_DateAccessed" => r.str_val(
+            "System_DateAccessed" => r.insert_str_val(
                 csp,
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "System_Size" => r.int_val(csp, u64::from_bytes(val)),
-            "System_FileOwner" => r.str_val(csp, from_utf16(val)),
-            "System_Search_AutoSummary" => r.str_val(csp, from_utf16(val)),
-            "System_Search_GatherTime" => r.str_val(
+            "System_Size" => r.insert_int_val(csp, u64::from_bytes(val)),
+            "System_FileOwner" => r.insert_str_val(csp, from_utf16(val)),
+            "System_Search_AutoSummary" => r.insert_str_val(csp, from_utf16(val)),
+            "System_Search_GatherTime" => r.insert_str_val(
                 csp,
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "System_ItemType" => r.str_val(csp, from_utf16(val)),
-            "System_ComputerName" => r.str_val(csp, from_utf16(val)),
+            "System_ItemType" => r.insert_str_val(csp, from_utf16(val)),
+            "System_ComputerName" => r.insert_str_val(csp, from_utf16(val)),
             // "ScopeID" => println!("{}: {}", col, i32::from_bytes(val)),
             // "DocumentID" => println!("{}: {}", col, i32::from_bytes(val)),
             // "SDID" => println!("{}: {}", col, i32::from_bytes(val)),
@@ -357,7 +357,7 @@ fn ese_dump_file_record(r: &mut dyn Report, workId: u32, h: &HashMap<String, Vec
                 // field: StorageProviderId
                 // */
                 // if col.chars().nth(0).unwrap().is_alphabetic() {
-                //     r.str_val(col, format!("{:?}", val));
+                //     r.insert_str_val(col, format!("{:?}", val));
                 // }
             }
         }
@@ -380,31 +380,31 @@ fn ese_IE_history_record(r: &mut dyn Report, workId: u32, h: &HashMap<String, Ve
         }
     }
 
-    r.new_record();
-    r.int_val("WorkId", workId as u64);
+    r.create_new_row();
+    r.insert_int_val("WorkId", workId as u64);
     for (col, val) in h {
         let csp = column_string_part(col);
         match csp {
-            "System_DateModified" => r.str_val(
+            "System_DateModified" => r.insert_str_val(
                 csp,
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "System_ItemUrl" => r.str_val(csp, from_utf16(val)),
-            "System_Link_TargetUrl" => r.str_val(csp, from_utf16(val)),
-            "System_ItemDate" => r.str_val(
+            "System_ItemUrl" => r.insert_str_val(csp, from_utf16(val)),
+            "System_Link_TargetUrl" => r.insert_str_val(csp, from_utf16(val)),
+            "System_ItemDate" => r.insert_str_val(
                 csp,
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "System_Search_GatherTime" => r.str_val(
+            "System_Search_GatherTime" => r.insert_str_val(
                 csp,
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "System_Title" => r.str_val(csp, from_utf16(val)),
-            "System_Link_DateVisited" => r.str_val(
+            "System_Title" => r.insert_str_val(csp, from_utf16(val)),
+            "System_Link_DateVisited" => r.insert_str_val(
                 csp,
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "System_ComputerName" => r.str_val(csp, from_utf16(val)),
+            "System_ComputerName" => r.insert_str_val(csp, from_utf16(val)),
             _ => {}
         }
     }
@@ -428,31 +428,31 @@ fn ese_activity_history_record(
             return false;
         }
     }
-    r.new_record();
-    r.int_val("WorkId", workId as u64);
+    r.create_new_row();
+    r.insert_int_val("WorkId", workId as u64);
     for (col, val) in h {
         let csp = column_string_part(col);
         match csp {
-            "System_ItemNameDisplay" => r.str_val(csp, from_utf16(val)),
-            "System_ItemUrl" => r.str_val(csp, from_utf16(val)), // TODO: get UserSID from here
-            "System_ActivityHistory_StartTime" => r.str_val(
+            "System_ItemNameDisplay" => r.insert_str_val(csp, from_utf16(val)),
+            "System_ItemUrl" => r.insert_str_val(csp, from_utf16(val)), // TODO: get UserSID from here
+            "System_ActivityHistory_StartTime" => r.insert_str_val(
                 csp,
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "System_ActivityHistory_EndTime" => r.str_val(
+            "System_ActivityHistory_EndTime" => r.insert_str_val(
                 csp,
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "System_Activity_AppDisplayName" => r.str_val(csp, from_utf16(val)),
-            "System_ActivityHistory_AppId" => r.str_val(csp, from_utf16(val)),
-            "System_Activity_DisplayText" => r.str_val(csp, from_utf16(val)),
+            "System_Activity_AppDisplayName" => r.insert_str_val(csp, from_utf16(val)),
+            "System_ActivityHistory_AppId" => r.insert_str_val(csp, from_utf16(val)),
+            "System_Activity_DisplayText" => r.insert_str_val(csp, from_utf16(val)),
             "System_Activity_ContentUri" => {
                 let v = from_utf16(val);
-                r.str_val("VolumeId", find_guid(&v, "VolumeId="));
-                r.str_val("ObjectId", find_guid(&v, "ObjectId="));
-                r.str_val(csp, v);
+                r.insert_str_val("VolumeId", find_guid(&v, "VolumeId="));
+                r.insert_str_val("ObjectId", find_guid(&v, "ObjectId="));
+                r.insert_str_val(csp, v);
             }
-            "System_ComputerName" => r.str_val(csp, from_utf16(val)),
+            "System_ComputerName" => r.insert_str_val(csp, from_utf16(val)),
             _ => {}
         }
     }

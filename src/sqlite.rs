@@ -127,7 +127,7 @@ pub fn sqlite_generate_report(
     let (mut file_rep, mut ie_rep, mut act_rep) =
         init_reports(f, report_prod, &recovered_hostname, status_logger, None)?;
 
-    let mut handler = |workId: u32, h: &mut HashMap<String, Vec<u8>>| {
+    let mut handler = |workId: u32, h: &mut HashMap<i64, Vec<u8>>| {
         // new WorkId, handle all collected fields
         if !h.is_empty() {
             let ie_history = sqlite_IE_history_record(&mut *ie_rep, workId, h);
@@ -156,7 +156,7 @@ pub fn sqlite_generate_report(
         }
         let columnId = map_err!(s.read::<i64, _>("ColumnId"))?;
         let value = map_err!(s.read::<Vec<u8>, _>("Value"))?;
-        h.insert(columnId.to_string(), value);
+        h.insert(columnId, value);
     }
     // handle last element
     if !h.is_empty() {
@@ -169,11 +169,11 @@ pub fn sqlite_generate_report(
 fn sqlite_dump_file_record(
     r: &mut dyn Report,
     workId: u32,
-    h: &HashMap<String /*ColumnId*/, Vec<u8> /*Value*/>,
+    h: &HashMap<i64 /*ColumnId*/, Vec<u8> /*Value*/>,
     c: &sqlite::Connection,
 ) {
-    r.new_record();
-    r.int_val("WorkId", workId as u64);
+    r.create_new_row();
+    r.insert_int_val("WorkId", workId as u64);
     let mut m = HashMap::<i64, String>::new();
     if get_property_id_map(c, &mut m).is_err() {
         panic!("Unable to read property IDs.")
@@ -181,38 +181,38 @@ fn sqlite_dump_file_record(
 
 
     for (col, val) in h {
-        match col.as_str() {
-            "39" => r.str_val(
+        match col {
+            39 => r.insert_str_val(
                 "System_ItemPathDisplay",
                 String::from_utf8_lossy(val).into_owned(),
             ),
-            "441" => r.str_val(
+            441 => r.insert_str_val(
                 "System_DateModified",
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "445" => r.str_val(
+            445 => r.insert_str_val(
                 "System_DateCreated",
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "449" => r.str_val(
+            449 => r.insert_str_val(
                 "System_DateAccessed",
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "436" => r.int_val("System_Size", u64::from_bytes(val)),
-            "93" => r.str_val(
+            436 => r.insert_int_val("System_Size", u64::from_bytes(val)),
+            93 => r.insert_str_val(
                 "System_FileOwner",
                 String::from_utf8_lossy(val).into_owned(),
             ),
-            "303" => r.str_val(
+            303 => r.insert_str_val(
                 "System_Search_AutoSummary",
                 String::from_utf8_lossy(val).into_owned(),
             ),
-            "26" => r.str_val(
+            26 => r.insert_str_val(
                 "System_Search_GatherTime",
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "567" => r.str_val("System_ItemType", String::from_utf8_lossy(val).into_owned()),
-            "557" => r.str_val(
+            567 => r.insert_str_val("System_ItemType", String::from_utf8_lossy(val).into_owned()),
+            557 => r.insert_str_val(
                 "System_ComputerName",
                 String::from_utf8_lossy(val).into_owned(),
             ),
@@ -240,7 +240,7 @@ fn sqlite_dump_file_record(
                 // field: StorageProviderId
                 // */
                 // if col.chars().nth(0).unwrap().is_alphabetic() {
-                //     r.str_val(col, format!("{:?}", val));
+                //     r.insert_str_val(col, format!("{:?}", val));
                 // }
             }
         }
@@ -251,9 +251,9 @@ fn sqlite_dump_file_record(
 fn sqlite_IE_history_record(
     r: &mut dyn Report,
     workId: u32,
-    h: &HashMap<String /*ColumnId*/, Vec<u8> /*Value*/>,
+    h: &HashMap<i64 /*ColumnId*/, Vec<u8> /*Value*/>,
 ) -> bool {
-    let url = h.get_key_value("39");
+    let url = h.get_key_value(&39);
     if url.is_none() {
         return false;
     }
@@ -264,7 +264,7 @@ fn sqlite_IE_history_record(
             return false;
         }
     }
-    let name = h.get_key_value("318");
+    let name = h.get_key_value(&318);
     if name.is_none() {
         return false;
     }
@@ -274,34 +274,34 @@ fn sqlite_IE_history_record(
             return false;
         }
     }
-    r.new_record();
-    r.int_val("WorkId", workId as u64);
+    r.create_new_row();
+    r.insert_int_val("WorkId", workId as u64);
     for (col, val) in h {
-        match col.as_str() {
-            "318" => r.str_val("System_ItemName", String::from_utf8_lossy(val).into_owned()),
-            "39" => r.str_val("System_ItemUrl", String::from_utf8_lossy(val).into_owned()),
-            "308" => r.str_val(
+        match col {
+            318 => r.insert_str_val("System_ItemName", String::from_utf8_lossy(val).into_owned()),
+            39 => r.insert_str_val("System_ItemUrl", String::from_utf8_lossy(val).into_owned()),
+            308 => r.insert_str_val(
                 "System_ItemDate",
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "445" => r.str_val(
+            445 => r.insert_str_val(
                 "System_DateCreated",
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "414" => r.str_val(
+            414 => r.insert_str_val(
                 "System_ItemFolderNameDisplay",
                 String::from_utf8_lossy(val).into_owned(),
             ),
-            "26" => r.str_val(
+            26 => r.insert_str_val(
                 "System_Search_GatherTime",
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "424" => r.str_val("System_Title", String::from_utf8_lossy(val).into_owned()),
-            "378" => r.str_val(
+            424 => r.insert_str_val("System_Title", String::from_utf8_lossy(val).into_owned()),
+            378 => r.insert_str_val(
                 "System_Link_DateVisited",
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "557" => r.str_val(
+            557 => r.insert_str_val(
                 "System_ComputerName",
                 String::from_utf8_lossy(val).into_owned(),
             ),
@@ -315,10 +315,10 @@ fn sqlite_IE_history_record(
 fn sqlite_activity_history_record(
     r: &mut dyn Report,
     workId: u32,
-    h: &HashMap<String /*ColumnId*/, Vec<u8> /*Value*/>,
+    h: &HashMap<i64 /*ColumnId*/, Vec<u8> /*Value*/>,
 ) -> bool {
     // record only if 567 == "ActivityHistoryItem"
-    let item_type = h.get_key_value("567");
+    let item_type = h.get_key_value(&567);
     if item_type.is_none() {
         return false;
     }
@@ -328,42 +328,42 @@ fn sqlite_activity_history_record(
             return false;
         }
     }
-    r.new_record();
-    r.int_val("WorkId", workId as u64);
+    r.create_new_row();
+    r.insert_int_val("WorkId", workId as u64);
     for (col, val) in h {
-        match col.as_str() {
-            "432" => r.str_val(
+        match col {
+            432 => r.insert_str_val(
                 "System_ItemNameDisplay",
                 String::from_utf8_lossy(val).into_owned(),
             ),
-            "39" => r.str_val("System_ItemUrl", String::from_utf8_lossy(val).into_owned()),
-            "346" => r.str_val(
+            39 => r.insert_str_val("System_ItemUrl", String::from_utf8_lossy(val).into_owned()),
+            346 => r.insert_str_val(
                 "System_ActivityHistory_StartTime",
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "341" => r.str_val(
+            341 => r.insert_str_val(
                 "System_ActivityHistory_EndTime",
                 format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
             ),
-            "297" => r.str_val(
+            297 => r.insert_str_val(
                 "System_Activity_AppDisplayName",
                 String::from_utf8_lossy(val).into_owned(),
             ),
-            "331" => r.str_val(
+            331 => r.insert_str_val(
                 "System_ActivityHistory_AppId",
                 String::from_utf8_lossy(val).into_owned(),
             ),
-            "315" => r.str_val(
+            315 => r.insert_str_val(
                 "System_Activity_DisplayText",
                 String::from_utf8_lossy(val).into_owned(),
             ),
-            "311" => {
+            311 => {
                 let v = String::from_utf8_lossy(val).into_owned();
-                r.str_val("VolumeId", find_guid(&v, "VolumeId="));
-                r.str_val("ObjectId", find_guid(&v, "ObjectId="));
-                r.str_val("System_Activity_ContentUri", v);
+                r.insert_str_val("VolumeId", find_guid(&v, "VolumeId="));
+                r.insert_str_val("ObjectId", find_guid(&v, "ObjectId="));
+                r.insert_str_val("System_Activity_ContentUri", v);
             }
-            "557" => r.str_val(
+            557 => r.insert_str_val(
                 "System_ComputerName",
                 String::from_utf8_lossy(val).into_owned(),
             ),
