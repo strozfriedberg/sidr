@@ -76,6 +76,23 @@ fn sqlite_get_hostname(c: &sqlite::Connection) -> Result<String, SimpleError> {
     ))
 }
 
+fn get_property_id_map<'a>(
+    c: &sqlite::Connection,
+    m: &'a mut HashMap<i64, String>,
+) -> Result<(), SimpleError> {
+    let q = "select Id, Name from SystemIndex_1_PropertyStore_Metadata";
+    let s = map_err!(c.prepare(q))?;
+
+    for row in s.into_iter().map(|row| row.unwrap()) {
+        // dbg!(row);
+        m.insert(
+            row.read::<i64, _>("Id"),
+            row.read::<&str, _>("Name").to_string(),
+        );
+    }
+    Ok(())
+}
+
 // This report will provide information about all the files that have been indexed by Windows search,
 // including the file name, path, and creation/modification dates.
 pub fn sqlite_generate_report(
@@ -347,4 +364,17 @@ fn sqlite_activity_history_record(
         }
     }
     true
+}
+
+#[test]
+fn test_get_property_id_map() {
+    let f = "/Users/juliapaluch/dev/sidr/test2/corrupt/Windows.db";
+    let c = map_err!(sqlite::Connection::open_with_flags(
+        f,
+        sqlite::OpenFlags::new().set_read_only()
+    ))
+    .unwrap();
+    let mut m = HashMap::<i64, String>::new();
+    let res = get_property_id_map(&c, &mut m).unwrap();
+    assert!(res.len() > 0);
 }
