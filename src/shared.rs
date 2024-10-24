@@ -23,16 +23,6 @@ pub fn init_reports(
 
     // declare all headers (using in csv report)
     file_rep.set_field("WorkId");
-    file_rep.set_field("System_ComputerName");
-    file_rep.set_field("System_ItemPathDisplay");
-    file_rep.set_field("System_DateModified");
-    file_rep.set_field("System_DateCreated");
-    file_rep.set_field("System_DateAccessed");
-    file_rep.set_field("System_Size");
-    file_rep.set_field("System_FileOwner");
-    file_rep.set_field("System_Search_AutoSummary");
-    file_rep.set_field("System_Search_GatherTime");
-    file_rep.set_field("System_ItemType");
 
     let (ie_rep_path, ie_rep) = report_prod.new_report(
         f,
@@ -40,18 +30,6 @@ pub fn init_reports(
         "Internet_History_Report",
         edb_database_state,
     )?;
-    ie_rep.set_field("WorkId");
-    ie_rep.set_field("System_ComputerName");
-    ie_rep.set_field("System_ItemName");
-    ie_rep.set_field("System_ItemUrl");
-    ie_rep.set_field("System_Link_TargetUrl");
-    ie_rep.set_field("System_ItemDate");
-    ie_rep.set_field("System_DateCreated");
-    ie_rep.set_field("System_DateModified");
-    ie_rep.set_field("System_ItemFolderNameDisplay");
-    ie_rep.set_field("System_Search_GatherTime");
-    ie_rep.set_field("System_Title");
-    ie_rep.set_field("System_Link_DateVisited");
 
     let (act_rep_path, act_rep) = report_prod.new_report(
         f,

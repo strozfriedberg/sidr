@@ -76,21 +76,21 @@ fn sqlite_get_hostname(c: &sqlite::Connection) -> Result<String, SimpleError> {
     ))
 }
 
-fn get_property_id_map<'a>(
+fn populate_property_id_maps<'a>(
     c: &sqlite::Connection,
-    m: &'a mut HashMap<i64, (String, i64)>,
+    idToProp: &'a mut HashMap<i64, (String, i64)>,
+    NameToId: &'a mut HashMap<String, i64>,
 ) -> Result<(), SimpleError> {
     let q = "select Id, Name, StorageType from SystemIndex_1_PropertyStore_Metadata";
     let s = map_err!(c.prepare(q))?;
 
     for row in s.into_iter().map(|row| row.unwrap()) {
-        m.insert(
-            row.read::<i64, _>("Id"),
-            (
-                row.read::<&str, _>("Name").to_string(),
-                row.read::<i64, _>("StorageType"),
-            ),
-        );
+        let id = row.read::<i64, _>("Id");
+        let name = row.read::<&str, _>("Name").to_string();
+        let storageType = row.read::<i64, _>("StorageType");
+
+        idToProp.insert(id, (name.clone(), storageType));
+        NameToId.insert(name, id);
     }
     Ok(())
 }
@@ -129,17 +129,19 @@ pub fn sqlite_generate_report(
     let (mut file_rep, mut ie_rep, mut act_rep) =
         init_reports(f, report_prod, &recovered_hostname, status_logger, None)?;
 
-    let mut property_id_map = HashMap::<i64, (String, i64)>::new();
-    if get_property_id_map(&c, &mut property_id_map).is_err() {
+    let mut idToProp = HashMap::<i64, (String, i64)>::new();
+    let mut propNameToId = HashMap::<String, i64>::new();
+    if populate_property_id_maps(&c, &mut idToProp, &mut propNameToId).is_err() {
         panic!("Unable to read property IDs.")
     };
 
     let mut handler = |workId: u32, h: &mut HashMap<i64, Vec<u8>>| {
         // new WorkId, handle all collected fields
         if !h.is_empty() {
-            let ie_history = sqlite_IE_history_record(&mut *ie_rep, workId, h);
-            let act_history = sqlite_activity_history_record(&mut *act_rep, workId, h);
-            if !ie_history && !act_history {
+            let ie_history =
+                sqlite_IE_history_record(&mut *ie_rep, workId, h, &idToProp, &propNameToId);
+            let act_history = sqlite_activity_history_record(&mut *act_rep, workId, h, &idToProp);
+            if ie_history.is_none() && !act_history {
                 // only for File Report
                 // Join WorkID within SystemIndex_1_PropertyStore with DocumentID in SystemIndex_Gthr
                 // if let Some(gh) = gather_table_fields.get(&workId) {
@@ -147,7 +149,7 @@ pub fn sqlite_generate_report(
                 //         h.insert(k.into(), v.clone());
                 //     }
                 // }
-                sqlite_dump_file_record(&mut *file_rep, workId, h, &property_id_map);
+                sqlite_dump_file_record(&mut *file_rep, workId, h, &idToProp);
             }
             h.clear();
         }
@@ -186,12 +188,7 @@ fn sqlite_dump_file_record(
         let property_name = property_id_map.get(&col);
         if let Some((property_name, storage_type)) = property_name {
             match storage_type {
-                11 => {
-                    r.insert_str_val(
-                        property_name,
-                        String::from_utf8_lossy(val).into_owned(),
-                    )
-                }
+                11 => r.insert_str_val(property_name, String::from_utf8_lossy(val).into_owned()),
                 12 => {
                     if property_name.contains("Date") {
                         r.insert_str_val(
@@ -206,72 +203,6 @@ fn sqlite_dump_file_record(
             }
         }
     }
-
-    // for (col, val) in h {
-    //     match col {
-    //         39 => r.insert_str_val(
-    //             "System_ItemPathDisplay",
-    //             String::from_utf8_lossy(val).into_owned(),
-    //         ),
-    //         441 => r.insert_str_val(
-    //             "System_DateModified",
-    //             format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-    //         ),
-    //         445 => r.insert_str_val(
-    //             "System_DateCreated",
-    //             format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-    //         ),
-    //         449 => r.insert_str_val(
-    //             "System_DateAccessed",
-    //             format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-    //         ),
-    //         436 => r.insert_int_val("System_Size", u64::from_bytes(val)),
-    //         93 => r.insert_str_val(
-    //             "System_FileOwner",
-    //             String::from_utf8_lossy(val).into_owned(),
-    //         ),
-    //         303 => r.insert_str_val(
-    //             "System_Search_AutoSummary",
-    //             String::from_utf8_lossy(val).into_owned(),
-    //         ),
-    //         26 => r.insert_str_val(
-    //             "System_Search_GatherTime",
-    //             format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-    //         ),
-    //         567 => r.insert_str_val("System_ItemType", String::from_utf8_lossy(val).into_owned()),
-    //         557 => r.insert_str_val(
-    //             "System_ComputerName",
-    //             String::from_utf8_lossy(val).into_owned(),
-    //         ),
-    //         // "ScopeID" => println!("{}", col, i32::from_bytes(val)),
-    //         // "DocumentID" => println!("{}", col, i32::from_bytes(val)),
-    //         // "SDID" => println!("{}", col, i32::from_bytes(val)),
-    //         // "LastModified" => println!("{}", col, format_date_time(get_date_time_from_filetime(u64::from_bytes(&val)))),
-    //         // "TransactionFlags" => println!("{}", col, i32::from_bytes(val)),
-    //         // "TransactionExtendedFlags" => println!("{}", col, i32::from_bytes(val)),
-    //         // "CrawlNumberCrawled" => println!("{}", col, i32::from_bytes(val)),
-    //         // "StartAddressIdentifier" => println!("{}", col, u16::from_bytes(val)),
-    //         // "Priority" => println!("{}", col, u8::from_bytes(val)),
-    //         // "FileName" => println!("{}", col, from_utf16(val)),
-    //         // "DeletedCount" => println!("{}", col, i32::from_bytes(val)),
-    //         // "RunTime" => println!("{}", col, i32::from_bytes(val)),
-    //         // "FailureUpdateAttempts" => println!("{}", col, u8::from_bytes(val)),
-    //         // "ClientID" => println!("{}", col, u32::from_bytes(val)),
-    //         // "LastRequestedRunTime" => println!("{}", col, u32::from_bytes(val)),
-    //         // "CalculatedPropertyFlags" => println!("{}", col, u32::from_bytes(val)),
-    //         _ => {
-    //             // /*
-    //             // field: UserData
-    //             // field: AppOwnerId
-    //             // field: RequiredSIDs
-    //             // field: StorageProviderId
-    //             // */
-    //             // if col.chars().nth(0).unwrap().is_alphabetic() {
-    //             //     r.insert_str_val(col, format!("{:?}", val));
-    //             // }
-    //         }
-    //     }
-    // }
 }
 
 //IE/Edge History Report
@@ -279,63 +210,46 @@ fn sqlite_IE_history_record(
     r: &mut dyn Report,
     workId: u32,
     h: &HashMap<i64 /*ColumnId*/, Vec<u8> /*Value*/>,
-) -> bool {
-    let url = h.get_key_value(&39);
-    if url.is_none() {
-        return false;
+    idToProp: &HashMap<i64, (String, i64)>,
+    propNameToId: &HashMap<String, i64>,
+) -> Option<()> {
+    // get id of System.ItemFolderNameDisplay property
+    let itemFolderNameId = propNameToId.get("System.ItemFolderNameDisplay")?;
+    let folderNameVal = h.get(itemFolderNameId)?;
+    let propValStr = String::from_utf8_lossy(folderNameVal).into_owned();
+    if !["RecentlyClosed", "History", "QuickLinks"].contains(&&*propValStr) {
+        return None;
     }
-    if let Some((_, val)) = url {
-        let v = String::from_utf8_lossy(val).into_owned();
-        if !(v.starts_with("winrt://") && v.contains("/LS/Desktop/Microsoft Edge/stable/Default/"))
-        {
-            return false;
-        }
+
+    let targetUriId = propNameToId.get("System.Link.TargetUrl")?;
+    let targetUriVal = h.get(targetUriId)?;
+    let uriValStr = String::from_utf8_lossy(targetUriVal).into_owned();
+    if !(uriValStr.starts_with("http")) {
+        return None;
     }
-    let name = h.get_key_value(&318);
-    if name.is_none() {
-        return false;
-    }
-    if let Some((_, val)) = name {
-        let v = String::from_utf8_lossy(val).into_owned();
-        if !v.starts_with("http://") && !v.starts_with("https://") {
-            return false;
-        }
-    }
+
     r.create_new_row();
     r.insert_int_val("WorkId", workId as u64);
     for (col, val) in h {
-        match col {
-            318 => r.insert_str_val("System_ItemName", String::from_utf8_lossy(val).into_owned()),
-            39 => r.insert_str_val("System_ItemUrl", String::from_utf8_lossy(val).into_owned()),
-            308 => r.insert_str_val(
-                "System_ItemDate",
-                format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-            ),
-            445 => r.insert_str_val(
-                "System_DateCreated",
-                format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-            ),
-            414 => r.insert_str_val(
-                "System_ItemFolderNameDisplay",
-                String::from_utf8_lossy(val).into_owned(),
-            ),
-            26 => r.insert_str_val(
-                "System_Search_GatherTime",
-                format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-            ),
-            424 => r.insert_str_val("System_Title", String::from_utf8_lossy(val).into_owned()),
-            378 => r.insert_str_val(
-                "System_Link_DateVisited",
-                format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-            ),
-            557 => r.insert_str_val(
-                "System_ComputerName",
-                String::from_utf8_lossy(val).into_owned(),
-            ),
-            _ => {}
+        let property_name = idToProp.get(&col);
+        if let Some((property_name, storage_type)) = property_name {
+            match storage_type {
+                11 => r.insert_str_val(property_name, String::from_utf8_lossy(val).into_owned()),
+                12 => {
+                    if property_name.contains("Date") {
+                        r.insert_str_val(
+                            property_name,
+                            format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
+                        )
+                    } else {
+                        r.insert_int_val(property_name, u64::from_bytes(val))
+                    }
+                }
+                _ => eprintln!("Storage type {storage_type} not implemented."),
+            }
         }
     }
-    true
+    Some(())
 }
 
 // Activity History Report
@@ -343,6 +257,7 @@ fn sqlite_activity_history_record(
     r: &mut dyn Report,
     workId: u32,
     h: &HashMap<i64 /*ColumnId*/, Vec<u8> /*Value*/>,
+    propertyIdMap: &HashMap<i64, (String, i64)>,
 ) -> bool {
     // record only if 567 == "ActivityHistoryItem"
     let item_type = h.get_key_value(&567);
@@ -408,7 +323,8 @@ fn test_get_property_id_map() {
         sqlite::OpenFlags::new().set_read_only()
     ))
     .unwrap();
-    let mut m = HashMap::<i64, (String, i64)>::new();
-    get_property_id_map(&c, &mut m).unwrap();
-    assert!(m.len() > 0);
+    let mut idToProp = HashMap::<i64, (String, i64)>::new();
+    let mut PropNameToId = HashMap::<String, i64>::new();
+    populate_property_id_maps(&c, &mut idToProp, &mut PropNameToId).unwrap();
+    assert!(idToProp.len() > 0);
 }
