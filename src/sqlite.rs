@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use simple_error::SimpleError;
 use std::collections::HashMap;
 use std::path::Path;
@@ -179,7 +180,7 @@ fn write_record_to_report(
     report.create_new_row();
     report.insert_int_val("WorkId", workId as u64);
 
-    for (col, val) in record {
+    for (col, val) in record.iter().sorted() {
         let property_name = idToProp.get(col);
         if let Some((property_name, storage_type)) = property_name {
             match storage_type {
