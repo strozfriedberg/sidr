@@ -20,6 +20,10 @@ use crate::ese::*;
 use crate::report::*;
 use crate::sqlite::*;
 
+#[cfg(test)]
+use goldenfile::Mint;
+use glob::glob;
+
 fn dump(
     input_dir: &PathBuf,
     report_prod: &ReportProducer,
@@ -151,4 +155,49 @@ fn write_reports(
     };
     dump(&input_dir, &rep_producer, &mut status_logger)?;
     Ok(())
+}
+
+#[test]
+fn test_generate_reports() {
+    let report_dir = PathBuf::from("tests/output");
+    let input_dir = PathBuf::from("tests/testdata");
+    let goldenfiles_dir = PathBuf::from("tests/goldenfiles");
+    let _ = write_reports(
+        &report_dir,
+        ReportFormat::Csv,
+        ReportOutput::ToFile,
+        &input_dir,
+    );
+    let _ = write_reports(
+        &report_dir,
+        ReportFormat::Json,
+        ReportOutput::ToFile,
+        &input_dir,
+    );
+
+    match fs::read_dir(goldenfiles_dir.clone()) {
+        Ok(ok_goldenfile_dir) => {
+            let mut mint_dir = Mint::new(".");
+            for goldenfile in ok_goldenfile_dir.flatten() {
+                let p = goldenfile.path();
+                let ext: &str = p.extension().unwrap().to_str().unwrap();
+                if let Some(f) = p.file_name() {
+                    if let Some(f) = f.to_str() {
+                        let parts: Vec<&str> = f.split('_').collect();
+                        let reportType = parts[1];
+                        for entry in
+                            glob(format!("tests/output/*{reportType}*.{ext}").as_str()).unwrap()
+                        {
+                            let entry = entry.unwrap();
+                            let mut golden_file = mint_dir.new_goldenfile(&p).unwrap();
+                            let new_file = fs::read_to_string(&entry).unwrap();
+                            let _ = writeln!(&mut golden_file, "{}", new_file);
+                            let _ = fs::remove_file(entry);
+                        }
+                    }
+                }
+            }
+        }
+        Err(_) => {panic!("Failed to read goldenfiles directory.")}
+    }
 }
