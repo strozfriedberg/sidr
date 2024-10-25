@@ -21,18 +21,18 @@ use crate::report::*;
 use crate::sqlite::*;
 
 fn dump(
-    f: &str,
+    input_dir: &PathBuf,
     report_prod: &ReportProducer,
     status_logger: &mut Box<dyn Write>,
 ) -> Result<(), SimpleError> {
     let mut processed = 0;
-    match fs::read_dir(f) {
+    match fs::read_dir(input_dir) {
         Ok(dir) => {
             for entry in dir.flatten() {
                 let p = entry.path();
                 let metadata = fs::metadata(&p).unwrap();
                 if metadata.is_dir() {
-                    dump(&p.to_string_lossy(), report_prod, status_logger)?;
+                    dump(&p, report_prod, status_logger)?;
                 } else if let Some(f) = p.file_name() {
                     if let Some(f) = f.to_str() {
                         let f = f.to_lowercase();
@@ -60,7 +60,14 @@ fn dump(
                 }
             }
         }
-        Err(e) => panic!("Could not read dir '{f}': {e}"),
+        Err(e) => {
+            panic!(
+                "Could not read dir '{}': {e}",
+                input_dir
+                    .to_str()
+                    .unwrap_or_else(|| "Could not print dir name")
+            )
+        }
     }
 
     if processed > 0 {
@@ -104,7 +111,7 @@ fn dump(
 #[command(author, version, about, long_about)]
 struct Cli {
     /// Path to input directory (which will be recursively scanned for Windows.edb and Windows.db).
-    input: String,
+    indir: PathBuf,
 
     /// Output report format
     #[arg(short, long, value_enum, default_value_t = ReportFormat::Json)]
@@ -122,17 +129,26 @@ struct Cli {
 fn main() -> Result<(), SimpleError> {
     let cli = Cli::parse();
 
-    let rep_dir = match cli.outdir {
+    let output_dir = match cli.outdir {
         Some(outdir) => outdir,
         None => std::env::current_dir().map_err(|e| SimpleError::new(format!("{e}")))?,
     };
-    let rep_producer = ReportProducer::new(rep_dir.as_path(), cli.format, cli.report_type);
 
-    let mut status_logger: Box<dyn std::io::Write> = match cli.report_type {
+    write_reports(&output_dir, cli.format, cli.report_type, &cli.indir)?;
+    Ok(())
+}
+
+fn write_reports(
+    rep_dir: &PathBuf,
+    format: ReportFormat,
+    report_type: ReportOutput,
+    input_dir: &PathBuf,
+) -> Result<(), SimpleError> {
+    let rep_producer = ReportProducer::new(rep_dir.as_path(), format, report_type);
+    let mut status_logger: Box<dyn std::io::Write> = match report_type {
         ReportOutput::ToStdout => Box::new(std::io::sink()),
         ReportOutput::ToFile => Box::new(std::io::stdout()),
     };
-
-    dump(&cli.input, &rep_producer, &mut status_logger)?;
+    dump(&input_dir, &rep_producer, &mut status_logger)?;
     Ok(())
 }
