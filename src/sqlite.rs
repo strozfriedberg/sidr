@@ -81,8 +81,6 @@ pub fn sqlite_generate_report(
     let query = "select * from SystemIndex_1_PropertyStore";
     let mut s = map_err!(c.prepare(query))?;
 
-    //let gather_table_fields = dump_file_gather_sqlite(f)?;
-
     let recovered_hostname = match sqlite_get_hostname(&c) {
         Ok(h) => h,
         Err(e) => {
@@ -200,7 +198,7 @@ fn is_activity_history_record(
 
 #[test]
 fn test_get_property_id_map() {
-    let f = "/Users/juliapaluch/dev/sidr/test2/corrupt/Windows.db";
+    let f = "tests/testdata/Windows.db";
     let c = map_err!(sqlite::Connection::open_with_flags(
         f,
         sqlite::OpenFlags::new().set_read_only()
@@ -209,5 +207,6 @@ fn test_get_property_id_map() {
     let mut idToProp = HashMap::<i64, (String, i64)>::new();
     let mut PropNameToId = HashMap::<String, i64>::new();
     populate_property_id_maps(&c, &mut idToProp, &mut PropNameToId).unwrap();
-    assert!(idToProp.len() > 0);
+    assert!(idToProp.len() == 597);
+    assert!(PropNameToId.len() == idToProp.len());
 }
