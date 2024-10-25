@@ -185,7 +185,7 @@ fn sqlite_dump_file_record(
     r.insert_int_val("WorkId", workId as u64);
 
     for (col, val) in h {
-        let property_name = property_id_map.get(&col);
+        let property_name = property_id_map.get(col);
         if let Some((property_name, storage_type)) = property_name {
             match storage_type {
                 11 => r.insert_str_val(property_name, String::from_utf8_lossy(val).into_owned()),
@@ -231,7 +231,7 @@ fn sqlite_IE_history_record(
     r.create_new_row();
     r.insert_int_val("WorkId", workId as u64);
     for (col, val) in h {
-        let property_name = idToProp.get(&col);
+        let property_name = idToProp.get(col);
         if let Some((property_name, storage_type)) = property_name {
             match storage_type {
                 11 => r.insert_str_val(property_name, String::from_utf8_lossy(val).into_owned()),
@@ -265,13 +265,13 @@ fn sqlite_activity_history_record(
     let itemTypeId = propNameToId.get("System.ItemType")?;
     let itemTypeVal = h.get(itemTypeId)?;
     let itemTypeStr = String::from_utf8_lossy(itemTypeVal).into_owned();
-    if !(itemTypeStr == "ActivityHistoryItem") {
+    if itemTypeStr != "ActivityHistoryItem" {
         return None;
     }
     r.create_new_row();
     r.insert_int_val("WorkId", workId as u64);
     for (col, val) in h {
-        let property_name = idToProp.get(&col);
+        let property_name = idToProp.get(col);
         if let Some((property_name, storage_type)) = property_name {
             match storage_type {
                 11 => r.insert_str_val(property_name, String::from_utf8_lossy(val).into_owned()),
