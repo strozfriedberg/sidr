@@ -135,54 +135,39 @@ pub fn sqlite_generate_report(
         panic!("Unable to read property IDs.")
     };
 
-    let mut handler = |workId: u32, h: &mut HashMap<i64, Vec<u8>>| {
+    let mut handler = |workId: u32, record: &mut HashMap<i64, Vec<u8>>| {
         // new WorkId, handle all collected fields
-        if !h.is_empty() {
-            let ie_history =
-                sqlite_IE_history_record(&mut *ie_rep, workId, h, &idToProp, &propNameToId);
-            let act_history =
-                sqlite_activity_history_record(&mut *act_rep, workId, h, &idToProp, &propNameToId);
-            if ie_history.is_none() && act_history.is_none() {
-                // only for File Report
-                // Join WorkID within SystemIndex_1_PropertyStore with DocumentID in SystemIndex_Gthr
-                // if let Some(gh) = gather_table_fields.get(&workId) {
-                //     for (k, v) in gh {
-                //         h.insert(k.into(), v.clone());
-                //     }
-                // }
-                sqlite_dump_file_record(&mut *file_rep, workId, h, &idToProp);
+        if !record.is_empty() {
+            if is_internet_record(&record, &propNameToId).is_some() {
+                write_record_to_report(record, workId, &idToProp, &mut *ie_rep);
             }
-            h.clear();
+            else if is_activity_history_record(record, &propNameToId).is_some() {
+                write_record_to_report(record, workId, &idToProp, &mut *act_rep);
+            }
+            else {
+                write_record_to_report(record, workId, &idToProp, &mut *file_rep);
+            }
+            record.clear();
         }
     };
 
-    let mut h = HashMap::new();
+    let mut record = HashMap::new();
     let mut workId_current = 0;
     while let Ok(State::Row) = s.next() {
         let workId = map_err!(s.read::<i64, _>("WorkId"))? as u32;
         if workId_current != workId {
-            handler(workId_current, &mut h);
+            handler(workId_current, &mut record);
             workId_current = workId;
         }
         let columnId = map_err!(s.read::<i64, _>("ColumnId"))?;
         let value = map_err!(s.read::<Vec<u8>, _>("Value"))?;
-        h.insert(columnId, value);
+        record.insert(columnId, value);
     }
     // handle last element
-    if !h.is_empty() {
-        handler(workId_current, &mut h);
+    if !record.is_empty() {
+        handler(workId_current, &mut record);
     }
     Ok(())
-}
-
-// File Report
-fn sqlite_dump_file_record(
-    r: &mut dyn Report,
-    workId: u32,
-    h: &HashMap<i64 /*ColumnId*/, Vec<u8> /*Value*/>,
-    property_id_map: &HashMap<i64, (String, i64)>,
-) {
-    write_record_to_report(h, workId, property_id_map, r);
 }
 
 fn write_record_to_report(
@@ -217,50 +202,36 @@ fn write_record_to_report(
     }
 }
 
-//IE/Edge History Report
-fn sqlite_IE_history_record(
-    r: &mut dyn Report,
-    workId: u32,
-    h: &HashMap<i64 /*ColumnId*/, Vec<u8> /*Value*/>,
-    idToProp: &HashMap<i64, (String, i64)>,
+fn is_internet_record(
+    record: &HashMap<i64 /*ColumnId*/, Vec<u8> /*Value*/>,
     propNameToId: &HashMap<String, i64>,
 ) -> Option<()> {
-    // get id of System.ItemFolderNameDisplay property
     let itemFolderNameId = propNameToId.get("System.ItemFolderNameDisplay")?;
-    let folderNameVal = h.get(itemFolderNameId)?;
+    let folderNameVal = record.get(itemFolderNameId)?;
     let folderNameStr = String::from_utf8_lossy(folderNameVal).into_owned();
     if !["RecentlyClosed", "History", "QuickLinks"].contains(&&*folderNameStr) {
         return None;
     }
 
     let targetUriId = propNameToId.get("System.Link.TargetUrl")?;
-    let targetUriVal = h.get(targetUriId)?;
+    let targetUriVal = record.get(targetUriId)?;
     let uriValStr = String::from_utf8_lossy(targetUriVal).into_owned();
     if !(uriValStr.starts_with("http")) {
         return None;
     }
-
-    write_record_to_report(h, workId, idToProp, r);
     Some(())
 }
 
-// Activity History Report
-fn sqlite_activity_history_record(
-    r: &mut dyn Report,
-    workId: u32,
-    h: &HashMap<i64 /*ColumnId*/, Vec<u8> /*Value*/>,
-    idToProp: &HashMap<i64, (String, i64)>,
+fn is_activity_history_record(
+    record: &HashMap<i64 /*ColumnId*/, Vec<u8> /*Value*/>,
     propNameToId: &HashMap<String, i64>,
 ) -> Option<()> {
-    // write only records with "ActivityHistoryItem" in their "System.ItemType" field
-    // to the ActivityHistoryReport
     let itemTypeId = propNameToId.get("System.ItemType")?;
-    let itemTypeVal = h.get(itemTypeId)?;
+    let itemTypeVal = record.get(itemTypeId)?;
     let itemTypeStr = String::from_utf8_lossy(itemTypeVal).into_owned();
     if itemTypeStr != "ActivityHistoryItem" {
         return None;
     }
-    write_record_to_report(h, workId, idToProp, r);
     Some(())
 }
 
