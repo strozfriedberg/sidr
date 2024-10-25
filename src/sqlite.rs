@@ -140,7 +140,8 @@ pub fn sqlite_generate_report(
         if !h.is_empty() {
             let ie_history =
                 sqlite_IE_history_record(&mut *ie_rep, workId, h, &idToProp, &propNameToId);
-            let act_history = sqlite_activity_history_record(&mut *act_rep, workId, h, &idToProp, &propNameToId);
+            let act_history =
+                sqlite_activity_history_record(&mut *act_rep, workId, h, &idToProp, &propNameToId);
             if ie_history.is_none() && act_history.is_none() {
                 // only for File Report
                 // Join WorkID within SystemIndex_1_PropertyStore with DocumentID in SystemIndex_Gthr
@@ -181,25 +182,36 @@ fn sqlite_dump_file_record(
     h: &HashMap<i64 /*ColumnId*/, Vec<u8> /*Value*/>,
     property_id_map: &HashMap<i64, (String, i64)>,
 ) {
-    r.create_new_row();
-    r.insert_int_val("WorkId", workId as u64);
+    write_record_to_report(h, workId, property_id_map, r);
+}
 
-    for (col, val) in h {
-        let property_name = property_id_map.get(col);
+fn write_record_to_report(
+    record: &HashMap<i64, Vec<u8>>,
+    workId: u32,
+    idToProp: &HashMap<i64, (String, i64)>,
+    report: &mut dyn Report,
+) {
+    report.create_new_row();
+    report.insert_int_val("WorkId", workId as u64);
+
+    for (col, val) in record {
+        let property_name = idToProp.get(col);
         if let Some((property_name, storage_type)) = property_name {
             match storage_type {
-                11 => r.insert_str_val(property_name, String::from_utf8_lossy(val).into_owned()),
+                11 => {
+                    report.insert_str_val(property_name, String::from_utf8_lossy(val).into_owned())
+                }
                 12 => {
                     if property_name.contains("Date") {
-                        r.insert_str_val(
+                        report.insert_str_val(
                             property_name,
                             format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
                         )
                     } else {
-                        r.insert_int_val(property_name, u64::from_bytes(val))
+                        report.insert_int_val(property_name, u64::from_bytes(val))
                     }
                 }
-                _ => eprintln!("Storage type {storage_type} not implemented."),
+                _ => { /* Storage type not supported. */},
             }
         }
     }
@@ -228,27 +240,7 @@ fn sqlite_IE_history_record(
         return None;
     }
 
-    r.create_new_row();
-    r.insert_int_val("WorkId", workId as u64);
-    for (col, val) in h {
-        let property_name = idToProp.get(col);
-        if let Some((property_name, storage_type)) = property_name {
-            match storage_type {
-                11 => r.insert_str_val(property_name, String::from_utf8_lossy(val).into_owned()),
-                12 => {
-                    if property_name.contains("Date") {
-                        r.insert_str_val(
-                            property_name,
-                            format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-                        )
-                    } else {
-                        r.insert_int_val(property_name, u64::from_bytes(val))
-                    }
-                }
-                _ => eprintln!("Storage type {storage_type} not implemented."),
-            }
-        }
-    }
+    write_record_to_report(h, workId, idToProp, r);
     Some(())
 }
 
@@ -268,27 +260,7 @@ fn sqlite_activity_history_record(
     if itemTypeStr != "ActivityHistoryItem" {
         return None;
     }
-    r.create_new_row();
-    r.insert_int_val("WorkId", workId as u64);
-    for (col, val) in h {
-        let property_name = idToProp.get(col);
-        if let Some((property_name, storage_type)) = property_name {
-            match storage_type {
-                11 => r.insert_str_val(property_name, String::from_utf8_lossy(val).into_owned()),
-                12 => {
-                    if property_name.contains("Date") {
-                        r.insert_str_val(
-                            property_name,
-                            format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-                        )
-                    } else {
-                        r.insert_int_val(property_name, u64::from_bytes(val))
-                    }
-                }
-                _ => eprintln!("Storage type {storage_type} not implemented."),
-            }
-        }
-    }
+    write_record_to_report(h, workId, idToProp, r);
     Some(())
 }
 
