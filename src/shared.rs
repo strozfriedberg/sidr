@@ -21,9 +21,6 @@ pub fn init_reports(
     let (file_rep_path, file_rep) =
         report_prod.new_report(f, recovered_hostname, "File_Report", edb_database_state)?;
 
-    // declare all headers (using in csv report)
-    file_rep.set_field("WorkId");
-
     let (ie_rep_path, ie_rep) = report_prod.new_report(
         f,
         recovered_hostname,
@@ -37,19 +34,6 @@ pub fn init_reports(
         "Activity_History_Report",
         edb_database_state,
     )?;
-    act_rep.set_field("WorkId");
-    act_rep.set_field("System_ComputerName");
-    act_rep.set_field("System_DateModified");
-    act_rep.set_field("System_ItemNameDisplay");
-    act_rep.set_field("System_ItemUrl");
-    act_rep.set_field("System_ActivityHistory_StartTime");
-    act_rep.set_field("System_ActivityHistory_EndTime");
-    act_rep.set_field("System_Activity_AppDisplayName");
-    act_rep.set_field("System_ActivityHistory_AppId");
-    act_rep.set_field("System_Activity_DisplayText");
-    act_rep.set_field("VolumeId");
-    act_rep.set_field("ObjectId");
-    act_rep.set_field("System_Activity_ContentUri");
 
     writeln!(
         status_logger,

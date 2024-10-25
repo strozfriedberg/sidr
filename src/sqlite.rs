@@ -140,8 +140,8 @@ pub fn sqlite_generate_report(
         if !h.is_empty() {
             let ie_history =
                 sqlite_IE_history_record(&mut *ie_rep, workId, h, &idToProp, &propNameToId);
-            let act_history = sqlite_activity_history_record(&mut *act_rep, workId, h, &idToProp);
-            if ie_history.is_none() && !act_history {
+            let act_history = sqlite_activity_history_record(&mut *act_rep, workId, h, &idToProp, &propNameToId);
+            if ie_history.is_none() && act_history.is_none() {
                 // only for File Report
                 // Join WorkID within SystemIndex_1_PropertyStore with DocumentID in SystemIndex_Gthr
                 // if let Some(gh) = gather_table_fields.get(&workId) {
@@ -216,8 +216,8 @@ fn sqlite_IE_history_record(
     // get id of System.ItemFolderNameDisplay property
     let itemFolderNameId = propNameToId.get("System.ItemFolderNameDisplay")?;
     let folderNameVal = h.get(itemFolderNameId)?;
-    let propValStr = String::from_utf8_lossy(folderNameVal).into_owned();
-    if !["RecentlyClosed", "History", "QuickLinks"].contains(&&*propValStr) {
+    let folderNameStr = String::from_utf8_lossy(folderNameVal).into_owned();
+    if !["RecentlyClosed", "History", "QuickLinks"].contains(&&*folderNameStr) {
         return None;
     }
 
@@ -257,62 +257,39 @@ fn sqlite_activity_history_record(
     r: &mut dyn Report,
     workId: u32,
     h: &HashMap<i64 /*ColumnId*/, Vec<u8> /*Value*/>,
-    propertyIdMap: &HashMap<i64, (String, i64)>,
-) -> bool {
-    // record only if 567 == "ActivityHistoryItem"
-    let item_type = h.get_key_value(&567);
-    if item_type.is_none() {
-        return false;
-    }
-    if let Some((_, val)) = item_type {
-        let v = String::from_utf8_lossy(val).into_owned();
-        if v != "ActivityHistoryItem" {
-            return false;
-        }
+    idToProp: &HashMap<i64, (String, i64)>,
+    propNameToId: &HashMap<String, i64>,
+) -> Option<()> {
+    // write only records with "ActivityHistoryItem" in their "System.ItemType" field
+    // to the ActivityHistoryReport
+    let itemTypeId = propNameToId.get("System.ItemType")?;
+    let itemTypeVal = h.get(itemTypeId)?;
+    let itemTypeStr = String::from_utf8_lossy(itemTypeVal).into_owned();
+    if !(itemTypeStr == "ActivityHistoryItem") {
+        return None;
     }
     r.create_new_row();
     r.insert_int_val("WorkId", workId as u64);
     for (col, val) in h {
-        match col {
-            432 => r.insert_str_val(
-                "System_ItemNameDisplay",
-                String::from_utf8_lossy(val).into_owned(),
-            ),
-            39 => r.insert_str_val("System_ItemUrl", String::from_utf8_lossy(val).into_owned()),
-            346 => r.insert_str_val(
-                "System_ActivityHistory_StartTime",
-                format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-            ),
-            341 => r.insert_str_val(
-                "System_ActivityHistory_EndTime",
-                format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
-            ),
-            297 => r.insert_str_val(
-                "System_Activity_AppDisplayName",
-                String::from_utf8_lossy(val).into_owned(),
-            ),
-            331 => r.insert_str_val(
-                "System_ActivityHistory_AppId",
-                String::from_utf8_lossy(val).into_owned(),
-            ),
-            315 => r.insert_str_val(
-                "System_Activity_DisplayText",
-                String::from_utf8_lossy(val).into_owned(),
-            ),
-            311 => {
-                let v = String::from_utf8_lossy(val).into_owned();
-                r.insert_str_val("VolumeId", find_guid(&v, "VolumeId="));
-                r.insert_str_val("ObjectId", find_guid(&v, "ObjectId="));
-                r.insert_str_val("System_Activity_ContentUri", v);
+        let property_name = idToProp.get(&col);
+        if let Some((property_name, storage_type)) = property_name {
+            match storage_type {
+                11 => r.insert_str_val(property_name, String::from_utf8_lossy(val).into_owned()),
+                12 => {
+                    if property_name.contains("Date") {
+                        r.insert_str_val(
+                            property_name,
+                            format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
+                        )
+                    } else {
+                        r.insert_int_val(property_name, u64::from_bytes(val))
+                    }
+                }
+                _ => eprintln!("Storage type {storage_type} not implemented."),
             }
-            557 => r.insert_str_val(
-                "System_ComputerName",
-                String::from_utf8_lossy(val).into_owned(),
-            ),
-            _ => {}
         }
     }
-    true
+    Some(())
 }
 
 #[test]
