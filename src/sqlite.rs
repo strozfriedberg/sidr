@@ -13,67 +13,31 @@ use std::io::Write;
 
 macro_rules! map_err(($result:expr) => ($result.map_err(|e| SimpleError::new(format!("{}", e)))));
 
-/*
-extern crate sqlite3_sys as ffi;
-
-// get all fields from SystemIndex_Gthr table
-fn dump_file_gather_sqlite(f: &Path)
-    -> Result<HashMap<u32/*DocumentID UNSIGNEDLONG_INTEGER*/, HashMap<String, Vec<u8>>>/*rest fields*/, SimpleError>
-{
-    let mut res : HashMap<u32, HashMap<String, Vec<u8>>> = HashMap::new();
-
-    let gfn = format!("{}/{}-gather.{}", f.parent().unwrap().to_string_lossy(), f.file_stem().unwrap().to_string_lossy(), f.extension().unwrap().to_string_lossy());
-    let c = map_err!(sqlite::Connection::open_with_flags(gfn,
-        sqlite::OpenFlags::new().set_read_only()))?;
-
-    {
-        // setup collation func
-        use libc::{c_int, c_void};
-        extern "C" fn xCompare (_: *mut c_void, _: c_int, _: *const c_void, _: c_int, _: *const c_void) -> c_int {
-            unimplemented!("xCompare")
-        }
-        use std::ffi::CString;
-        let z_name = CString::new("UNICODE_en-US_LINGUISTIC_IGNORECASE").expect("CString::new failed");
-        let handle = c.as_raw();
-        let _ = unsafe {
-            ffi::sqlite3_create_collation(handle, z_name.as_ptr(), ffi::SQLITE_UTF16LE, std::ptr::null_mut(), Some(xCompare))
-        };
-    }
-
-    let query = "select * from SystemIndex_Gthr";
-    let mut s = map_err!(c.prepare(query))?;
-    while let Ok(State::Row) = s.next() {
-        let mut h = HashMap::new();
-        let mut docId = 0;
-        for (col_name, col_index) in &*s.column_mapping() {
-            if col_name == "DocumentID" {
-                docId = map_err!(s.read::<i64, _>(*col_index))? as u32;
-            } else {
-                let v = map_err!(s.read::<Vec<u8>, _>(*col_index))?;
-                if !v.is_empty() {
-                    h.insert(col_name.clone(), v);
-                }
-            }
-        }
-        res.insert(docId, h);
-    }
-    Ok(res)
-}
-*/
-
 fn sqlite_get_hostname(c: &sqlite::Connection) -> Result<String, SimpleError> {
-    // ASDF-5849
-    // 557 - System_ComputerName
-    // 567 - System_ItemType
-    let q = "select WorkId as wId, Value from SystemIndex_1_PropertyStore where ColumnId=557 and Value is not NULL and Value <> '' and \
-        (select Value from SystemIndex_1_PropertyStore where WorkId=wId and ColumnId=567) <> '.url' order by WorkId desc limit 1;".to_string();
+    // We take the System.ComputerName field from each record, filter out any records
+    // where the System.ItemType field is equal to ".url", and save the first one as the computer
+    // name for the entire report.
+    let q = "select WorkId as wId, Value
+             from SystemIndex_1_PropertyStore_Metadata
+             join SystemIndex_1_PropertyStore
+             on Id = ColumnId
+             where Name == 'System.ComputerName'
+             and (
+                 select Value
+                 from SystemIndex_1_PropertyStore_Metadata
+                 join SystemIndex_1_PropertyStore
+                 on Id = ColumnId
+                 where WorkId == wId
+                 and Name == 'System.ItemType'
+                 ) <> '.url' limit 1;"
+        .to_string();
     let mut s = map_err!(c.prepare(q))?;
     if let Ok(State::Row) = s.next() {
         let val = map_err!(s.read::<Vec<u8>, _>("Value"))?;
         return Ok(String::from_utf8_lossy(&val).into_owned());
     }
     Err(SimpleError::new(
-        "Empty field System_ComputerName".to_string(),
+        "Empty field System.ComputerName".to_string(),
     ))
 }
 
@@ -141,11 +105,9 @@ pub fn sqlite_generate_report(
         if !record.is_empty() {
             if is_internet_record(&record, &propNameToId).is_some() {
                 write_record_to_report(record, workId, &idToProp, &mut *ie_rep);
-            }
-            else if is_activity_history_record(record, &propNameToId).is_some() {
+            } else if is_activity_history_record(record, &propNameToId).is_some() {
                 write_record_to_report(record, workId, &idToProp, &mut *act_rep);
-            }
-            else {
+            } else {
                 write_record_to_report(record, workId, &idToProp, &mut *file_rep);
             }
             record.clear();
@@ -197,7 +159,7 @@ fn write_record_to_report(
                         report.insert_int_val(property_name, u64::from_bytes(val))
                     }
                 }
-                _ => { /* Storage type not supported. */},
+                _ => { /* Storage type not supported. */ }
             }
         }
     }
