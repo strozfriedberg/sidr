@@ -16,10 +16,6 @@ path = "src/lib.rs"
 name = "sidr"
 path = "src/main.rs"
 
-[[bin]]
-name = "external_cfg"
-path = "src/bin/external_cfg.rs"
-
 [dependencies]
 ese_parser_lib = { path = "../ese_parser/lib"}
 sqlite = "0.30.4"

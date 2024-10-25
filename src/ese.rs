@@ -53,73 +53,6 @@ fn get_column<T: FromBytes>(
     }
 }
 
-// get all fields from SystemIndex_Gthr table
-/*
-field: ScopeID
-field: DocumentID
-field: SDID
-field: LastModified
-field: TransactionFlags
-field: TransactionExtendedFlags
-field: CrawlNumberCrawled
-field: StartAddressIdentifier
-field: Priority
-field: FileName
-field: UserData
-field: AppOwnerId
-field: RequiredSIDs
-field: DeletedCount
-field: RunTime
-field: FailureUpdateAttempts
-field: ClientID
-field: LastRequestedRunTime
-field: StorageProviderId
-field: CalculatedPropertyFlags
- */
-/*
-fn dump_file_gather_ese(f: &Path)
-    -> Result<HashMap<u32/*DocumentID UNSIGNEDLONG_INTEGER*/, HashMap<String, Vec<u8>>>/*rest fields*/, SimpleError>
-{
-    let mut res : HashMap<u32, HashMap<String, Vec<u8>>> = HashMap::new();
-    let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
-    let t = "SystemIndex_Gthr";
-    let table_id = jdb.open_table(t)?;
-    let cols = jdb.get_columns(t)?;
-    if !jdb.move_row(table_id, ESE_MoveFirst)? {
-        // empty table
-        //return Err(SimpleError::new(format!("Empty table {t}")));
-        return Ok(res);
-    }
-    // find DocumentID column
-    let docID_indx = cols.iter().position(|r| r.name == "DocumentID")
-        .ok_or(SimpleError::new("Could't locate DocumentID field"))?;
-    loop {
-        let mut h = HashMap::new();
-        if let Some(docId) = get_column::<u32>(&*jdb, table_id, &cols[docID_indx])? {
-            for i in 0..cols.len() {
-                if i == docID_indx {
-                    continue;
-                }
-                match jdb.get_column(table_id, cols[i].id) {
-                    Ok(val) => match val {
-                        None => {} // println!("Empty field: {}", cols[i].name),
-                        Some(v) => {
-                            h.insert(cols[i].name.clone(), v);
-                        }
-                    },
-                    Err(e) => println!("Error while getting column {} from {}: {}", cols[i].name, t, e)
-                }
-            }
-            res.insert(docId, h);
-        }
-        if !jdb.move_row(table_id, ESE_MoveNext)? {
-            break;
-        }
-    }
-    Ok(res)
-}
-*/
-
 pub fn ese_get_hostname(
     jdb: &dyn EseDb,
     table_id: u64,
@@ -243,12 +176,6 @@ pub fn ese_generate_report(
                     Ok(r) => {
                         if let Some(wId) = r {
                             workId = wId;
-                            // Join WorkID within SystemIndex_PropertyStore with DocumentID in SystemIndex_Gthr
-                            // if let Some(gh) = gather_table_fields.get(&workId) {
-                            //     for (k, v) in gh {
-                            //         h.insert(k.into(), v.clone());
-                            //     }
-                            // }
                         }
                     }
                     Err(e) => eprintln!("Error while getting column {} from {}: {}", c.name, t, e),
@@ -294,18 +221,6 @@ pub fn ese_generate_report(
 
 // File Report
 fn ese_dump_file_record(r: &mut dyn Report, workId: u32, h: &HashMap<String, Vec<u8>>) {
-    // let item_type = h.get_key_value("4447-System_ItemPathDisplay");
-    // if item_type.is_none() {
-    //     return ;
-    // }
-    // if let Some((_, val)) = item_type {
-    //     let v = from_utf16(val);
-    //     if !v[1..].starts_with(":\\") {
-    //         eprintln!("workId {} Full Path {}", workId, v);
-    //         //return ;
-    //     }
-    // }
-
     r.create_new_row();
     r.insert_int_val("WorkId", workId as u64);
     for (col, val) in h {
@@ -461,9 +376,7 @@ fn ese_activity_history_record(
 
 #[cfg(test)]
 mod tests {
-    use crate::ese::ese_generate_report;
-    use simple_error::SimpleError;
-    use std::{fs, path::Path, path::PathBuf, process::Command};
+    use std::{fs, path::PathBuf, process::Command};
     use tempdir::TempDir;
 
     #[test]
