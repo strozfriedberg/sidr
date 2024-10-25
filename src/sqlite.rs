@@ -101,9 +101,9 @@ pub fn sqlite_generate_report(
     let mut handler = |workId: u32, record: &mut HashMap<i64, Vec<u8>>| {
         // new WorkId, handle all collected fields
         if !record.is_empty() {
-            if is_internet_record(&record, &propNameToId).is_some() {
+            if is_internet_record(&record, &propNameToId).is_ok() {
                 write_record_to_report(record, workId, &idToProp, &mut *ie_rep);
-            } else if is_activity_history_record(record, &propNameToId).is_some() {
+            } else if is_activity_history_record(record, &propNameToId).is_ok() {
                 write_record_to_report(record, workId, &idToProp, &mut *act_rep);
             } else {
                 write_record_to_report(record, workId, &idToProp, &mut *file_rep);
@@ -166,34 +166,27 @@ fn write_record_to_report(
 fn is_internet_record(
     record: &HashMap<i64 /*ColumnId*/, Vec<u8> /*Value*/>,
     propNameToId: &HashMap<String, i64>,
-) -> Option<()> {
-    let itemFolderNameId = propNameToId.get("System.ItemFolderNameDisplay")?;
-    let folderNameVal = record.get(itemFolderNameId)?;
-    let folderNameStr = String::from_utf8_lossy(folderNameVal).into_owned();
-    if !["RecentlyClosed", "History", "QuickLinks"].contains(&&*folderNameStr) {
-        return None;
-    }
-
-    let targetUriId = propNameToId.get("System.Link.TargetUrl")?;
-    let targetUriVal = record.get(targetUriId)?;
+) -> Result<(), SimpleError>  {
+    let targetUriId = propNameToId.get("System.Link.TargetUrl").ok_or_else(|| SimpleError::new("Could not find System.Link.TargetUrl ID in map."))?;
+    let targetUriVal = record.get(targetUriId).ok_or_else(|| SimpleError::new("Could not find System.Link.TargetUrl field in record."))?;
     let uriValStr = String::from_utf8_lossy(targetUriVal).into_owned();
     if !(uriValStr.starts_with("http")) {
-        return None;
+        return Err(SimpleError::new("System.Link.TargetUrl does not start with http."))
     }
-    Some(())
+    Ok(())
 }
 
 fn is_activity_history_record(
     record: &HashMap<i64 /*ColumnId*/, Vec<u8> /*Value*/>,
     propNameToId: &HashMap<String, i64>,
-) -> Option<()> {
-    let itemTypeId = propNameToId.get("System.ItemType")?;
-    let itemTypeVal = record.get(itemTypeId)?;
+) -> Result<(), SimpleError> {
+    let itemTypeId = propNameToId.get("System.ItemType").ok_or_else(|| SimpleError::new("Could not find System.ItemType ID in map."))?;
+    let itemTypeVal = record.get(itemTypeId).ok_or_else(|| SimpleError::new("Could not find System.ItemType field in record."))?;
     let itemTypeStr = String::from_utf8_lossy(itemTypeVal).into_owned();
     if itemTypeStr != "ActivityHistoryItem" {
-        return None;
+        return Err(SimpleError::new("System.ItemType is not ActivityHistoryItem."))
     }
-    Some(())
+    Ok(())
 }
 
 #[test]
