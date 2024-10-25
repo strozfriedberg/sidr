@@ -47,6 +47,7 @@ camino = "1.1.4"
 itertools = "0.10.5"
 tempdir = "0.3.7"
 exitcode = "1.1.2"
+goldenfile = "1.7.3"
 
 [dependencies.sqlite3-sys]
 version = "0.14"
