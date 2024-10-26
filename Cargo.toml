@@ -17,7 +17,7 @@ name = "sidr"
 path = "src/main.rs"
 
 [dependencies]
-ese_parser_lib = { path = "../ese_parser/lib"}
+ese_parser_lib = { git = "https://github.com/strozfriedberg/ese_parser.git", tag="v0.2.1"}
 sqlite = "0.30.4"
 serde = { version = "*", features = ["derive"] }
 serde_yaml = "0.9.17"

@@ -433,6 +433,7 @@ dependencies = [
 [[package]]
 name = "ese_parser_lib"
 version = "0.2.0"
+source = "git+https://github.com/strozfriedberg/ese_parser.git?tag=v0.2.1#b007503eb5b09f7f7c0d8892be47e8b179282ebc"
 dependencies = [
  "bindgen",
  "bitfield",
