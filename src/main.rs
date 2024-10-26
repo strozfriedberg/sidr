@@ -184,9 +184,10 @@ fn test_generate_reports() {
                 if let Some(f) = p.file_name() {
                     if let Some(f) = f.to_str() {
                         let parts: Vec<&str> = f.split('_').collect();
+                        let computerName = parts[0];
                         let reportType = parts[1];
                         for entry in
-                            glob(format!("tests/output/*{reportType}*.{ext}").as_str()).unwrap()
+                            glob(format!("tests/output/{computerName}_{reportType}*.{ext}").as_str()).unwrap()
                         {
                             let entry = entry.unwrap();
                             let mut golden_file = mint_dir.new_goldenfile(&p).unwrap();

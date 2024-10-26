@@ -1,6 +1,7 @@
 extern crate exitcode;
 use std::process;
 
+use itertools::Itertools;
 use simple_error::SimpleError;
 use std::collections::HashMap;
 use std::path::Path;
@@ -223,7 +224,7 @@ pub fn ese_generate_report(
 fn ese_dump_file_record(r: &mut dyn Report, workId: u32, h: &HashMap<String, Vec<u8>>) {
     r.create_new_row();
     r.insert_int_val("WorkId", workId as u64);
-    for (col, val) in h {
+    for (col, val) in h.iter().sorted() {
         let csp = column_string_part(col);
         match csp {
             "System_ItemPathDisplay" => r.insert_str_val(csp, from_utf16(val)),
@@ -297,7 +298,7 @@ fn ese_IE_history_record(r: &mut dyn Report, workId: u32, h: &HashMap<String, Ve
 
     r.create_new_row();
     r.insert_int_val("WorkId", workId as u64);
-    for (col, val) in h {
+    for (col, val) in h.iter().sorted() {
         let csp = column_string_part(col);
         match csp {
             "System_DateModified" => r.insert_str_val(
@@ -345,7 +346,7 @@ fn ese_activity_history_record(
     }
     r.create_new_row();
     r.insert_int_val("WorkId", workId as u64);
-    for (col, val) in h {
+    for (col, val) in h.iter().sorted() {
         let csp = column_string_part(col);
         match csp {
             "System_ItemNameDisplay" => r.insert_str_val(csp, from_utf16(val)),
