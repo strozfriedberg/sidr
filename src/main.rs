@@ -37,31 +37,25 @@ fn dump(
                 else if let Some(f) = p.file_name() {
                     if let Some(f) = f.to_str() {
                         let f = f.to_lowercase();
+                        let ret: Result<(), SimpleError>;
                         if f.starts_with("s-1-") || f.starts_with("windows") {
                             if f.ends_with(".edb") {
-                                writeln!(status_logger, "Processing ESE db: {}", &p.to_string_lossy())
-                                    .map_err(|e| SimpleError::new(format!("{e}")))?;
-                                if let Err(e) = ese_generate_report(&p, report_prod, status_logger) {
-                                    eprintln!(
-                                        "ese_generate_report({}) failed with error: {}",
-                                        p.to_string_lossy(),
-                                        e
-                                    );
-                                }
-                                processed += 1;
+                                ret = ese_generate_report(&p, report_prod, status_logger);
                             }
                             else if f.ends_with(".db") {
-                                writeln!(status_logger, "Processing SQLite db: {}", &p.to_string_lossy())
-                                    .map_err(|e| SimpleError::new(format!("{e}")))?;
-                                if let Err(e) = sqlite_generate_report(&p, report_prod, status_logger) {
-                                    eprintln!(
-                                        "sqlite_generate_report({}) failed with error: {}",
-                                        p.to_string_lossy(),
-                                        e
-                                    );
-                                }
-                                processed += 1;
+                                ret = sqlite_generate_report(&p, report_prod, status_logger);
                             }
+                            else {
+                                continue;
+                            }
+                            if let Err(e) = ret {
+                                eprintln!(
+                                    "Failed to generate report for {} with error: {}",
+                                    p.to_string_lossy(),
+                                    e
+                                );
+                            }
+                            processed += 1;
                         }
                     }
                     else {

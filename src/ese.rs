@@ -164,6 +164,8 @@ pub fn ese_get_hostname(
 }
 
 pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger: &mut Box<dyn Write>) -> Result<(), SimpleError> {
+    writeln!(status_logger, "Processing ESE db: {}", &f.to_string_lossy())
+        .map_err(|e| SimpleError::new(format!("{e}")))?;
     let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
     let edb_database_state = jdb.get_database_state();
     let t = "SystemIndex_PropertyStore";

@@ -77,6 +77,11 @@ fn sqlite_get_hostname(c: &sqlite::Connection) -> Result<String, SimpleError> {
 // This report will provide information about all the files that have been indexed by Windows search,
 // including the file name, path, and creation/modification dates.
 pub fn sqlite_generate_report(f: &Path, report_prod: &ReportProducer, status_logger: &mut Box<dyn Write>) -> Result<(), SimpleError> {
+    writeln!(
+        status_logger,
+        "Processing SQLite db: {}", &f.to_string_lossy()).map_err(|e| SimpleError::new(format!("{e}"))
+    )?;
+
     let c = map_err!(sqlite::Connection::open_with_flags(
         f,
         sqlite::OpenFlags::new().set_read_only()
