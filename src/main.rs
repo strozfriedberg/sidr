@@ -33,19 +33,16 @@ fn dump(
                 let metadata = fs::metadata(&p).unwrap();
                 if metadata.is_dir() {
                     dump(&p.to_string_lossy(), report_prod, status_logger)?;
-                }
-                else if let Some(f) = p.file_name() {
+                } else if let Some(f) = p.file_name() {
                     if let Some(f) = f.to_str() {
                         let f = f.to_lowercase();
                         let ret: Result<(), SimpleError>;
                         if f.starts_with("s-1-") || f.starts_with("windows") {
                             if f.ends_with(".edb") {
                                 ret = ese_generate_report(&p, report_prod, status_logger);
-                            }
-                            else if f.ends_with(".db") {
+                            } else if f.ends_with(".db") {
                                 ret = sqlite_generate_report(&p, report_prod, status_logger);
-                            }
-                            else {
+                            } else {
                                 continue;
                             }
                             if let Err(e) = ret {
@@ -57,8 +54,7 @@ fn dump(
                             }
                             processed += 1;
                         }
-                    }
-                    else {
+                    } else {
                         panic!("Could not read filename {:#?}.", f.as_encoded_bytes())
                     }
                 }

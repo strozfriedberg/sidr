@@ -160,10 +160,16 @@ pub fn ese_get_hostname(
             break;
         }
     }
-    Err(SimpleError::new("Empty field System_ComputerName".to_string()))
+    Err(SimpleError::new(
+        "Empty field System_ComputerName".to_string(),
+    ))
 }
 
-pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger: &mut Box<dyn Write>) -> Result<(), SimpleError> {
+pub fn ese_generate_report(
+    f: &Path,
+    report_prod: &ReportProducer,
+    status_logger: &mut Box<dyn Write>,
+) -> Result<(), SimpleError> {
     writeln!(status_logger, "Processing ESE db: {}", &f.to_string_lossy())
         .map_err(|e| SimpleError::new(format!("{e}")))?;
     let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
@@ -219,8 +225,13 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger
         }
     };
 
-    let (mut file_rep, mut ie_rep, mut act_rep) =
-        init_reports(f, report_prod, &recovered_hostname, status_logger, Some(edb_database_state))?;
+    let (mut file_rep, mut ie_rep, mut act_rep) = init_reports(
+        f,
+        report_prod,
+        &recovered_hostname,
+        status_logger,
+        Some(edb_database_state),
+    )?;
 
     let mut h = HashMap::new();
     loop {
@@ -269,10 +280,11 @@ pub fn ese_generate_report(f: &Path, report_prod: &ReportProducer, status_logger
         if report_prod.get_report_type() == ReportOutput::ToStdout {
             eprintln!("WARNING: The database state is not clean");
             process::exit(exitcode::DATAERR)
-        }
-        else {
+        } else {
             eprintln!("WARNING: The database state is not clean.");
-            eprintln!("Processing a dirty database may generate inaccurate and/or incomplete results.\n");
+            eprintln!(
+                "Processing a dirty database may generate inaccurate and/or incomplete results.\n"
+            );
             eprintln!("Use windows\\system32\\esentutl.exe for recovery (/r) and repair (/p).");
             eprintln!("Note that Esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.");
         }
@@ -449,15 +461,10 @@ fn ese_activity_history_record(
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        path::Path,
-        fs,
-        path::PathBuf,
-        process::{Command},
-    };
-    use tempdir::TempDir;
     use crate::ese::ese_generate_report;
     use simple_error::SimpleError;
+    use std::{fs, path::Path, path::PathBuf, process::Command};
+    use tempdir::TempDir;
 
     #[test]
     fn warn_dirty() {

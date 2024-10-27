@@ -121,7 +121,7 @@ pub trait FieldReader {
 
 //--------------------------------------------------------------------
 use ese_parser_lib::vartime::{get_date_time_from_filetime, VariantTimeToSystemTime, SYSTEMTIME};
-use ese_parser_lib::{DbState, ese_parser::EseParser, ese_trait::*};
+use ese_parser_lib::{ese_parser::EseParser, ese_trait::*, DbState};
 
 use std::{fs::File, io::BufReader};
 use utils::{find_guid, from_utf16};
@@ -579,7 +579,11 @@ impl<R: Report + ?Sized> Report for Box<R> {
 }
 
 //#[named]
-pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader, edb_database_state: Option<DbState>) {
+pub fn do_reports(
+    cfg: &ReportsCfg,
+    reader: &mut dyn FieldReader,
+    edb_database_state: Option<DbState>,
+) {
     //println!("FileReport: {}", cfg.title);
     struct ReportDef {
         title: String,
@@ -697,7 +701,12 @@ pub fn do_reports(cfg: &ReportsCfg, reader: &mut dyn FieldReader, edb_database_s
             );
         }
         let (_out_path, reporter) = rep_factory
-            .new_report(Path::new(""), &output_filename, &report.title, edb_database_state)
+            .new_report(
+                Path::new(""),
+                &output_filename,
+                &report.title,
+                edb_database_state,
+            )
             .unwrap();
 
         let columns = get_used_columns(report, reader, &*reporter);
