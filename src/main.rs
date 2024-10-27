@@ -20,9 +20,9 @@ use crate::ese::*;
 use crate::report::*;
 use crate::sqlite::*;
 
+use glob::glob;
 #[cfg(test)]
 use goldenfile::Mint;
-use glob::glob;
 
 fn dump(
     input_dir: &PathBuf,
@@ -186,8 +186,10 @@ fn test_generate_reports() {
                         let parts: Vec<&str> = f.split('_').collect();
                         let computerName = parts[0];
                         let reportType = parts[1];
-                        for entry in
-                            glob(format!("tests/output/{computerName}_{reportType}*.{ext}").as_str()).unwrap()
+                        for entry in glob(
+                            format!("tests/output/{computerName}_{reportType}*.{ext}").as_str(),
+                        )
+                        .unwrap()
                         {
                             let entry = entry.unwrap();
                             let mut golden_file = mint_dir.new_goldenfile(&p).unwrap();
@@ -199,6 +201,8 @@ fn test_generate_reports() {
                 }
             }
         }
-        Err(_) => {panic!("Failed to read goldenfiles directory.")}
+        Err(_) => {
+            panic!("Failed to read goldenfiles directory.")
+        }
     }
 }
