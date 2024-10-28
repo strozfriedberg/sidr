@@ -297,7 +297,7 @@ impl ReportCsv {
     }
 
     fn escape(s: String) -> String {
-        s.replace('\"', "\"\"")
+        s.replace('\"', "\"\"").replace("\n", "\\n").replace("\r", "\\r")
     }
 
     pub fn write_header(&mut self) {
