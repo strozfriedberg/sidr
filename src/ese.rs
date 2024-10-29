@@ -404,5 +404,6 @@ mod tests {
         assert!(output.status.success());
         assert!(String::from_utf8_lossy(&output.stderr)
             .contains("WARNING: The database state is not clean."));
+        assert!(test_dir.close().is_ok());
     }
 }
