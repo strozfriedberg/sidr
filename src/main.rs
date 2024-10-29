@@ -33,16 +33,16 @@ fn dump(
                 let metadata = fs::metadata(&p).unwrap();
                 if metadata.is_dir() {
                     dump(&p.to_string_lossy(), report_prod, status_logger)?;
-                } else if let Some(f) = p.file_stem() {
-                    if let Some(f) = f.to_str() {
-                        let f = f.to_lowercase();
+                } else if let Some(file_stem,) = p.file_stem() {
+                    if let Some(file_stem) = file_stem.to_str() {
+                        let file_stem = file_stem.to_lowercase();
                         let ret: Result<(), SimpleError>;
-                        if f.starts_with("s-1-") || f == "windows" {
-                            if let Some(f) = p.extension() {
-                                if let Some(f) = f.to_str() {
-                                    if f == "edb" {
+                        if file_stem.starts_with("s-1-") || file_stem == "windows" {
+                            if let Some(ext) = p.extension() {
+                                if let Some(ext) = ext.to_str() {
+                                    if ext == "edb" {
                                         ret = ese_generate_report(&p, report_prod, status_logger);
-                                    } else if f == "db" {
+                                    } else if ext == "db" {
                                         ret = sqlite_generate_report(&p, report_prod, status_logger);
                                     } else {
                                         continue;
