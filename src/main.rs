@@ -20,10 +20,6 @@ use crate::ese::*;
 use crate::report::*;
 use crate::sqlite::*;
 
-use glob::glob;
-#[cfg(test)]
-use goldenfile::Mint;
-
 fn dump(
     input_dir: &PathBuf,
     report_prod: &ReportProducer,
@@ -159,6 +155,9 @@ fn write_reports(
 
 #[test]
 fn test_generate_reports() {
+    use glob::glob;
+    use goldenfile::Mint;
+
     let report_dir = PathBuf::from("tests/output");
     let input_dir = PathBuf::from("tests/testdata");
     let goldenfiles_dir = PathBuf::from("tests/goldenfiles");
