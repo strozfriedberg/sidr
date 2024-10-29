@@ -33,34 +33,13 @@ fn dump(
                 let metadata = fs::metadata(&p).unwrap();
                 if metadata.is_dir() {
                     dump(&p.to_string_lossy(), report_prod, status_logger)?;
-                } else if let Some(file_stem,) = p.file_stem() {
-                    if let Some(file_stem) = file_stem.to_str() {
-                        let file_stem = file_stem.to_lowercase();
-                        let ret: Result<(), SimpleError>;
-                        if file_stem.starts_with("s-1-") || file_stem == "windows" {
-                            if let Some(ext) = p.extension() {
-                                if let Some(ext) = ext.to_str() {
-                                    if ext == "edb" {
-                                        ret = ese_generate_report(&p, report_prod, status_logger);
-                                    } else if ext == "db" {
-                                        ret = sqlite_generate_report(&p, report_prod, status_logger);
-                                    } else {
-                                        continue;
-                                    }
-                                    if let Err(e) = ret {
-                                        eprintln!(
-                                            "Failed to generate report for {} with error: {}",
-                                            p.to_string_lossy(),
-                                            e
-                                        );
-                                    }
-                                }
-                                    processed += 1;
-                            }
-                        }
-                    }
-                } else {
-                    panic!("Could not read filename {:#?}.", f.as_bytes())
+                } else if is_valid_file(&p) {
+                    processed += 1;
+                    let _ = match p.extension().and_then(|e| e.to_str()) {
+                        Some("edb") => ese_generate_report(&p, report_prod, status_logger),
+                        Some("db") => sqlite_generate_report(&p, report_prod, status_logger),
+                        _ => continue,
+                    };
                 }
             }
         }
@@ -78,6 +57,17 @@ fn dump(
 
     Ok(())
 }
+
+fn is_valid_file(p: &PathBuf) -> bool {
+    let is_valid_name = p.file_stem()
+        .and_then(|s| s.to_str())
+        .map_or(false, |name| name.eq_ignore_ascii_case("windows") || name.starts_with("s-1-"));
+    let is_valid_ext = p.extension()
+        .and_then(|e| e.to_str())
+        .map_or(false, |ext| ext == "edb" || ext == "db");
+    is_valid_name && is_valid_ext
+}
+
 
 /// Copyright 2023, Aon
 ///
