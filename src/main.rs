@@ -33,36 +33,39 @@ fn dump(
                 let metadata = fs::metadata(&p).unwrap();
                 if metadata.is_dir() {
                     dump(&p.to_string_lossy(), report_prod, status_logger)?;
-                } else if let Some(f) = p.file_name() {
+                } else if let Some(f) = p.file_stem() {
                     if let Some(f) = f.to_str() {
                         let f = f.to_lowercase();
                         let ret: Result<(), SimpleError>;
-                        if f.starts_with("s-1-") || f.starts_with("windows") {
-                            if f.ends_with(".edb") {
-                                ret = ese_generate_report(&p, report_prod, status_logger);
-                            } else if f.ends_with(".db") {
-                                ret = sqlite_generate_report(&p, report_prod, status_logger);
-                            } else {
-                                continue;
+                        if f.starts_with("s-1-") || f == "windows" {
+                            if let Some(f) = p.extension() {
+                                if let Some(f) = f.to_str() {
+                                    if f == "edb" {
+                                        ret = ese_generate_report(&p, report_prod, status_logger);
+                                    } else if f == "db" {
+                                        ret = sqlite_generate_report(&p, report_prod, status_logger);
+                                    } else {
+                                        continue;
+                                    }
+                                    if let Err(e) = ret {
+                                        eprintln!(
+                                            "Failed to generate report for {} with error: {}",
+                                            p.to_string_lossy(),
+                                            e
+                                        );
+                                    }
+                                }
+                                    processed += 1;
                             }
-                            if let Err(e) = ret {
-                                eprintln!(
-                                    "Failed to generate report for {} with error: {}",
-                                    p.to_string_lossy(),
-                                    e
-                                );
-                            }
-                            processed += 1;
                         }
-                    } else {
-                        panic!("Could not read filename {:#?}.", f.as_encoded_bytes())
                     }
+                } else {
+                    panic!("Could not read filename {:#?}.", f.as_bytes())
                 }
             }
         }
         Err(e) => panic!("Could not read dir '{f}': {e}"),
     }
-
     if processed > 0 {
         writeln!(
             status_logger,
