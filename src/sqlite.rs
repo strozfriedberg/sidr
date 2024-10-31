@@ -143,21 +143,22 @@ fn write_record_to_report(
     for (col, val) in record.iter().sorted() {
         let property_name = idToProp.get(col);
         if let Some((property_name, storage_type)) = property_name {
+            let property_name = property_name.replace(".", "_");
             match storage_type {
                 11 => {
                     // inferred to be string type
-                    report.insert_str_val(property_name, String::from_utf8_lossy(val).into_owned())
+                    report.insert_str_val(&property_name, String::from_utf8_lossy(val).into_owned())
                 }
                 12 => {
                     // inferred to be date type when "Date" present in property name
                     if property_name.contains("Date") {
                         report.insert_str_val(
-                            property_name,
+                            &property_name,
                             format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
                         )
                     } else {
                         // otherwise inferred to be int type
-                        report.insert_int_val(property_name, u64::from_bytes(val))
+                        report.insert_int_val(&property_name, u64::from_bytes(val))
                     }
                 }
                 _ => { /* Storage type not supported. */ }
