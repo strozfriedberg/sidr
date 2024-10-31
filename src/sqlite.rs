@@ -151,7 +151,7 @@ fn write_record_to_report(
                 }
                 12 => {
                     // inferred to be date type when "Date" present in property name
-                    if property_name.contains("Date") {
+                    if property_name.contains("Date") || property_name.contains("Time") {
                         report.insert_str_val(
                             &property_name,
                             format_date_time(get_date_time_from_filetime(u64::from_bytes(val))),
