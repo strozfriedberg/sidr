@@ -106,7 +106,13 @@ pub fn ese_generate_report(
 ) -> Result<(), SimpleError> {
     writeln!(status_logger, "Processing ESE db: {}", &f.to_string_lossy())
         .map_err(|e| SimpleError::new(format!("{e}")))?;
-    let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
+    let jdb = Box::new(
+        EseParser::load_from_path(CACHE_SIZE_ENTRIES, f)
+            .unwrap_or_else(|_| panic!(
+                "\nError opening ESE database.\nTry windows\\system32\\esentutl.exe for recovery (/r) and repair (/p).\nNote that Esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.\n"
+            )),
+    );
+
     let edb_database_state = jdb.get_database_state();
     let t = "SystemIndex_PropertyStore";
     let table_id = jdb.open_table(t)?;
