@@ -35,7 +35,8 @@ fn dump(
                     dump(&p, report_prod, status_logger)?;
                 } else if is_valid_file(&p) {
                     processed += 1;
-                    let _ = match p.extension().and_then(|e| e.to_str()) {
+                    let ext = p.extension().and_then(|e| e.to_str()).map(|s| s.to_lowercase());
+                    let _ = match ext.as_deref() {
                         Some("edb") => ese_generate_report(&p, report_prod, status_logger),
                         Some("db") => sqlite_generate_report(&p, report_prod, status_logger),
                         _ => continue,
@@ -71,7 +72,7 @@ fn is_valid_file(p: &PathBuf) -> bool {
         .map_or(false, |name| name.eq_ignore_ascii_case("windows") || name.to_ascii_lowercase().starts_with("s-1-"));
     let is_valid_ext = p.extension()
         .and_then(|e| e.to_str())
-        .map_or(false, |ext| ext == "edb" || ext == "db");
+        .map_or(false, |ext| ext.to_ascii_lowercase() == "edb" || ext.to_ascii_lowercase() == "db");
     is_valid_name && is_valid_ext
 }
 
