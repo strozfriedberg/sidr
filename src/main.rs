@@ -68,7 +68,7 @@ fn dump(
 fn is_valid_file(p: &PathBuf) -> bool {
     let is_valid_name = p.file_stem()
         .and_then(|s| s.to_str())
-        .map_or(false, |name| name.eq_ignore_ascii_case("windows") || name.starts_with("s-1-"));
+        .map_or(false, |name| name.eq_ignore_ascii_case("windows") || name.to_ascii_lowercase().starts_with("s-1-"));
     let is_valid_ext = p.extension()
         .and_then(|e| e.to_str())
         .map_or(false, |ext| ext == "edb" || ext == "db");
