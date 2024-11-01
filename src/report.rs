@@ -148,9 +148,9 @@ impl ReportProducer {
 
 pub trait Report {
     fn footer(&mut self) {}
-    fn new_record(&mut self);
-    fn str_val(&self, f: &str, s: String);
-    fn int_val(&self, f: &str, n: u64);
+    fn create_new_row(&mut self);
+    fn insert_str_val(&self, f: &str, s: String);
+    fn insert_int_val(&self, f: &str, n: u64);
     fn set_field(&self, _: &str) {} // used in csv to generate header
     fn is_some_val_in_record(&self) -> bool;
 }
@@ -229,22 +229,22 @@ impl ReportJson {
 
 impl Report for ReportJson {
     fn footer(&mut self) {
-        self.new_record();
+        self.create_new_row();
     }
 
-    fn new_record(&mut self) {
+    fn create_new_row(&mut self) {
         if !self.values.borrow().is_empty() {
             self.write_values();
         }
     }
 
-    fn str_val(&self, f: &str, s: String) {
+    fn insert_str_val(&self, f: &str, s: String) {
         self.values
             .borrow_mut()
             .push(format!("\"{}\":{}", f, ReportJson::escape(s)));
     }
 
-    fn int_val(&self, f: &str, n: u64) {
+    fn insert_int_val(&self, f: &str, n: u64) {
         self.values.borrow_mut().push(format!("\"{f}\":{n}"));
     }
 
@@ -298,6 +298,8 @@ impl ReportCsv {
 
     fn escape(s: String) -> String {
         s.replace('\"', "\"\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
     }
 
     pub fn write_header(&mut self) {
@@ -354,10 +356,10 @@ impl ReportCsv {
 
 impl Report for ReportCsv {
     fn footer(&mut self) {
-        self.new_record();
+        self.create_new_row();
     }
 
-    fn new_record(&mut self) {
+    fn create_new_row(&mut self) {
         // at least 1 value was recorded?
         if self.is_some_val_in_record() {
             if self.first_record.get() {
@@ -368,11 +370,11 @@ impl Report for ReportCsv {
         }
     }
 
-    fn str_val(&self, f: &str, s: String) {
+    fn insert_str_val(&self, f: &str, s: String) {
         self.update_field_with_value(f, format!("\"{}\"", ReportCsv::escape(s)));
     }
 
-    fn int_val(&self, f: &str, n: u64) {
+    fn insert_int_val(&self, f: &str, n: u64) {
         self.update_field_with_value(f, n.to_string());
     }
 
@@ -410,14 +412,14 @@ mod tests {
             let mut r = ReportCsv::new(p, report_type, report_suffix).unwrap();
             r.set_field("int_field");
             r.set_field("str_field");
-            r.int_val("int_field", 0);
-            r.str_val("str_field", "string0".into());
+            r.insert_int_val("int_field", 0);
+            r.insert_str_val("str_field", "string0".into());
             for i in 1..10 {
-                r.new_record();
+                r.create_new_row();
                 if i % 2 == 0 {
-                    r.str_val("str_field", format!("string{}", i));
+                    r.insert_str_val("str_field", format!("string{}", i));
                 } else {
-                    r.int_val("int_field", i);
+                    r.insert_int_val("int_field", i);
                 }
             }
         }
@@ -444,14 +446,14 @@ mod tests {
         let report_suffix = Some(ReportSuffix::FileReport);
         {
             let mut r = ReportJson::new(p, report_type, report_suffix).unwrap();
-            r.int_val("int_field", 0);
-            r.str_val("str_field", "string0_with_escapes_here1\"here2\\".into());
+            r.insert_int_val("int_field", 0);
+            r.insert_str_val("str_field", "string0_with_escapes_here1\"here2\\".into());
             for i in 1..10 {
-                r.new_record();
+                r.create_new_row();
                 if i % 2 == 0 {
-                    r.str_val("str_field", format!("string{}", i));
+                    r.insert_str_val("str_field", format!("string{}", i));
                 } else {
-                    r.int_val("int_field", i);
+                    r.insert_int_val("int_field", i);
                 }
             }
         }

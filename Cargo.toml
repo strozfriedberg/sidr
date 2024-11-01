@@ -16,10 +16,6 @@ path = "src/lib.rs"
 name = "sidr"
 path = "src/main.rs"
 
-[[bin]]
-name = "external_cfg"
-path = "src/bin/external_cfg.rs"
-
 [dependencies]
 ese_parser_lib = { git = "https://github.com/strozfriedberg/ese_parser.git", tag="v0.2.1"}
 sqlite = "0.30.4"
@@ -47,6 +43,7 @@ camino = "1.1.4"
 itertools = "0.10.5"
 tempdir = "0.3.7"
 exitcode = "1.1.2"
+goldenfile = "1.7.3"
 
 [dependencies.sqlite3-sys]
 version = "0.14"
