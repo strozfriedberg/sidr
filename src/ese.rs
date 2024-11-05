@@ -15,6 +15,7 @@ use ese_parser_lib::ese_trait::*;
 use std::io::Write;
 
 const CACHE_SIZE_ENTRIES: usize = 10;
+const ESENTUTL_MSG: &str = "Use esentutl for recovery (/r) and repair (/p).\nNote that esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.";
 
 fn prepare_selected_cols(cols: Vec<ColumnInfo>, sel_cols: &Vec<&str>) -> Vec<ColumnInfo> {
     let mut only_cols: Vec<ColumnInfo> = Vec::new();
@@ -106,7 +107,13 @@ pub fn ese_generate_report(
 ) -> Result<(), SimpleError> {
     writeln!(status_logger, "Processing ESE db: {}", &f.to_string_lossy())
         .map_err(|e| SimpleError::new(format!("{e}")))?;
-    let jdb = Box::new(EseParser::load_from_path(CACHE_SIZE_ENTRIES, f).unwrap());
+    let jdb = Box::new(
+        EseParser::load_from_path(CACHE_SIZE_ENTRIES, f)
+            .unwrap_or_else(|_| panic!(
+                "\nError opening ESE database.\n{ESENTUTL_MSG}\n"
+            )),
+    );
+
     let edb_database_state = jdb.get_database_state();
     let t = "SystemIndex_PropertyStore";
     let table_id = jdb.open_table(t)?;
@@ -213,8 +220,7 @@ pub fn ese_generate_report(
             eprintln!(
                 "Processing a dirty database may generate inaccurate and/or incomplete results.\n"
             );
-            eprintln!("Use windows\\system32\\esentutl.exe for recovery (/r) and repair (/p).");
-            eprintln!("Note that Esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.");
+            eprintln!("{ESENTUTL_MSG}");
         }
     }
     Ok(())
