@@ -76,7 +76,7 @@ pub fn sqlite_generate_report(
 
     let c = map_err!(sqlite::Connection::open_with_flags(
         f,
-        sqlite::OpenFlags::new().set_read_only()
+        sqlite::OpenFlags::new().with_read_only()
     ))?;
     let query = "select * from SystemIndex_1_PropertyStore";
     let mut s = map_err!(c.prepare(query))?;
@@ -210,7 +210,7 @@ fn test_get_property_id_map() {
     let f = "tests/testdata/Windows.db";
     let c = map_err!(sqlite::Connection::open_with_flags(
         f,
-        sqlite::OpenFlags::new().set_read_only()
+        sqlite::OpenFlags::new().with_read_only()
     ))
     .unwrap();
     let mut idToProp = HashMap::<i64, (String, i64)>::new();

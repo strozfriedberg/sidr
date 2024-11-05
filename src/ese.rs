@@ -109,9 +109,7 @@ pub fn ese_generate_report(
         .map_err(|e| SimpleError::new(format!("{e}")))?;
     let jdb = Box::new(
         EseParser::load_from_path(CACHE_SIZE_ENTRIES, f)
-            .unwrap_or_else(|_| panic!(
-                "\nError opening ESE database.\n{ESENTUTL_MSG}\n"
-            )),
+            .unwrap_or_else(|_| panic!("\nError opening ESE database.\n{ESENTUTL_MSG}\n")),
     );
 
     let edb_database_state = jdb.get_database_state();

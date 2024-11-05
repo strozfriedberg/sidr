@@ -35,7 +35,10 @@ fn dump(
                     dump(&p, report_prod, status_logger)?;
                 } else if is_valid_file(&p) {
                     processed += 1;
-                    let ext = p.extension().and_then(|e| e.to_str()).map(|s| s.to_lowercase());
+                    let ext = p
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .map(|s| s.to_lowercase());
                     let _ = match ext.as_deref() {
                         Some("edb") => ese_generate_report(&p, report_prod, status_logger),
                         Some("db") => sqlite_generate_report(&p, report_prod, status_logger),
@@ -67,15 +70,19 @@ fn dump(
 }
 
 fn is_valid_file(p: &PathBuf) -> bool {
-    let is_valid_name = p.file_stem()
+    let is_valid_name = p
+        .file_stem()
         .and_then(|s| s.to_str())
-        .map_or(false, |name| { let name = name.to_ascii_lowercase(); name == "windows" || name.starts_with("s-1-")});
-    let is_valid_ext = p.extension()
-        .and_then(|e| e.to_str())
-        .map_or(false, |ext| { let ext = ext.to_ascii_lowercase(); ext == "edb" || ext == "db"} );
+        .map_or(false, |name| {
+            let name = name.to_ascii_lowercase();
+            name == "windows" || name.starts_with("s-1-")
+        });
+    let is_valid_ext = p.extension().and_then(|e| e.to_str()).map_or(false, |ext| {
+        let ext = ext.to_ascii_lowercase();
+        ext == "edb" || ext == "db"
+    });
     is_valid_name && is_valid_ext
 }
-
 
 /// Copyright 2023, Aon
 ///
