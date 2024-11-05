@@ -207,7 +207,7 @@ fn is_activity_history_record(
 
 #[test]
 fn test_get_property_id_map() {
-    let f = "tests/testdata/Windows.db";
+    let f = "tests/testdata/sqlite/Windows.db";
     let c = map_err!(sqlite::Connection::open_with_flags(
         f,
         sqlite::OpenFlags::new().with_read_only().with_no_mutex()

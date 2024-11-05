@@ -151,13 +151,13 @@ fn write_reports(
 fn warn_dirty() {
     use ese_parser_lib::ese_parser::EseParser;
 
-    let report_dir = PathBuf::from("tests/testdata");
+    let report_dir = PathBuf::from("tests/testdata/");
     let rep_producer = ReportProducer::new(
         report_dir.as_path(),
         ReportFormat::Csv,
         ReportOutput::ToFile,
     );
-    let ese_path = PathBuf::from("tests/testdata/Windows.edb");
+    let ese_path = PathBuf::from("tests/testdata/ese/Windows.edb");
     assert!(ese_path.exists());
     let jdb = Box::new(EseParser::load_from_path(10, ese_path).unwrap());
     let edb_database_state = jdb.get_database_state();
@@ -170,7 +170,7 @@ fn test_generate_reports() {
     use goldenfile::Mint;
 
     let report_dir = PathBuf::from("tests/output");
-    let input_dir = PathBuf::from("tests/testdata");
+    let input_dir = PathBuf::from("tests/testdata/integration");
     let goldenfiles_dir = PathBuf::from("tests/goldenfiles");
     let _ = write_reports(
         &report_dir,
