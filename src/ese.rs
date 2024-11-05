@@ -15,7 +15,7 @@ use ese_parser_lib::ese_trait::*;
 use std::io::Write;
 
 const CACHE_SIZE_ENTRIES: usize = 10;
-const ESENTUTL_MSG: &str = "Use windows\\system32\\esentutl.exe for recovery (/r) and repair (/p).\nNote that Esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.";
+const ESENTUTL_MSG: &str = "Use esentutl for recovery (/r) and repair (/p).\nNote that esentutl must be run from a version of Windows that is equal to or newer than the one that generated the database.";
 
 fn prepare_selected_cols(cols: Vec<ColumnInfo>, sel_cols: &Vec<&str>) -> Vec<ColumnInfo> {
     let mut only_cols: Vec<ColumnInfo> = Vec::new();
