@@ -10,8 +10,8 @@ The tool handles both ESE databases (Windows.edb) and SQLite databases (Windows.
 * [Building](#building)
 * [Copyright](#copyright)
 
-
 ### Usage
+
 ```
 Usage: sidr [OPTIONS] <INPUT>
 
@@ -71,6 +71,7 @@ sidr 0.8.0
 ```
 
 ### Running with cargo
+
 `cargo run --bin sidr -- -f csv --report-type to-file /home/<username>/path/to/tests_s`
 
 ### Velociraptor Plugin
@@ -80,4 +81,5 @@ The `velosidr.yaml` file can be used to configure a Velociraptor plugin that wil
 Note: In order to parse the database on the target endpoint, the SIDR plugin must create an empty database and copy the original database to it. Creating the new copy can overwrite multiple gigabytes of data in unallocated clusters, which may result in loss of evidence. Please use the plugin with caution.
 
 ### Copyright
-Copyright 2023, Aon. SIDR is licensed under the Apache License, Version 2.0.
+
+Copyright 2025, LevelBlue. SIDR is licensed under the Apache License, Version 2.0.

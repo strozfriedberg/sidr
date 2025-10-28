@@ -84,9 +84,7 @@ fn is_valid_file(p: &PathBuf) -> bool {
     is_valid_name && is_valid_ext
 }
 
-/// Copyright 2023, Aon
-///
-/// Created by the Stroz Friedberg digital forensics practice at Aon
+/// Copyright 2025, LevelBlue
 ///
 /// SIDR (Search Index DB Reporter) is a Rust-based tool designed to parse Windows search artifacts from Windows 10 (and prior) and Windows 11 systems.
 /// The tool handles both ESE databases (Windows.edb) and SQLite databases (Windows.db) as input and generates three detailed reports as output.
