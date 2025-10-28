@@ -3,7 +3,7 @@ name: Custom.Windows.Applications.SIDR
 author: |
     Kostya Ilioukevitch and Phalgun Kulkarni
 
-    **Search Index Database Reporter** (SIDR) developed by the Solutions Development Team at **AON**
+    **Search Index Database Reporter** (SIDR) developed by the Solutions Development Team at **LevelBlue**
 
     Available at **https://github.com/strozfriedberg/sidr**
 
@@ -12,7 +12,7 @@ description: |
 
     **`Functionality`**: SIDR generates three CSV/JSON reports consisting of *Files and Folders Existence*, *Internet History*, and *User Activity*. Generated reports can be uploaded to the Velociraptor Server.
 
-    For more information on Windows Search Index see ***https://www.aon.com/cyber-solutions/aon_cyber_labs/windows-search-index-the-forensic-artifact-youve-been-searching-for/***
+    For more information on Windows Search Index see ***https://levelblue.com/blogs/strozfriedberg/windows-search-index-the-forensic-artifact-youve-been-searching-for/***
 
     **`PSA`**: If the database size is more than ***2GB*** or the free space in the C drive is less than ***5 times*** the size of the database, then the database will not be parsed. Collecting the database from the endpoint and parsing it on a forensic tower is suggested in that case.
     ___
@@ -20,7 +20,7 @@ description: |
     ***`WARNING`***: In order to parse the database on the target endpoint, SIDR plugin must create an empty database and copy the original database to it. Creating the new copy can result in multiple gigabytes of data in unallocated clusters being overwritten. This may result in a loss of relevant evidence for an in-depth forensic analysis. Please use the plugin with caution, where the likelihood of needing forensic analysis of unallocated clusters is low relative to the benefit of using SIDR via Velociraptor.
     ---
 
-    © 2023 Aon plc
+    © 2025 LevelBlue
 
 
 type: CLIENT
